@@ -68,13 +68,6 @@ struct MainMenuView: View {
                 }
                 .tag(Tab.settings)
         }
-        .onChange(of: contentViewModel.channels) { _, channels in
-            favoritesViewModel.updateFavorites(
-                channels: channels,
-                movies: contentViewModel.movies,
-                shows: contentViewModel.shows
-            )
-        }
     }
 }
 
