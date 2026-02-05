@@ -26,6 +26,7 @@
 		A10001001111111100000016 /* PlayerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000016 /* PlayerViewModel.swift */; };
 		A10001001111111100000017 /* CategoryHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000017 /* CategoryHeader.swift */; };
 		A10001001111111100000018 /* ContentCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000018 /* ContentCard.swift */; };
+		A10001001111111100000030 /* CachedAsyncImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000030 /* CachedAsyncImage.swift */; };
 		A10001001111111100000019 /* FavoritesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000019 /* FavoritesView.swift */; };
 		A10001001111111100000020 /* ChannelRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000020 /* ChannelRowView.swift */; };
 		A10001001111111100000021 /* LiveTVView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000021 /* LiveTVView.swift */; };
@@ -59,6 +60,7 @@
 		A10002001111111100000016 /* PlayerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerViewModel.swift; sourceTree = "<group>"; };
 		A10002001111111100000017 /* CategoryHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryHeader.swift; sourceTree = "<group>"; };
 		A10002001111111100000018 /* ContentCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentCard.swift; sourceTree = "<group>"; };
+		A10002001111111100000030 /* CachedAsyncImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedAsyncImage.swift; sourceTree = "<group>"; };
 		A10002001111111100000019 /* FavoritesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesView.swift; sourceTree = "<group>"; };
 		A10002001111111100000020 /* ChannelRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelRowView.swift; sourceTree = "<group>"; };
 		A10002001111111100000021 /* LiveTVView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveTVView.swift; sourceTree = "<group>"; };
@@ -189,6 +191,7 @@
 		A10005001111111100000011 /* Components */ = {
 			isa = PBXGroup;
 			children = (
+				A10002001111111100000030 /* CachedAsyncImage.swift */,
 				A10002001111111100000017 /* CategoryHeader.swift */,
 				A10002001111111100000018 /* ContentCard.swift */,
 			);
@@ -333,6 +336,7 @@
 				A10001001111111100000016 /* PlayerViewModel.swift in Sources */,
 				A10001001111111100000017 /* CategoryHeader.swift in Sources */,
 				A10001001111111100000018 /* ContentCard.swift in Sources */,
+				A10001001111111100000030 /* CachedAsyncImage.swift in Sources */,
 				A10001001111111100000019 /* FavoritesView.swift in Sources */,
 				A10001001111111100000020 /* ChannelRowView.swift in Sources */,
 				A10001001111111100000021 /* LiveTVView.swift in Sources */,

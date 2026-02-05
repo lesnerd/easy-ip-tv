@@ -1,22 +1,27 @@
 import SwiftUI
 
-/// Main Shows view with category navigation
+/// Main Shows view with category navigation and lazy loading
 struct ShowsView: View {
     @EnvironmentObject var contentViewModel: ContentViewModel
     @EnvironmentObject var favoritesViewModel: FavoritesViewModel
     
-    @State private var selectedCategory: String?
+    @State private var selectedCategory: ContentViewModel.CategoryInfo?
     @State private var selectedShow: Show?
     @State private var showDetail = false
     @State private var selectedEpisode: Episode?
+    @State private var selectedSeasonNumber: Int?
     @State private var showPlayer = false
+    
+    private var continueWatchingItems: [StorageService.ContinueWatchingItem] {
+        StorageService.shared.getContinueWatching().filter { $0.contentType == "show" }
+    }
     
     var body: some View {
         NavigationStack {
             Group {
                 if contentViewModel.isLoading {
                     LoadingView()
-                } else if contentViewModel.shows.isEmpty {
+                } else if !contentViewModel.hasContent {
                     noContentView
                 } else if let category = selectedCategory {
                     categoryDetailView(category: category)
@@ -28,8 +33,9 @@ struct ShowsView: View {
         }
         .sheet(isPresented: $showDetail) {
             if let show = selectedShow {
-                ShowDetailView(show: show) { episode in
+                ShowDetailView(show: show) { episode, seasonNumber in
                     selectedEpisode = episode
+                    selectedSeasonNumber = seasonNumber
                     showDetail = false
                     showPlayer = true
                 } onToggleFavorite: {
@@ -39,7 +45,7 @@ struct ShowsView: View {
         }
         .fullScreenCover(isPresented: $showPlayer) {
             if let episode = selectedEpisode {
-                PlayerView(episode: episode)
+                PlayerView(episode: episode, showContext: selectedShow, seasonNumber: selectedSeasonNumber)
             }
         }
     }
@@ -49,31 +55,37 @@ struct ShowsView: View {
     private var categoryListView: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 50) {
-                // All Shows row
-                CategoryRow(
-                    title: L10n.Content.allShows,
-                    icon: "play.rectangle.on.rectangle",
-                    itemCount: contentViewModel.shows.count
-                ) {
-                    ForEach(contentViewModel.shows.prefix(8)) { show in
-                        ShowCard(show: show) {
-                            selectShow(show)
-                        } onLongPress: {
-                            toggleFavorite(show)
+                // Continue Watching row
+                if !continueWatchingItems.isEmpty {
+                    ContinueWatchingRow(
+                        items: continueWatchingItems,
+                        onPlayItem: { item in
+                            // Find the episode and play it
+                            if let episodeId = item.episodeId {
+                                // Create a temporary episode to play
+                                // In a real app, you'd fetch the full episode data
+                                let episode = Episode(
+                                    id: episodeId,
+                                    episodeNumber: item.episodeNumber ?? 1,
+                                    title: item.episodeTitle ?? item.title,
+                                    streamURL: URL(string: "placeholder")!, // Would need to store/fetch this
+                                    watchProgress: item.progress
+                                )
+                                selectedEpisode = episode
+                                showPlayer = true
+                            }
                         }
-                        .frame(width: 200)
-                    }
+                    )
                 }
                 
-                // Category rows
-                ForEach(contentViewModel.showCategories, id: \.self) { category in
-                    let shows = contentViewModel.shows(in: category)
-                    
+                // Featured Shows row (if any loaded)
+                if !contentViewModel.featuredShows.isEmpty {
                     CategoryRow(
-                        title: category,
-                        itemCount: shows.count
+                        title: L10n.Content.featured,
+                        icon: "star.fill",
+                        itemCount: contentViewModel.featuredShows.count
                     ) {
-                        ForEach(shows.prefix(8)) { show in
+                        ForEach(contentViewModel.featuredShows.prefix(8)) { show in
                             ShowCard(show: show) {
                                 selectShow(show)
                             } onLongPress: {
@@ -81,23 +93,66 @@ struct ShowsView: View {
                             }
                             .frame(width: 200)
                         }
-                        
-                        // See more button
-                        if shows.count > 8 {
+                    }
+                }
+                
+                // Category rows - tap to load
+                ForEach(contentViewModel.seriesCategories) { category in
+                    let shows = contentViewModel.shows(in: category.name)
+                    
+                    CategoryRow(
+                        title: category.name,
+                        itemCount: category.itemCount ?? shows.count
+                    ) {
+                        if shows.isEmpty {
+                            // Show loading placeholder or tap to load
                             Button {
-                                selectedCategory = category
+                                Task {
+                                    await contentViewModel.loadShowsForCategory(category)
+                                }
                             } label: {
                                 VStack {
-                                    Image(systemName: "ellipsis")
-                                        .font(.largeTitle)
-                                    Text("See All")
-                                        .font(.callout)
+                                    if contentViewModel.isLoadingCategory {
+                                        ProgressView()
+                                    } else {
+                                        Image(systemName: "arrow.down.circle")
+                                            .font(.largeTitle)
+                                        Text("Load Shows")
+                                            .font(.callout)
+                                    }
                                 }
-                                .frame(width: 150, height: 300)
+                                .frame(width: 200, height: 300)
                                 .background(Color.gray.opacity(0.2))
                                 .cornerRadius(12)
                             }
                             .buttonStyle(CardButtonStyle())
+                        } else {
+                            ForEach(shows.prefix(8)) { show in
+                                ShowCard(show: show) {
+                                    selectShow(show)
+                                } onLongPress: {
+                                    toggleFavorite(show)
+                                }
+                                .frame(width: 200)
+                            }
+                            
+                            // See more button
+                            if shows.count > 8 {
+                                Button {
+                                    selectedCategory = category
+                                } label: {
+                                    VStack {
+                                        Image(systemName: "ellipsis")
+                                            .font(.largeTitle)
+                                        Text("See All")
+                                            .font(.callout)
+                                    }
+                                    .frame(width: 150, height: 300)
+                                    .background(Color.gray.opacity(0.2))
+                                    .cornerRadius(12)
+                                }
+                                .buttonStyle(CardButtonStyle())
+                            }
                         }
                     }
                 }
@@ -108,8 +163,8 @@ struct ShowsView: View {
     
     // MARK: - Category Detail View
     
-    private func categoryDetailView(category: String) -> some View {
-        let shows = contentViewModel.shows(in: category)
+    private func categoryDetailView(category: ContentViewModel.CategoryInfo) -> some View {
+        let shows = contentViewModel.shows(in: category.name)
         
         return ScrollView {
             VStack(alignment: .leading, spacing: 30) {
@@ -127,14 +182,30 @@ struct ShowsView: View {
                 .padding(.horizontal)
                 
                 // Category header
-                CategoryHeader(title: category, icon: "play.rectangle.on.rectangle", itemCount: shows.count)
+                CategoryHeader(title: category.name, icon: "play.rectangle.on.rectangle", itemCount: shows.count)
                 
-                // Show grid
-                CategoryGrid(items: shows, columns: 6) { show in
-                    ShowCard(show: show) {
-                        selectShow(show)
-                    } onLongPress: {
-                        toggleFavorite(show)
+                if contentViewModel.isLoadingCategory {
+                    ProgressView()
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.top, 100)
+                } else if shows.isEmpty {
+                    // Auto-load when navigating to detail
+                    Color.clear.onAppear {
+                        Task {
+                            await contentViewModel.loadShowsForCategory(category)
+                        }
+                    }
+                    ProgressView()
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.top, 100)
+                } else {
+                    // Show grid
+                    CategoryGrid(items: shows, columns: 6) { show in
+                        ShowCard(show: show) {
+                            selectShow(show)
+                        } onLongPress: {
+                            toggleFavorite(show)
+                        }
                     }
                 }
             }
@@ -169,7 +240,7 @@ struct ShowsView: View {
 
 struct ShowDetailView: View {
     let show: Show
-    var onPlayEpisode: (Episode) -> Void = { _ in }
+    var onPlayEpisode: (Episode, Int?) -> Void = { _, _ in }
     var onToggleFavorite: () -> Void = {}
     
     @State private var selectedSeason: Season?
@@ -178,21 +249,18 @@ struct ShowDetailView: View {
     var body: some View {
         HStack(alignment: .top, spacing: 60) {
             // Poster
-            AsyncImage(url: show.posterURL) { phase in
-                switch phase {
-                case .success(let image):
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                default:
-                    Rectangle()
-                        .fill(Color.gray.opacity(0.3))
-                        .overlay {
-                            Image(systemName: "play.rectangle.on.rectangle")
-                                .font(.system(size: 60))
-                                .foregroundStyle(.secondary)
-                        }
-                }
+            CachedAsyncImage(url: show.posterURL) { image in
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+            } placeholder: {
+                Rectangle()
+                    .fill(Color.gray.opacity(0.3))
+                    .overlay {
+                        Image(systemName: "play.rectangle.on.rectangle")
+                            .font(.system(size: 60))
+                            .foregroundStyle(.secondary)
+                    }
             }
             .aspectRatio(2/3, contentMode: .fit)
             .frame(height: 400)
@@ -277,7 +345,7 @@ struct ShowDetailView: View {
                             LazyVStack(spacing: 8) {
                                 ForEach(season.episodes) { episode in
                                     EpisodeRowView(episode: episode) {
-                                        onPlayEpisode(episode)
+                                        onPlayEpisode(episode, season.seasonNumber)
                                     }
                                 }
                             }
@@ -315,20 +383,17 @@ struct EpisodeRowView: View {
                     .frame(width: 40)
                 
                 // Thumbnail
-                AsyncImage(url: episode.thumbnailURL) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    default:
-                        Rectangle()
-                            .fill(Color.gray.opacity(0.3))
-                            .overlay {
-                                Image(systemName: "play.fill")
-                                    .foregroundStyle(.secondary)
-                            }
-                    }
+                CachedAsyncImage(url: episode.thumbnailURL) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Rectangle()
+                        .fill(Color.gray.opacity(0.3))
+                        .overlay {
+                            Image(systemName: "play.fill")
+                                .foregroundStyle(.secondary)
+                        }
                 }
                 .frame(width: 120, height: 68)
                 .cornerRadius(6)
@@ -380,6 +445,115 @@ struct EpisodeRowView: View {
         .focused($isFocused)
         .scaleEffect(isFocused ? 1.02 : 1.0)
         .animation(.easeInOut(duration: 0.15), value: isFocused)
+    }
+}
+
+// MARK: - Continue Watching Row
+
+struct ContinueWatchingRow: View {
+    let items: [StorageService.ContinueWatchingItem]
+    var onPlayItem: (StorageService.ContinueWatchingItem) -> Void = { _ in }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            CategoryHeader(
+                title: L10n.Content.continueWatching,
+                icon: "play.circle",
+                itemCount: items.count
+            )
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 24) {
+                    ForEach(items) { item in
+                        ContinueWatchingCard(item: item) {
+                            onPlayItem(item)
+                        }
+                    }
+                }
+                .padding(.horizontal, 50)
+            }
+        }
+    }
+}
+
+// MARK: - Continue Watching Card
+
+struct ContinueWatchingCard: View {
+    let item: StorageService.ContinueWatchingItem
+    var onPlay: () -> Void = {}
+    
+    @FocusState private var isFocused: Bool
+    
+    var body: some View {
+        Button {
+            onPlay()
+        } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                // Thumbnail placeholder with play icon
+                ZStack {
+                    Rectangle()
+                        .fill(Color.gray.opacity(0.3))
+                        .aspectRatio(16/9, contentMode: .fit)
+                    
+                    Image(systemName: "play.fill")
+                        .font(.largeTitle)
+                        .foregroundColor(.white)
+                    
+                    // Progress bar at bottom
+                    VStack {
+                        Spacer()
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                Rectangle()
+                                    .fill(Color.gray.opacity(0.5))
+                                Rectangle()
+                                    .fill(Color.accentColor)
+                                    .frame(width: geo.size.width * item.progress)
+                            }
+                        }
+                        .frame(height: 4)
+                    }
+                }
+                .frame(width: 280)
+                .cornerRadius(12)
+                
+                // Info
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(item.title)
+                        .font(.callout)
+                        .fontWeight(.medium)
+                        .lineLimit(1)
+                    
+                    HStack(spacing: 8) {
+                        if let season = item.seasonNumber, let episode = item.episodeNumber {
+                            Text("S\(season) E\(episode)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        
+                        if let episodeTitle = item.episodeTitle {
+                            Text(episodeTitle)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                    }
+                    
+                    // Time remaining
+                    let remaining = item.duration - item.currentTime
+                    if remaining > 0 {
+                        Text("\(Int(remaining / 60)) min remaining")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .frame(width: 280, alignment: .leading)
+            }
+        }
+        .buttonStyle(.plain)
+        .focused($isFocused)
+        .scaleEffect(isFocused ? 1.05 : 1.0)
+        .animation(.easeInOut(duration: 0.2), value: isFocused)
     }
 }
 

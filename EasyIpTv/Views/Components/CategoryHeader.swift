@@ -129,6 +129,225 @@ struct CategoryGrid<Item: Identifiable, ItemView: View>: View {
     }
 }
 
+// MARK: - Hero Banner
+
+/// Featured content hero banner with auto-advancement
+struct HeroBanner<Item: Identifiable>: View {
+    let items: [Item]
+    let title: (Item) -> String
+    let subtitle: (Item) -> String?
+    let imageURL: (Item) -> URL?
+    var onSelect: (Item) -> Void = { _ in }
+    
+    @State private var currentIndex = 0
+    @State private var timer: Timer?
+    @FocusState private var isFocused: Bool
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if !items.isEmpty {
+                ZStack(alignment: .bottomLeading) {
+                    // Background image
+                    CachedAsyncImage(url: imageURL(items[currentIndex])) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        ShimmerPlaceholder()
+                    }
+                    .frame(height: 500)
+                    .clipped()
+                    
+                    // Gradient overlay
+                    LinearGradient(
+                        colors: [Color.clear, Color.black.opacity(0.8)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    
+                    // Content
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text(L10n.Content.featured)
+                            .font(.callout)
+                            .fontWeight(.medium)
+                            .foregroundColor(.white.opacity(0.7))
+                        
+                        Text(title(items[currentIndex]))
+                            .font(.largeTitle)
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+                        
+                        if let sub = subtitle(items[currentIndex]) {
+                            Text(sub)
+                                .font(.body)
+                                .foregroundColor(.white.opacity(0.8))
+                                .lineLimit(2)
+                        }
+                        
+                        HStack(spacing: 20) {
+                            Button {
+                                onSelect(items[currentIndex])
+                            } label: {
+                                Label(L10n.Player.play, systemImage: "play.fill")
+                                    .font(.headline)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            
+                            // Page indicators
+                            HStack(spacing: 8) {
+                                ForEach(0..<min(items.count, 5), id: \.self) { index in
+                                    Circle()
+                                        .fill(index == currentIndex ? Color.white : Color.white.opacity(0.4))
+                                        .frame(width: 8, height: 8)
+                                }
+                            }
+                        }
+                    }
+                    .padding(50)
+                }
+                .focused($isFocused)
+                .onMoveCommand { direction in
+                    switch direction {
+                    case .left:
+                        previousItem()
+                    case .right:
+                        nextItem()
+                    default:
+                        break
+                    }
+                }
+            }
+        }
+        .onAppear {
+            startAutoAdvance()
+        }
+        .onDisappear {
+            stopAutoAdvance()
+        }
+        .onChange(of: isFocused) { _, focused in
+            if focused {
+                stopAutoAdvance()
+            } else {
+                startAutoAdvance()
+            }
+        }
+    }
+    
+    private func startAutoAdvance() {
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { _ in
+            nextItem()
+        }
+    }
+    
+    private func stopAutoAdvance() {
+        timer?.invalidate()
+        timer = nil
+    }
+    
+    private func nextItem() {
+        withAnimation {
+            currentIndex = (currentIndex + 1) % min(items.count, 5)
+        }
+    }
+    
+    private func previousItem() {
+        withAnimation {
+            currentIndex = currentIndex == 0 ? min(items.count - 1, 4) : currentIndex - 1
+        }
+    }
+}
+
+// MARK: - Skeleton Loading Views
+
+/// Skeleton loading placeholder for a content card
+struct SkeletonCard: View {
+    let aspectRatio: CGFloat
+    
+    @State private var isAnimating = false
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Image skeleton
+            ShimmerPlaceholder()
+                .aspectRatio(aspectRatio, contentMode: .fit)
+                .cornerRadius(12)
+            
+            // Title skeleton
+            ShimmerPlaceholder()
+                .frame(height: 16)
+                .frame(maxWidth: .infinity)
+                .cornerRadius(4)
+            
+            // Subtitle skeleton
+            ShimmerPlaceholder()
+                .frame(height: 12)
+                .frame(width: 100)
+                .cornerRadius(4)
+        }
+    }
+}
+
+/// Skeleton loading row for category content
+struct SkeletonRow: View {
+    let cardCount: Int
+    let aspectRatio: CGFloat
+    let cardWidth: CGFloat
+    
+    init(cardCount: Int = 5, aspectRatio: CGFloat = 16/9, cardWidth: CGFloat = 300) {
+        self.cardCount = cardCount
+        self.aspectRatio = aspectRatio
+        self.cardWidth = cardWidth
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Header skeleton
+            HStack(spacing: 12) {
+                ShimmerPlaceholder()
+                    .frame(width: 24, height: 24)
+                    .cornerRadius(4)
+                
+                ShimmerPlaceholder()
+                    .frame(width: 200, height: 20)
+                    .cornerRadius(4)
+                
+                Spacer()
+            }
+            .padding(.horizontal)
+            
+            // Cards skeleton
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 40) {
+                    ForEach(0..<cardCount, id: \.self) { _ in
+                        SkeletonCard(aspectRatio: aspectRatio)
+                            .frame(width: cardWidth)
+                    }
+                }
+                .padding(.horizontal)
+            }
+        }
+    }
+}
+
+/// Full page skeleton loading
+struct SkeletonPageView: View {
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 50) {
+                // Hero skeleton
+                ShimmerPlaceholder()
+                    .frame(height: 400)
+                
+                // Row skeletons
+                SkeletonRow(cardCount: 5, aspectRatio: 16/9, cardWidth: 300)
+                SkeletonRow(cardCount: 6, aspectRatio: 2/3, cardWidth: 200)
+                SkeletonRow(cardCount: 6, aspectRatio: 2/3, cardWidth: 200)
+            }
+        }
+    }
+}
+
 // MARK: - Preview
 
 #Preview {
@@ -146,6 +365,8 @@ struct CategoryGrid<Item: Identifiable, ItemView: View>: View {
             title: "Action Movies",
             itemCount: 156
         )
+        
+        SkeletonRow()
     }
     .padding()
 }

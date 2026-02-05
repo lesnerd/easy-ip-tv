@@ -38,19 +38,12 @@ struct ContentCard: View {
             VStack(alignment: .leading, spacing: 12) {
                 // Image
                 ZStack(alignment: .topTrailing) {
-                    AsyncImage(url: imageURL) { phase in
-                        switch phase {
-                        case .empty:
-                            placeholderImage
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                        case .failure:
-                            placeholderImage
-                        @unknown default:
-                            placeholderImage
-                        }
+                    CachedAsyncImage(url: imageURL) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        placeholderImage
                     }
                     .aspectRatio(aspectRatio, contentMode: .fit)
                     .clipped()

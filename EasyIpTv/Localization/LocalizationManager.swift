@@ -105,6 +105,13 @@ enum L10n {
         static var nowPlaying: String { String(localized: "Now Playing") }
         static var loading: String { String(localized: "Loading...") }
         static var buffering: String { String(localized: "Buffering...") }
+        static var resume: String { String(localized: "Resume") }
+        static var startOver: String { String(localized: "Start Over") }
+        static func resumeFrom(_ time: String) -> String { String(localized: "Resume from \(time)?") }
+        static var subtitles: String { String(localized: "Subtitles") }
+        static var off: String { String(localized: "Off") }
+        static var upNext: String { String(localized: "Up Next") }
+        static var autoPlayNext: String { String(localized: "Auto-Play Next Episode") }
     }
     
     // MARK: - Favorites
@@ -123,6 +130,7 @@ enum L10n {
         static var removePlaylist: String { String(localized: "Remove Playlist") }
         static var enterPlaylistURL: String { String(localized: "Enter playlist URL") }
         static var quality: String { String(localized: "Quality") }
+        static var subtitleLanguage: String { String(localized: "Subtitle Language") }
         static var about: String { String(localized: "About") }
         static var version: String { String(localized: "Version") }
         static var clearData: String { String(localized: "Clear All Data") }
@@ -137,8 +145,16 @@ enum L10n {
         static var categories: String { String(localized: "Categories") }
         static var recentlyWatched: String { String(localized: "Recently Watched") }
         static var continueWatching: String { String(localized: "Continue Watching") }
+        static var featured: String { String(localized: "Featured") }
+        static var seeAll: String { String(localized: "See All") }
+        static var noResults: String { String(localized: "No Results") }
         static func season(_ number: Int) -> String { String(localized: "Season \(number)") }
         static func episode(_ number: Int) -> String { String(localized: "Episode \(number)") }
+        static func seasonEpisode(_ season: Int, _ episode: Int) -> String { 
+            String(localized: "S\(season) E\(episode)") 
+        }
+        static func duration(_ minutes: Int) -> String { String(localized: "\(minutes) min") }
+        static func episodeCount(_ count: Int) -> String { String(localized: "\(count) episodes") }
     }
     
     // MARK: - Errors

@@ -1,11 +1,11 @@
 import SwiftUI
 
-/// Main Movies view with category navigation
+/// Main Movies view with category navigation and lazy loading
 struct MoviesView: View {
     @EnvironmentObject var contentViewModel: ContentViewModel
     @EnvironmentObject var favoritesViewModel: FavoritesViewModel
     
-    @State private var selectedCategory: String?
+    @State private var selectedCategory: ContentViewModel.CategoryInfo?
     @State private var selectedMovie: Movie?
     @State private var showDetail = false
     @State private var showPlayer = false
@@ -15,7 +15,7 @@ struct MoviesView: View {
             Group {
                 if contentViewModel.isLoading {
                     LoadingView()
-                } else if contentViewModel.movies.isEmpty {
+                } else if !contentViewModel.hasContent {
                     noContentView
                 } else if let category = selectedCategory {
                     categoryDetailView(category: category)
@@ -47,31 +47,14 @@ struct MoviesView: View {
     private var categoryListView: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 50) {
-                // All Movies row
-                CategoryRow(
-                    title: L10n.Content.allMovies,
-                    icon: "film",
-                    itemCount: contentViewModel.movies.count
-                ) {
-                    ForEach(contentViewModel.movies.prefix(8)) { movie in
-                        MovieCard(movie: movie) {
-                            selectMovie(movie)
-                        } onLongPress: {
-                            toggleFavorite(movie)
-                        }
-                        .frame(width: 200)
-                    }
-                }
-                
-                // Category rows
-                ForEach(contentViewModel.movieCategories, id: \.self) { category in
-                    let movies = contentViewModel.movies(in: category)
-                    
+                // Featured Movies row
+                if !contentViewModel.featuredMovies.isEmpty {
                     CategoryRow(
-                        title: category,
-                        itemCount: movies.count
+                        title: L10n.Content.featured,
+                        icon: "star.fill",
+                        itemCount: contentViewModel.featuredMovies.count
                     ) {
-                        ForEach(movies.prefix(8)) { movie in
+                        ForEach(contentViewModel.featuredMovies.prefix(8)) { movie in
                             MovieCard(movie: movie) {
                                 selectMovie(movie)
                             } onLongPress: {
@@ -79,23 +62,66 @@ struct MoviesView: View {
                             }
                             .frame(width: 200)
                         }
-                        
-                        // See more button
-                        if movies.count > 8 {
+                    }
+                }
+                
+                // Category rows - tap to load
+                ForEach(contentViewModel.vodCategories) { category in
+                    let movies = contentViewModel.movies(in: category.name)
+                    
+                    CategoryRow(
+                        title: category.name,
+                        itemCount: category.itemCount ?? movies.count
+                    ) {
+                        if movies.isEmpty {
+                            // Show loading placeholder or tap to load
                             Button {
-                                selectedCategory = category
+                                Task {
+                                    await contentViewModel.loadMoviesForCategory(category)
+                                }
                             } label: {
                                 VStack {
-                                    Image(systemName: "ellipsis")
-                                        .font(.largeTitle)
-                                    Text("See All")
-                                        .font(.callout)
+                                    if contentViewModel.isLoadingCategory {
+                                        ProgressView()
+                                    } else {
+                                        Image(systemName: "arrow.down.circle")
+                                            .font(.largeTitle)
+                                        Text("Load Movies")
+                                            .font(.callout)
+                                    }
                                 }
-                                .frame(width: 150, height: 300)
+                                .frame(width: 200, height: 300)
                                 .background(Color.gray.opacity(0.2))
                                 .cornerRadius(12)
                             }
                             .buttonStyle(CardButtonStyle())
+                        } else {
+                            ForEach(movies.prefix(8)) { movie in
+                                MovieCard(movie: movie) {
+                                    selectMovie(movie)
+                                } onLongPress: {
+                                    toggleFavorite(movie)
+                                }
+                                .frame(width: 200)
+                            }
+                            
+                            // See more button
+                            if movies.count > 8 {
+                                Button {
+                                    selectedCategory = category
+                                } label: {
+                                    VStack {
+                                        Image(systemName: "ellipsis")
+                                            .font(.largeTitle)
+                                        Text("See All")
+                                            .font(.callout)
+                                    }
+                                    .frame(width: 150, height: 300)
+                                    .background(Color.gray.opacity(0.2))
+                                    .cornerRadius(12)
+                                }
+                                .buttonStyle(CardButtonStyle())
+                            }
                         }
                     }
                 }
@@ -106,8 +132,8 @@ struct MoviesView: View {
     
     // MARK: - Category Detail View
     
-    private func categoryDetailView(category: String) -> some View {
-        let movies = contentViewModel.movies(in: category)
+    private func categoryDetailView(category: ContentViewModel.CategoryInfo) -> some View {
+        let movies = contentViewModel.movies(in: category.name)
         
         return ScrollView {
             VStack(alignment: .leading, spacing: 30) {
@@ -125,14 +151,30 @@ struct MoviesView: View {
                 .padding(.horizontal)
                 
                 // Category header
-                CategoryHeader(title: category, icon: "film", itemCount: movies.count)
+                CategoryHeader(title: category.name, icon: "film", itemCount: movies.count)
                 
-                // Movie grid
-                CategoryGrid(items: movies, columns: 6) { movie in
-                    MovieCard(movie: movie) {
-                        selectMovie(movie)
-                    } onLongPress: {
-                        toggleFavorite(movie)
+                if contentViewModel.isLoadingCategory {
+                    ProgressView()
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.top, 100)
+                } else if movies.isEmpty {
+                    // Auto-load when navigating to detail
+                    Color.clear.onAppear {
+                        Task {
+                            await contentViewModel.loadMoviesForCategory(category)
+                        }
+                    }
+                    ProgressView()
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.top, 100)
+                } else {
+                    // Movie grid
+                    CategoryGrid(items: movies, columns: 6) { movie in
+                        MovieCard(movie: movie) {
+                            selectMovie(movie)
+                        } onLongPress: {
+                            toggleFavorite(movie)
+                        }
                     }
                 }
             }
@@ -175,21 +217,18 @@ struct MovieDetailView: View {
     var body: some View {
         HStack(alignment: .top, spacing: 60) {
             // Poster
-            AsyncImage(url: movie.posterURL) { phase in
-                switch phase {
-                case .success(let image):
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                default:
-                    Rectangle()
-                        .fill(Color.gray.opacity(0.3))
-                        .overlay {
-                            Image(systemName: "film")
-                                .font(.system(size: 60))
-                                .foregroundStyle(.secondary)
-                        }
-                }
+            CachedAsyncImage(url: movie.posterURL) { image in
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+            } placeholder: {
+                Rectangle()
+                    .fill(Color.gray.opacity(0.3))
+                    .overlay {
+                        Image(systemName: "film")
+                            .font(.system(size: 60))
+                            .foregroundStyle(.secondary)
+                    }
             }
             .aspectRatio(2/3, contentMode: .fit)
             .frame(height: 500)

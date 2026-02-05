@@ -13,12 +13,21 @@ struct FavoritesView: View {
     @State private var showMovieDetail = false
     @State private var showShowDetail = false
     @State private var selectedEpisode: Episode?
+    @State private var selectedSeasonNumber: Int?
     @State private var showEpisodePlayer = false
+    
+    private var continueWatchingItems: [StorageService.ContinueWatchingItem] {
+        StorageService.shared.getContinueWatching()
+    }
+    
+    private var recentlyWatchedItems: [StorageService.WatchedItem] {
+        StorageService.shared.getRecentlyWatched()
+    }
     
     var body: some View {
         NavigationStack {
             Group {
-                if !favoritesViewModel.hasFavorites {
+                if !favoritesViewModel.hasFavorites && continueWatchingItems.isEmpty {
                     emptyView
                 } else {
                     contentView
@@ -48,8 +57,9 @@ struct FavoritesView: View {
         }
         .sheet(isPresented: $showShowDetail) {
             if let show = selectedShow {
-                ShowDetailView(show: show) { episode in
+                ShowDetailView(show: show) { episode, seasonNumber in
                     selectedEpisode = episode
+                    selectedSeasonNumber = seasonNumber
                     showShowDetail = false
                     showEpisodePlayer = true
                 } onToggleFavorite: {
@@ -59,9 +69,14 @@ struct FavoritesView: View {
         }
         .fullScreenCover(isPresented: $showEpisodePlayer) {
             if let episode = selectedEpisode {
-                PlayerView(episode: episode)
+                PlayerView(episode: episode, showContext: selectedShow, seasonNumber: selectedSeasonNumber)
             }
         }
+    }
+    
+    // Featured movies for hero banner
+    private var featuredMovies: [Movie] {
+        Array(contentViewModel.featuredMovies.prefix(5))
     }
     
     // MARK: - Content View
@@ -69,6 +84,65 @@ struct FavoritesView: View {
     private var contentView: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 50) {
+                // Hero banner with featured content
+                if !featuredMovies.isEmpty && continueWatchingItems.isEmpty {
+                    HeroBanner(
+                        items: featuredMovies,
+                        title: { $0.title },
+                        subtitle: { $0.description },
+                        imageURL: { $0.posterURL },
+                        onSelect: { movie in
+                            selectedMovie = movie
+                            showMovieDetail = true
+                        }
+                    )
+                    .padding(.bottom, 20)
+                }
+                
+                // Continue Watching section
+                if !continueWatchingItems.isEmpty {
+                    ContinueWatchingSection(
+                        items: continueWatchingItems,
+                        onPlayMovie: { item in
+                            if let movie = contentViewModel.movie(withId: item.id) {
+                                selectedMovie = movie
+                                showMoviePlayer = true
+                            }
+                        },
+                        onPlayEpisode: { item in
+                            if let episodeId = item.episodeId {
+                                // Create episode from saved data
+                                let episode = Episode(
+                                    id: episodeId,
+                                    episodeNumber: item.episodeNumber ?? 1,
+                                    title: item.episodeTitle ?? item.title,
+                                    streamURL: URL(string: "placeholder")!,
+                                    watchProgress: item.progress
+                                )
+                                selectedEpisode = episode
+                                showEpisodePlayer = true
+                            }
+                        }
+                    )
+                }
+                
+                // Recently Watched section (only if Continue Watching is not shown)
+                if continueWatchingItems.isEmpty && !recentlyWatchedItems.isEmpty {
+                    RecentlyWatchedSection(
+                        items: recentlyWatchedItems,
+                        movies: contentViewModel.movies,
+                        shows: contentViewModel.shows,
+                        onSelectMovie: { movie in
+                            selectedMovie = movie
+                            showMovieDetail = true
+                        },
+                        onSelectShow: { show in
+                            selectedShow = show
+                            showShowDetail = true
+                        }
+                    )
+                }
+                
                 // Favorite Channels by Category
                 if !favoritesViewModel.favoriteChannels.isEmpty {
                     ForEach(favoritesViewModel.favoriteChannelsByCategory.keys.sorted(), id: \.self) { category in
@@ -199,6 +273,238 @@ struct FavoriteItemCard: View {
             onTap: onTap,
             onLongPress: onRemove
         )
+    }
+}
+
+// MARK: - Continue Watching Section
+
+struct ContinueWatchingSection: View {
+    let items: [StorageService.ContinueWatchingItem]
+    var onPlayMovie: (StorageService.ContinueWatchingItem) -> Void = { _ in }
+    var onPlayEpisode: (StorageService.ContinueWatchingItem) -> Void = { _ in }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            CategoryHeader(
+                title: L10n.Content.continueWatching,
+                icon: "play.circle",
+                itemCount: items.count
+            )
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 24) {
+                    ForEach(items) { item in
+                        ContinueWatchingItemCard(item: item) {
+                            if item.contentType == "movie" {
+                                onPlayMovie(item)
+                            } else {
+                                onPlayEpisode(item)
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, 50)
+            }
+        }
+    }
+}
+
+// MARK: - Continue Watching Item Card
+
+struct ContinueWatchingItemCard: View {
+    let item: StorageService.ContinueWatchingItem
+    var onPlay: () -> Void = {}
+    
+    @FocusState private var isFocused: Bool
+    
+    var body: some View {
+        Button {
+            onPlay()
+        } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                // Thumbnail with progress
+                ZStack {
+                    Rectangle()
+                        .fill(Color.gray.opacity(0.3))
+                        .aspectRatio(16/9, contentMode: .fit)
+                    
+                    Image(systemName: item.contentType == "movie" ? "film" : "play.rectangle.on.rectangle")
+                        .font(.system(size: 40))
+                        .foregroundColor(.white.opacity(0.5))
+                    
+                    // Play button
+                    Image(systemName: "play.circle.fill")
+                        .font(.system(size: 50))
+                        .foregroundColor(.white)
+                    
+                    // Progress bar
+                    VStack {
+                        Spacer()
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                Rectangle()
+                                    .fill(Color.gray.opacity(0.5))
+                                Rectangle()
+                                    .fill(Color.accentColor)
+                                    .frame(width: geo.size.width * item.progress)
+                            }
+                        }
+                        .frame(height: 4)
+                    }
+                }
+                .frame(width: 300)
+                .cornerRadius(12)
+                
+                // Info
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(item.title)
+                        .font(.callout)
+                        .fontWeight(.medium)
+                        .lineLimit(1)
+                    
+                    if item.contentType == "show" {
+                        HStack(spacing: 4) {
+                            if let season = item.seasonNumber, let episode = item.episodeNumber {
+                                Text("S\(season) E\(episode)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            if let episodeTitle = item.episodeTitle {
+                                Text("• \(episodeTitle)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                        }
+                    }
+                    
+                    // Time remaining
+                    let remaining = max(0, item.duration - item.currentTime)
+                    if remaining > 60 {
+                        Text("\(Int(remaining / 60)) min left")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .frame(width: 300, alignment: .leading)
+            }
+        }
+        .buttonStyle(.plain)
+        .focused($isFocused)
+        .scaleEffect(isFocused ? 1.05 : 1.0)
+        .animation(.easeInOut(duration: 0.2), value: isFocused)
+    }
+}
+
+// MARK: - Recently Watched Section
+
+struct RecentlyWatchedSection: View {
+    let items: [StorageService.WatchedItem]
+    let movies: [Movie]
+    let shows: [Show]
+    var onSelectMovie: (Movie) -> Void = { _ in }
+    var onSelectShow: (Show) -> Void = { _ in }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            CategoryHeader(
+                title: L10n.Content.recentlyWatched,
+                icon: "clock",
+                itemCount: items.count
+            )
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 24) {
+                    ForEach(items) { item in
+                        RecentlyWatchedCard(
+                            item: item,
+                            movies: movies,
+                            shows: shows,
+                            onSelectMovie: onSelectMovie,
+                            onSelectShow: onSelectShow
+                        )
+                    }
+                }
+                .padding(.horizontal, 50)
+            }
+        }
+    }
+}
+
+// MARK: - Recently Watched Card
+
+struct RecentlyWatchedCard: View {
+    let item: StorageService.WatchedItem
+    let movies: [Movie]
+    let shows: [Show]
+    var onSelectMovie: (Movie) -> Void = { _ in }
+    var onSelectShow: (Show) -> Void = { _ in }
+    
+    @FocusState private var isFocused: Bool
+    
+    var body: some View {
+        Button {
+            if item.contentType == "movie" {
+                if let movie = movies.first(where: { $0.id == item.id }) {
+                    onSelectMovie(movie)
+                }
+            } else {
+                if let show = shows.first(where: { $0.id == item.id }) {
+                    onSelectShow(show)
+                }
+            }
+        } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                // Thumbnail
+                ZStack {
+                    if let imageURL = item.imageURL {
+                        CachedAsyncImage(url: imageURL) { image in
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                        } placeholder: {
+                            ShimmerPlaceholder()
+                        }
+                    } else {
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.3))
+                        Image(systemName: item.contentType == "movie" ? "film" : "play.rectangle.on.rectangle")
+                            .font(.system(size: 40))
+                            .foregroundColor(.white.opacity(0.5))
+                    }
+                }
+                .aspectRatio(2/3, contentMode: .fit)
+                .frame(width: 150)
+                .cornerRadius(12)
+                .clipped()
+                
+                // Info
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(item.title)
+                        .font(.callout)
+                        .fontWeight(.medium)
+                        .lineLimit(2)
+                    
+                    if item.contentType == "show" {
+                        if let season = item.seasonNumber, let episode = item.episodeNumber {
+                            Text("S\(season) E\(episode)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    
+                    // Watched date
+                    Text(item.watchedDate.formatted(.relative(presentation: .named)))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(width: 150, alignment: .leading)
+            }
+        }
+        .buttonStyle(.plain)
+        .focused($isFocused)
+        .scaleEffect(isFocused ? 1.05 : 1.0)
+        .animation(.easeInOut(duration: 0.2), value: isFocused)
     }
 }
 

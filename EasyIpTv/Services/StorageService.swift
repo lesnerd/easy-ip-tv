@@ -17,6 +17,16 @@ class StorageService: ObservableObject {
         static let lastWatchedChannel = "last_watched_channel"
         static let playlistURLs = "playlist_urls"
         static let selectedLanguage = "selected_language"
+        static let streamQuality = "stream_quality"
+        static let subtitleLanguage = "subtitle_language"
+        static let autoPlayNextEpisode = "auto_play_next_episode"
+        static let recentlyWatched = "recently_watched"
+        static let continueWatching = "continue_watching"
+        static let cachedChannels = "cached_channels"
+        static let cachedMovies = "cached_movies"
+        static let cachedShows = "cached_shows"
+        static let cachedCategories = "cached_categories"
+        static let cacheTimestamp = "cache_timestamp"
     }
     
     // MARK: - Properties
@@ -208,6 +218,199 @@ class StorageService: ObservableObject {
         return language
     }
     
+    // MARK: - Stream Quality
+    
+    /// Saves the stream quality setting
+    func saveStreamQuality(_ quality: String) {
+        defaults.set(quality, forKey: Keys.streamQuality)
+    }
+    
+    /// Gets the saved stream quality
+    func getStreamQuality() -> String {
+        defaults.string(forKey: Keys.streamQuality) ?? "Auto"
+    }
+    
+    // MARK: - Subtitle Language
+    
+    /// Saves the preferred subtitle language
+    func saveSubtitleLanguage(_ language: String?) {
+        if let language = language {
+            defaults.set(language, forKey: Keys.subtitleLanguage)
+        } else {
+            defaults.removeObject(forKey: Keys.subtitleLanguage)
+        }
+    }
+    
+    /// Gets the preferred subtitle language (nil means Off)
+    func getSubtitleLanguage() -> String? {
+        defaults.string(forKey: Keys.subtitleLanguage)
+    }
+    
+    // MARK: - Auto-Play Settings
+    
+    /// Saves auto-play next episode preference
+    func saveAutoPlayNextEpisode(_ enabled: Bool) {
+        defaults.set(enabled, forKey: Keys.autoPlayNextEpisode)
+    }
+    
+    /// Gets auto-play next episode preference
+    func getAutoPlayNextEpisode() -> Bool {
+        defaults.bool(forKey: Keys.autoPlayNextEpisode)
+    }
+    
+    // MARK: - Recently Watched
+    
+    /// Content item for recently watched tracking
+    struct WatchedItem: Codable, Identifiable {
+        let id: String
+        let contentType: String // "channel", "movie", "show"
+        let title: String
+        let watchedDate: Date
+        let imageURL: URL?
+        let showId: String? // For episodes
+        let seasonNumber: Int? // For episodes
+        let episodeNumber: Int? // For episodes
+        
+        // Migration from old format
+        private enum CodingKeys: String, CodingKey {
+            case id, contentType, title, watchedDate, imageURL, showId, seasonNumber, episodeNumber
+            case timestamp // Old key for migration (decode only)
+        }
+        
+        init(id: String, contentType: String, title: String, watchedDate: Date, imageURL: URL? = nil, showId: String? = nil, seasonNumber: Int? = nil, episodeNumber: Int? = nil) {
+            self.id = id
+            self.contentType = contentType
+            self.title = title
+            self.watchedDate = watchedDate
+            self.imageURL = imageURL
+            self.showId = showId
+            self.seasonNumber = seasonNumber
+            self.episodeNumber = episodeNumber
+        }
+        
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            id = try container.decode(String.self, forKey: .id)
+            contentType = try container.decode(String.self, forKey: .contentType)
+            title = try container.decode(String.self, forKey: .title)
+            imageURL = try container.decodeIfPresent(URL.self, forKey: .imageURL)
+            showId = try container.decodeIfPresent(String.self, forKey: .showId)
+            seasonNumber = try container.decodeIfPresent(Int.self, forKey: .seasonNumber)
+            episodeNumber = try container.decodeIfPresent(Int.self, forKey: .episodeNumber)
+            
+            // Try new key first, fall back to old key for migration
+            if let date = try? container.decode(Date.self, forKey: .watchedDate) {
+                watchedDate = date
+            } else {
+                watchedDate = try container.decode(Date.self, forKey: .timestamp)
+            }
+        }
+        
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(id, forKey: .id)
+            try container.encode(contentType, forKey: .contentType)
+            try container.encode(title, forKey: .title)
+            try container.encode(watchedDate, forKey: .watchedDate)
+            try container.encodeIfPresent(imageURL, forKey: .imageURL)
+            try container.encodeIfPresent(showId, forKey: .showId)
+            try container.encodeIfPresent(seasonNumber, forKey: .seasonNumber)
+            try container.encodeIfPresent(episodeNumber, forKey: .episodeNumber)
+        }
+    }
+    
+    /// Saves a recently watched item
+    func saveRecentlyWatched(item: WatchedItem) {
+        var items = getRecentlyWatched()
+        
+        // Remove existing item with same ID
+        items.removeAll { $0.id == item.id }
+        
+        // Add new item at the beginning
+        items.insert(item, at: 0)
+        
+        // Keep only last 20 items
+        if items.count > 20 {
+            items = Array(items.prefix(20))
+        }
+        
+        if let data = try? encoder.encode(items) {
+            defaults.set(data, forKey: Keys.recentlyWatched)
+        }
+    }
+    
+    /// Gets recently watched items
+    func getRecentlyWatched() -> [WatchedItem] {
+        guard let data = defaults.data(forKey: Keys.recentlyWatched),
+              let items = try? decoder.decode([WatchedItem].self, from: data) else {
+            return []
+        }
+        return items
+    }
+    
+    // MARK: - Continue Watching
+    
+    /// Content item for continue watching
+    struct ContinueWatchingItem: Codable, Identifiable {
+        let id: String // contentId
+        let contentType: String // "movie" or "show"
+        let title: String
+        let progress: Double // 0.0 to 1.0
+        let currentTime: Double // seconds
+        let duration: Double // seconds
+        let timestamp: Date
+        let showId: String? // For shows
+        let episodeId: String? // For shows
+        let seasonNumber: Int? // For shows
+        let episodeNumber: Int? // For shows
+        let episodeTitle: String? // For shows
+    }
+    
+    /// Saves a continue watching item
+    func saveContinueWatching(item: ContinueWatchingItem) {
+        var items = getContinueWatching()
+        
+        // Remove existing item with same ID
+        items.removeAll { $0.id == item.id }
+        
+        // Only add if not finished (< 95%)
+        if item.progress < 0.95 && item.progress > 0.05 {
+            items.insert(item, at: 0)
+        }
+        
+        // Keep only last 10 items
+        if items.count > 10 {
+            items = Array(items.prefix(10))
+        }
+        
+        if let data = try? encoder.encode(items) {
+            defaults.set(data, forKey: Keys.continueWatching)
+        }
+    }
+    
+    /// Gets continue watching items
+    func getContinueWatching() -> [ContinueWatchingItem] {
+        guard let data = defaults.data(forKey: Keys.continueWatching),
+              let items = try? decoder.decode([ContinueWatchingItem].self, from: data) else {
+            return []
+        }
+        return items
+    }
+    
+    /// Removes a continue watching item (when finished)
+    func removeContinueWatching(id: String) {
+        var items = getContinueWatching()
+        items.removeAll { $0.id == id }
+        
+        if let data = try? encoder.encode(items) {
+            defaults.set(data, forKey: Keys.continueWatching)
+        }
+    }
+    
+    // MARK: - Content Cache (Categories Only - Lightweight)
+    // NOTE: Full content caching removed to prevent UserDefaults size limit crashes
+    // with large IPTV providers (200K+ items). Categories are small and safe to cache.
+    
     // MARK: - Clear Data
     
     /// Clears all stored data
@@ -223,5 +426,11 @@ class StorageService: ObservableObject {
         defaults.removeObject(forKey: Keys.watchProgress)
         defaults.removeObject(forKey: Keys.lastWatchedChannel)
         defaults.removeObject(forKey: Keys.playlistURLs)
+        defaults.removeObject(forKey: Keys.streamQuality)
+        defaults.removeObject(forKey: Keys.subtitleLanguage)
+        defaults.removeObject(forKey: Keys.autoPlayNextEpisode)
+        defaults.removeObject(forKey: Keys.recentlyWatched)
+        defaults.removeObject(forKey: Keys.continueWatching)
+        defaults.removeObject(forKey: Keys.cachedChannels)
     }
 }

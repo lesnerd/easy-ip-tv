@@ -3,6 +3,20 @@ import Foundation
 /// Service for Xtream Codes API
 actor XtreamCodesService {
     
+    /// Optimized URLSession for fast API calls
+    private let session: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 15 // Reduced from 30
+        config.timeoutIntervalForResource = 30
+        config.httpMaximumConnectionsPerHost = 6 // Increase concurrent connections
+        config.requestCachePolicy = .reloadIgnoringLocalCacheData
+        config.urlCache = nil // Don't cache API responses (we cache data ourselves)
+        config.httpShouldUsePipelining = true
+        config.httpShouldSetCookies = false
+        config.httpCookieAcceptPolicy = .never
+        return URLSession(configuration: config)
+    }()
+    
     /// Errors that can occur
     enum XtreamError: Error, LocalizedError {
         case invalidURL
@@ -425,15 +439,66 @@ actor XtreamCodesService {
         return URL(string: urlString)
     }
     
+    // MARK: - Category-Specific Loading (Pagination)
+    
+    /// Gets live streams for a specific category
+    func getLiveStreamsByCategory(baseURL: String, username: String, password: String, categoryId: String) async throws -> [LiveStream] {
+        let urlString = "\(baseURL)/player_api.php?username=\(username)&password=\(password)&action=get_live_streams&category_id=\(categoryId)"
+        guard let url = URL(string: urlString) else {
+            throw XtreamError.invalidURL
+        }
+        
+        let data = try await fetchData(from: url)
+        
+        do {
+            return try decoder.decode([LiveStream].self, from: data)
+        } catch {
+            throw XtreamError.decodingError(error)
+        }
+    }
+    
+    /// Gets VOD streams for a specific category
+    func getVodStreamsByCategory(baseURL: String, username: String, password: String, categoryId: String) async throws -> [VodStream] {
+        let urlString = "\(baseURL)/player_api.php?username=\(username)&password=\(password)&action=get_vod_streams&category_id=\(categoryId)"
+        guard let url = URL(string: urlString) else {
+            throw XtreamError.invalidURL
+        }
+        
+        let data = try await fetchData(from: url)
+        
+        do {
+            return try decoder.decode([VodStream].self, from: data)
+        } catch {
+            throw XtreamError.decodingError(error)
+        }
+    }
+    
+    /// Gets series for a specific category
+    func getSeriesByCategory(baseURL: String, username: String, password: String, categoryId: String) async throws -> [Series] {
+        let urlString = "\(baseURL)/player_api.php?username=\(username)&password=\(password)&action=get_series&category_id=\(categoryId)"
+        guard let url = URL(string: urlString) else {
+            throw XtreamError.invalidURL
+        }
+        
+        let data = try await fetchData(from: url)
+        
+        do {
+            return try decoder.decode([Series].self, from: data)
+        } catch {
+            throw XtreamError.decodingError(error)
+        }
+    }
+    
     // MARK: - Private Methods
     
     private func fetchData(from url: URL) async throws -> Data {
         var request = URLRequest(url: url)
-        request.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
-        request.timeoutInterval = 30
+        request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15", forHTTPHeaderField: "User-Agent")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.httpMethod = "GET"
         
         do {
-            let (data, _) = try await URLSession.shared.data(for: request)
+            let (data, _) = try await session.data(for: request)
             return data
         } catch {
             throw XtreamError.networkError(error)

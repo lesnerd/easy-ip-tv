@@ -1,23 +1,58 @@
 import Foundation
 import SwiftUI
 
-/// ViewModel for managing content (channels, movies, shows)
+/// ViewModel for managing content with lazy loading
+/// Loads only categories initially, then loads items on-demand per category
 @MainActor
 class ContentViewModel: ObservableObject {
     
     // MARK: - Published Properties
     
+    /// Category information (lightweight, loaded at startup)
+    @Published var liveCategories: [CategoryInfo] = []
+    @Published var vodCategories: [CategoryInfo] = []
+    @Published var seriesCategories: [CategoryInfo] = []
+    
+    /// Currently loaded items (loaded on-demand per category)
     @Published var channels: [Channel] = []
     @Published var movies: [Movie] = []
     @Published var shows: [Show] = []
-    @Published var categories: [String: ContentType] = [:]
+    
+    /// Featured items for home screen (small subset)
+    @Published var featuredChannels: [Channel] = []
+    @Published var featuredMovies: [Movie] = []
+    @Published var featuredShows: [Show] = []
     
     @Published var isLoading: Bool = false
+    @Published var isLoadingCategory: Bool = false
     @Published var error: Error?
     @Published var hasContent: Bool = false
     
     @Published var selectedCategory: String?
     @Published var searchText: String = ""
+    
+    // MARK: - Category Info
+    
+    struct CategoryInfo: Identifiable, Hashable, Codable {
+        let id: String
+        let name: String
+        var itemCount: Int?
+        
+        init(id: String, name: String, itemCount: Int? = nil) {
+            self.id = id
+            self.name = name
+            self.itemCount = itemCount
+        }
+    }
+    
+    // MARK: - Constants
+    
+    /// Max items to load per category
+    static let maxItemsPerCategory = 200
+    /// Max featured items
+    static let maxFeaturedItems = 20
+    /// Max items for search results
+    static let maxSearchResults = 100
     
     // MARK: - Private Properties
     
@@ -25,347 +60,333 @@ class ContentViewModel: ObservableObject {
     private let xtreamService = XtreamCodesService()
     private let storage = StorageService.shared
     
+    private var isLoadingInProgress = false
+    private var hasLoadedOnce = false
+    
+    /// Cached credentials for on-demand loading
+    private var cachedCredentials: (baseURL: String, username: String, password: String)?
+    
+    /// Cache of loaded category items
+    private var channelCache: [String: [Channel]] = [:]
+    private var movieCache: [String: [Movie]] = [:]
+    private var showCache: [String: [Show]] = [:]
+    
     // MARK: - Computed Properties
     
-    /// Channels grouped by category
+    /// All category names for compatibility
+    var categories: [String: ContentType] {
+        var result: [String: ContentType] = [:]
+        for cat in liveCategories { result[cat.name] = .liveTV }
+        for cat in vodCategories { result[cat.name] = .movie }
+        for cat in seriesCategories { result[cat.name] = .series }
+        return result
+    }
+    
+    /// Channels grouped by category (from cache)
     var channelsByCategory: [String: [Channel]] {
-        channels.groupedByCategory
+        channelCache
     }
     
-    /// Movies grouped by category
+    /// Movies grouped by category (from cache)
     var moviesByCategory: [String: [Movie]] {
-        movies.groupedByCategory
+        movieCache
     }
     
-    /// Shows grouped by category
+    /// Shows grouped by category (from cache)
     var showsByCategory: [String: [Show]] {
-        shows.groupedByCategory
+        showCache
     }
     
-    /// All channel categories
-    var channelCategories: [String] {
-        Array(channelsByCategory.keys).sorted()
+    /// Hungarian categories (prioritized)
+    var hungarianCategories: [CategoryInfo] {
+        liveCategories.filter { detectCountry(from: $0.name) == "hungary" }
     }
     
-    /// All movie categories
-    var movieCategories: [String] {
-        Array(moviesByCategory.keys).sorted()
+    /// Israeli categories (prioritized)
+    var israeliCategories: [CategoryInfo] {
+        liveCategories.filter { detectCountry(from: $0.name) == "israel" }
     }
     
-    /// All show categories
-    var showCategories: [String] {
-        Array(showsByCategory.keys).sorted()
+    /// Other categories
+    var otherCategories: [CategoryInfo] {
+        liveCategories.filter { detectCountry(from: $0.name) == nil }
     }
     
-    /// Filtered channels based on search and category
-    var filteredChannels: [Channel] {
-        var result = channels
-        
-        if let category = selectedCategory, !category.isEmpty {
-            result = result.filter { $0.category == category }
-        }
-        
-        if !searchText.isEmpty {
-            result = result.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
-        }
-        
-        return result
-    }
+    // MARK: - Country Detection
     
-    /// Filtered movies based on search and category
-    var filteredMovies: [Movie] {
-        var result = movies
+    private func detectCountry(from category: String) -> String? {
+        let lowercased = category.lowercased()
         
-        if let category = selectedCategory, !category.isEmpty {
-            result = result.filter { $0.category == category }
+        if lowercased.contains("hungary") || lowercased.contains("hungarian") ||
+           lowercased.contains("magyar") || lowercased.hasPrefix("hu ") ||
+           lowercased.hasSuffix(" hu") || lowercased.contains("| hu") {
+            return "hungary"
         }
         
-        if !searchText.isEmpty {
-            result = result.filter { $0.title.localizedCaseInsensitiveContains(searchText) }
+        if lowercased.contains("israel") || lowercased.contains("israeli") ||
+           lowercased.contains("hebrew") || lowercased.hasPrefix("il ") ||
+           lowercased.hasSuffix(" il") || lowercased.contains("| il") {
+            return "israel"
         }
         
-        return result
-    }
-    
-    /// Filtered shows based on search and category
-    var filteredShows: [Show] {
-        var result = shows
-        
-        if let category = selectedCategory, !category.isEmpty {
-            result = result.filter { $0.category == category }
-        }
-        
-        if !searchText.isEmpty {
-            result = result.filter { $0.title.localizedCaseInsensitiveContains(searchText) }
-        }
-        
-        return result
+        return nil
     }
     
     // MARK: - Initialization
     
     init() {
         Task {
-            await loadContent()
+            await loadCategories()
         }
     }
     
     // MARK: - Public Methods
     
-    /// Loads content from all configured playlists
-    func loadContent() async {
-        let playlistURLs = storage.playlistURLs
+    /// Loads only category metadata (fast, lightweight)
+    func loadCategories() async {
+        guard !isLoadingInProgress else { return }
         
+        let playlistURLs = storage.playlistURLs
         guard !playlistURLs.isEmpty else {
             hasContent = false
             return
         }
         
+        isLoadingInProgress = true
         isLoading = true
         error = nil
         
-        var allChannels: [Channel] = []
-        var allMovies: [Movie] = []
-        var allShows: [Show] = []
-        var allCategories: [String: ContentType] = [:]
-        
-        for url in playlistURLs {
-            do {
-                // Check if this is an Xtream Codes URL
-                if XtreamCodesService.isXtreamCodesURL(url),
-                   let credentials = XtreamCodesService.extractCredentials(from: url) {
-                    let content = try await loadXtreamCodesContent(
+        // Process first playlist URL
+        if let url = playlistURLs.first {
+            if XtreamCodesService.isXtreamCodesURL(url),
+               let credentials = XtreamCodesService.extractCredentials(from: url) {
+                
+                // Cache credentials for on-demand loading
+                cachedCredentials = credentials
+                
+                do {
+                    // Authenticate
+                    _ = try await xtreamService.authenticate(
                         baseURL: credentials.baseURL,
                         username: credentials.username,
                         password: credentials.password
                     )
-                    allChannels.append(contentsOf: content.channels)
-                    allMovies.append(contentsOf: content.movies)
-                    allShows.append(contentsOf: content.shows)
-                    allCategories.merge(content.categories) { current, _ in current }
-                } else {
-                    // Standard M3U parsing
-                    let content = try await parser.parse(from: url)
-                    allChannels.append(contentsOf: content.channels)
-                    allMovies.append(contentsOf: content.movies)
-                    allShows.append(contentsOf: content.shows)
-                    allCategories.merge(content.categories) { current, _ in current }
+                    
+                    // Load only categories (fast)
+                    async let liveTask = xtreamService.getLiveCategories(
+                        baseURL: credentials.baseURL,
+                        username: credentials.username,
+                        password: credentials.password
+                    )
+                    
+                    async let vodTask = xtreamService.getVodCategories(
+                        baseURL: credentials.baseURL,
+                        username: credentials.username,
+                        password: credentials.password
+                    )
+                    
+                    async let seriesTask = try? xtreamService.getSeriesCategories(
+                        baseURL: credentials.baseURL,
+                        username: credentials.username,
+                        password: credentials.password
+                    )
+                    
+                    let (live, vod, series) = await (try liveTask, try vodTask, seriesTask)
+                    
+                    // Convert to CategoryInfo
+                    liveCategories = live.compactMap { cat -> CategoryInfo? in
+                        guard let id = cat.categoryId, let name = cat.categoryName else { return nil }
+                        return CategoryInfo(id: id, name: name)
+                    }.sorted { categoryPriority($0.name) < categoryPriority($1.name) }
+                    
+                    vodCategories = vod.compactMap { cat -> CategoryInfo? in
+                        guard let id = cat.categoryId, let name = cat.categoryName else { return nil }
+                        return CategoryInfo(id: id, name: name)
+                    }
+                    
+                    if let series = series {
+                        seriesCategories = series.compactMap { cat -> CategoryInfo? in
+                            guard let id = cat.categoryId, let name = cat.categoryName else { return nil }
+                            return CategoryInfo(id: id, name: name)
+                        }
+                    }
+                    
+                    hasContent = !liveCategories.isEmpty || !vodCategories.isEmpty || !seriesCategories.isEmpty
+                    
+                    // Load featured items (small subset for home screen)
+                    await loadFeaturedContent()
+                    
+                } catch {
+                    self.error = error
                 }
-            } catch {
-                // Silently continue if playlist fails to load
             }
         }
         
-        // Apply favorite status
-        channels = allChannels.map { channel in
-            var updated = channel
-            updated.isFavorite = storage.isFavorite(channelId: channel.id)
-            return updated
-        }
-        
-        movies = allMovies.map { movie in
-            var updated = movie
-            updated.isFavorite = storage.isFavorite(movieId: movie.id)
-            updated.watchProgress = storage.getWatchProgress(for: movie.id)
-            return updated
-        }
-        
-        shows = allShows.map { show in
-            var updated = show
-            updated.isFavorite = storage.isFavorite(showId: show.id)
-            return updated
-        }
-        
-        categories = allCategories
-        hasContent = !channels.isEmpty || !movies.isEmpty || !shows.isEmpty
+        hasLoadedOnce = true
         isLoading = false
+        isLoadingInProgress = false
     }
     
-    /// Refreshes content
-    func refresh() async {
-        await loadContent()
-    }
-    
-    /// Gets a channel by ID
-    func channel(withId id: String) -> Channel? {
-        channels.first { $0.id == id }
-    }
-    
-    /// Gets a movie by ID
-    func movie(withId id: String) -> Movie? {
-        movies.first { $0.id == id }
-    }
-    
-    /// Gets a show by ID
-    func show(withId id: String) -> Show? {
-        shows.first { $0.id == id }
-    }
-    
-    /// Gets channels for a specific category
-    func channels(in category: String) -> [Channel] {
-        channels.filter { $0.category == category }
-    }
-    
-    /// Gets movies for a specific category
-    func movies(in category: String) -> [Movie] {
-        movies.filter { $0.category == category }
-    }
-    
-    /// Gets shows for a specific category
-    func shows(in category: String) -> [Show] {
-        shows.filter { $0.category == category }
-    }
-    
-    /// Toggles favorite for a channel
-    func toggleFavorite(channel: Channel) {
-        storage.toggleFavorite(channelId: channel.id)
-        if let index = channels.firstIndex(where: { $0.id == channel.id }) {
-            channels[index].isFavorite.toggle()
+    /// Loads a small subset of featured content for the home screen
+    private func loadFeaturedContent() async {
+        guard let credentials = cachedCredentials else { return }
+        
+        // Load just first category of each type for featured section
+        if let firstLive = liveCategories.first {
+            await loadChannelsForCategory(firstLive)
+            featuredChannels = Array(channelCache[firstLive.name]?.prefix(Self.maxFeaturedItems) ?? [])
+        }
+        
+        if let firstVod = vodCategories.first {
+            await loadMoviesForCategory(firstVod)
+            featuredMovies = Array(movieCache[firstVod.name]?.prefix(Self.maxFeaturedItems) ?? [])
         }
     }
     
-    /// Toggles favorite for a movie
-    func toggleFavorite(movie: Movie) {
-        storage.toggleFavorite(movieId: movie.id)
-        if let index = movies.firstIndex(where: { $0.id == movie.id }) {
-            movies[index].isFavorite.toggle()
-        }
-    }
-    
-    /// Toggles favorite for a show
-    func toggleFavorite(show: Show) {
-        storage.toggleFavorite(showId: show.id)
-        if let index = shows.firstIndex(where: { $0.id == show.id }) {
-            shows[index].isFavorite.toggle()
-        }
-    }
-    
-    /// Gets the next channel in the list
-    func nextChannel(after channel: Channel) -> Channel? {
-        guard let currentIndex = channels.firstIndex(where: { $0.id == channel.id }) else {
-            return nil
-        }
-        let nextIndex = (currentIndex + 1) % channels.count
-        return channels[nextIndex]
-    }
-    
-    /// Gets the previous channel in the list
-    func previousChannel(before channel: Channel) -> Channel? {
-        guard let currentIndex = channels.firstIndex(where: { $0.id == channel.id }) else {
-            return nil
-        }
-        let previousIndex = currentIndex == 0 ? channels.count - 1 : currentIndex - 1
-        return channels[previousIndex]
-    }
-    
-    /// Gets nearby channels for the channel navigator
-    func nearbyChannels(around channel: Channel, count: Int = 5) -> [Channel] {
-        guard let currentIndex = channels.firstIndex(where: { $0.id == channel.id }) else {
-            return []
-        }
+    /// Loads channels for a specific category (on-demand)
+    func loadChannelsForCategory(_ category: CategoryInfo) async {
+        // Check cache first
+        if channelCache[category.name] != nil { return }
         
-        var result: [Channel] = []
-        let halfCount = count / 2
+        guard let credentials = cachedCredentials else { return }
         
-        for offset in -halfCount...halfCount {
-            let index = (currentIndex + offset + channels.count) % channels.count
-            result.append(channels[index])
-        }
-        
-        return result
-    }
-    
-    // MARK: - Xtream Codes Support
-    
-    /// Loads content from Xtream Codes API
-    private func loadXtreamCodesContent(baseURL: String, username: String, password: String) async throws -> M3UParser.ParsedContent {
-        // First authenticate
-        _ = try await xtreamService.authenticate(baseURL: baseURL, username: username, password: password)
-        
-        // Load categories for mapping
-        let liveCategories = try await xtreamService.getLiveCategories(baseURL: baseURL, username: username, password: password)
-        let vodCategories = try await xtreamService.getVodCategories(baseURL: baseURL, username: username, password: password)
-        
-        let liveCategoryMap = Dictionary(uniqueKeysWithValues: liveCategories.compactMap { cat -> (String, String)? in
-            guard let id = cat.categoryId, let name = cat.categoryName else { return nil }
-            return (id, name)
-        })
-        
-        let vodCategoryMap = Dictionary(uniqueKeysWithValues: vodCategories.compactMap { cat -> (String, String)? in
-            guard let id = cat.categoryId, let name = cat.categoryName else { return nil }
-            return (id, name)
-        })
-        
-        // Load live streams
-        let liveStreams = try await xtreamService.getLiveStreams(baseURL: baseURL, username: username, password: password)
-        
-        var channelNumber = 1
-        let channels: [Channel] = liveStreams.compactMap { stream -> Channel? in
-            guard let streamId = stream.streamId,
-                  let name = stream.name,
-                  let streamURL = xtreamService.buildLiveStreamURL(baseURL: baseURL, username: username, password: password, streamId: streamId) else {
-                return nil
-            }
-            
-            let categoryName = stream.categoryId.flatMap { liveCategoryMap[$0] } ?? "Uncategorized"
-            let logoURL = stream.streamIcon.flatMap { URL(string: $0) }
-            
-            let channel = Channel(
-                id: "\(streamId)",
-                name: name,
-                logoURL: logoURL,
-                streamURL: streamURL,
-                category: categoryName,
-                channelNumber: channelNumber
-            )
-            channelNumber += 1
-            return channel
-        }
-        
-        // Load VOD streams (movies)
-        let vodStreams = try await xtreamService.getVodStreams(baseURL: baseURL, username: username, password: password)
-        
-        let movies: [Movie] = vodStreams.compactMap { stream -> Movie? in
-            guard let streamId = stream.streamId,
-                  let name = stream.name,
-                  let ext = stream.containerExtension,
-                  let streamURL = xtreamService.buildVodStreamURL(baseURL: baseURL, username: username, password: password, streamId: streamId, extension: ext) else {
-                return nil
-            }
-            
-            let categoryName = stream.categoryId.flatMap { vodCategoryMap[$0] } ?? "Uncategorized"
-            let posterURL = stream.streamIcon.flatMap { URL(string: $0) }
-            
-            return Movie(
-                id: "\(streamId)",
-                title: name,
-                posterURL: posterURL,
-                streamURL: streamURL,
-                category: categoryName
-            )
-        }
-        
-        // Load series categories and series list (non-blocking - if it fails, continue with empty shows)
-        var shows: [Show] = []
-        var seriesCategoryMap: [String: String] = [:]
+        isLoadingCategory = true
         
         do {
-            let seriesCategories = try await xtreamService.getSeriesCategories(baseURL: baseURL, username: username, password: password)
-            seriesCategoryMap = Dictionary(uniqueKeysWithValues: seriesCategories.compactMap { cat -> (String, String)? in
-                guard let id = cat.categoryId, let name = cat.categoryName else { return nil }
-                return (id, name)
-            })
+            let streams = try await xtreamService.getLiveStreamsByCategory(
+                baseURL: credentials.baseURL,
+                username: credentials.username,
+                password: credentials.password,
+                categoryId: category.id
+            )
             
-            let seriesList = try await xtreamService.getSeries(baseURL: baseURL, username: username, password: password)
-            
-            // Create Show objects from series list
-            shows = seriesList.compactMap { series -> Show? in
-                guard let seriesId = series.seriesId,
-                      let name = series.name else {
-                    return nil
-                }
+            // Convert to channels (limit count)
+            var channelNumber = 1
+            let channels: [Channel] = streams.prefix(Self.maxItemsPerCategory).compactMap { stream -> Channel? in
+                guard let streamId = stream.streamId,
+                      let name = stream.name,
+                      let streamURL = xtreamService.buildLiveStreamURL(
+                        baseURL: credentials.baseURL,
+                        username: credentials.username,
+                        password: credentials.password,
+                        streamId: streamId
+                      ) else { return nil }
                 
-                let categoryName = series.categoryId.flatMap { seriesCategoryMap[$0] } ?? "Uncategorized"
+                let logoURL = stream.streamIcon.flatMap { URL(string: $0) }
+                let channel = Channel(
+                    id: "\(streamId)",
+                    name: name,
+                    logoURL: logoURL,
+                    streamURL: streamURL,
+                    category: category.name,
+                    channelNumber: channelNumber
+                )
+                channelNumber += 1
+                return channel
+            }
+            
+            // Apply favorites and cache
+            let processedChannels = channels.map { channel in
+                var updated = channel
+                updated.isFavorite = storage.isFavorite(channelId: channel.id)
+                return updated
+            }
+            
+            channelCache[category.name] = processedChannels
+            self.channels = processedChannels
+            
+        } catch {
+            print("Failed to load channels for category \(category.name): \(error)")
+        }
+        
+        isLoadingCategory = false
+    }
+    
+    /// Loads movies for a specific category (on-demand)
+    func loadMoviesForCategory(_ category: CategoryInfo) async {
+        // Check cache first
+        if movieCache[category.name] != nil {
+            movies = movieCache[category.name] ?? []
+            return
+        }
+        
+        guard let credentials = cachedCredentials else { return }
+        
+        isLoadingCategory = true
+        
+        do {
+            let streams = try await xtreamService.getVodStreamsByCategory(
+                baseURL: credentials.baseURL,
+                username: credentials.username,
+                password: credentials.password,
+                categoryId: category.id
+            )
+            
+            // Convert to movies (limit count)
+            let movies: [Movie] = streams.prefix(Self.maxItemsPerCategory).compactMap { stream -> Movie? in
+                guard let streamId = stream.streamId,
+                      let name = stream.name,
+                      let ext = stream.containerExtension,
+                      let streamURL = xtreamService.buildVodStreamURL(
+                        baseURL: credentials.baseURL,
+                        username: credentials.username,
+                        password: credentials.password,
+                        streamId: streamId,
+                        extension: ext
+                      ) else { return nil }
+                
+                let posterURL = stream.streamIcon.flatMap { URL(string: $0) }
+                return Movie(
+                    id: "\(streamId)",
+                    title: name,
+                    posterURL: posterURL,
+                    streamURL: streamURL,
+                    category: category.name
+                )
+            }
+            
+            // Apply favorites and cache
+            let processedMovies = movies.map { movie in
+                var updated = movie
+                updated.isFavorite = storage.isFavorite(movieId: movie.id)
+                updated.watchProgress = storage.getWatchProgress(for: movie.id)
+                return updated
+            }
+            
+            movieCache[category.name] = processedMovies
+            self.movies = processedMovies
+            
+        } catch {
+            print("Failed to load movies for category \(category.name): \(error)")
+        }
+        
+        isLoadingCategory = false
+    }
+    
+    /// Loads shows for a specific category (on-demand)
+    func loadShowsForCategory(_ category: CategoryInfo) async {
+        // Check cache first
+        if showCache[category.name] != nil {
+            shows = showCache[category.name] ?? []
+            return
+        }
+        
+        guard let credentials = cachedCredentials else { return }
+        
+        isLoadingCategory = true
+        
+        do {
+            let seriesList = try await xtreamService.getSeriesByCategory(
+                baseURL: credentials.baseURL,
+                username: credentials.username,
+                password: credentials.password,
+                categoryId: category.id
+            )
+            
+            // Convert to shows (limit count)
+            let shows: [Show] = seriesList.prefix(Self.maxItemsPerCategory).compactMap { series -> Show? in
+                guard let seriesId = series.seriesId, let name = series.name else { return nil }
+                
                 let posterURL = series.cover.flatMap { URL(string: $0) }
                 let rating = series.rating.flatMap { Double($0) }
                 
@@ -373,33 +394,156 @@ class ContentViewModel: ObservableObject {
                     id: "\(seriesId)",
                     title: name,
                     posterURL: posterURL,
-                    category: categoryName,
+                    category: category.name,
                     description: series.plot,
                     rating: rating,
-                    seasons: [] // Episodes loaded on demand
+                    seasons: []
                 )
             }
+            
+            // Apply favorites and cache
+            let processedShows = shows.map { show in
+                var updated = show
+                updated.isFavorite = storage.isFavorite(showId: show.id)
+                return updated
+            }
+            
+            showCache[category.name] = processedShows
+            self.shows = processedShows
+            
         } catch {
-            // Continue without shows if series loading fails
+            print("Failed to load shows for category \(category.name): \(error)")
         }
         
-        // Build categories map
-        var categoriesMap: [String: ContentType] = [:]
-        for (_, name) in liveCategoryMap {
-            categoriesMap[name] = .liveTV
+        isLoadingCategory = false
+    }
+    
+    /// Gets priority for category sorting
+    private func categoryPriority(_ category: String) -> Int {
+        if let country = detectCountry(from: category) {
+            switch country {
+            case "hungary": return 0
+            case "israel": return 1
+            default: return 2
+            }
         }
-        for (_, name) in vodCategoryMap {
-            categoriesMap[name] = .movie
+        return 2
+    }
+    
+    /// Refreshes all content
+    func refresh() async {
+        channelCache.removeAll()
+        movieCache.removeAll()
+        showCache.removeAll()
+        hasLoadedOnce = false
+        isLoadingInProgress = false
+        await loadCategories()
+    }
+    
+    /// Loads content if needed
+    func loadContentIfNeeded() async {
+        guard !hasLoadedOnce && !isLoadingInProgress else { return }
+        await loadCategories()
+    }
+    
+    // MARK: - Compatibility Methods
+    
+    func channel(withId id: String) -> Channel? {
+        for channels in channelCache.values {
+            if let channel = channels.first(where: { $0.id == id }) {
+                return channel
+            }
         }
-        for (_, name) in seriesCategoryMap {
-            categoriesMap[name] = .series
+        return nil
+    }
+    
+    func movie(withId id: String) -> Movie? {
+        for movies in movieCache.values {
+            if let movie = movies.first(where: { $0.id == id }) {
+                return movie
+            }
+        }
+        return nil
+    }
+    
+    func show(withId id: String) -> Show? {
+        for shows in showCache.values {
+            if let show = shows.first(where: { $0.id == id }) {
+                return show
+            }
+        }
+        return nil
+    }
+    
+    func channels(in category: String) -> [Channel] {
+        channelCache[category] ?? []
+    }
+    
+    func movies(in category: String) -> [Movie] {
+        movieCache[category] ?? []
+    }
+    
+    func shows(in category: String) -> [Show] {
+        showCache[category] ?? []
+    }
+    
+    func toggleFavorite(channel: Channel) {
+        storage.toggleFavorite(channelId: channel.id)
+        // Update in cache
+        for (cat, var channels) in channelCache {
+            if let index = channels.firstIndex(where: { $0.id == channel.id }) {
+                channels[index].isFavorite.toggle()
+                channelCache[cat] = channels
+            }
+        }
+    }
+    
+    func toggleFavorite(movie: Movie) {
+        storage.toggleFavorite(movieId: movie.id)
+        for (cat, var movies) in movieCache {
+            if let index = movies.firstIndex(where: { $0.id == movie.id }) {
+                movies[index].isFavorite.toggle()
+                movieCache[cat] = movies
+            }
+        }
+    }
+    
+    func toggleFavorite(show: Show) {
+        storage.toggleFavorite(showId: show.id)
+        for (cat, var shows) in showCache {
+            if let index = shows.firstIndex(where: { $0.id == show.id }) {
+                shows[index].isFavorite.toggle()
+                showCache[cat] = shows
+            }
+        }
+    }
+    
+    func nextChannel(after channel: Channel) -> Channel? {
+        let allChannels = channelCache[channel.category] ?? []
+        guard let currentIndex = allChannels.firstIndex(where: { $0.id == channel.id }) else { return nil }
+        let nextIndex = (currentIndex + 1) % allChannels.count
+        return allChannels[nextIndex]
+    }
+    
+    func previousChannel(before channel: Channel) -> Channel? {
+        let allChannels = channelCache[channel.category] ?? []
+        guard let currentIndex = allChannels.firstIndex(where: { $0.id == channel.id }) else { return nil }
+        let previousIndex = currentIndex == 0 ? allChannels.count - 1 : currentIndex - 1
+        return allChannels[previousIndex]
+    }
+    
+    func nearbyChannels(around channel: Channel, count: Int = 5) -> [Channel] {
+        let allChannels = channelCache[channel.category] ?? []
+        guard let currentIndex = allChannels.firstIndex(where: { $0.id == channel.id }) else { return [] }
+        
+        var result: [Channel] = []
+        let halfCount = count / 2
+        
+        for offset in -halfCount...halfCount {
+            let index = (currentIndex + offset + allChannels.count) % allChannels.count
+            result.append(allChannels[index])
         }
         
-        return M3UParser.ParsedContent(
-            channels: channels,
-            movies: movies,
-            shows: shows,
-            categories: categoriesMap
-        )
+        return result
     }
 }

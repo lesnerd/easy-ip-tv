@@ -22,17 +22,14 @@ struct ChannelRowView: View {
                 }
                 
                 // Channel logo
-                AsyncImage(url: channel.logoURL) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                    default:
-                        Image(systemName: "tv")
-                            .font(.title2)
-                            .foregroundStyle(.secondary)
-                    }
+                CachedAsyncImage(url: channel.logoURL) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                } placeholder: {
+                    Image(systemName: "tv")
+                        .font(.title2)
+                        .foregroundStyle(.secondary)
                 }
                 .frame(width: 60, height: 40)
                 .background(Color.gray.opacity(0.1))

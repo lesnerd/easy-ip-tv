@@ -106,21 +106,21 @@ struct SettingsView: View {
     private func addPlaylist(_ url: URL) {
         StorageService.shared.addPlaylist(url: url)
         Task {
-            await contentViewModel.loadContent()
+            await contentViewModel.refresh()
         }
     }
     
     private func removePlaylist(_ url: URL) {
         StorageService.shared.removePlaylist(url: url)
         Task {
-            await contentViewModel.loadContent()
+            await contentViewModel.refresh()
         }
     }
     
     private func clearAllData() {
         StorageService.shared.clearAllData()
         Task {
-            await contentViewModel.loadContent()
+            await contentViewModel.refresh()
         }
     }
 }

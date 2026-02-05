@@ -41,13 +41,33 @@ class StreamService: ObservableObject {
     @Published var isBuffering: Bool = false
     @Published var currentTime: Double = 0
     @Published var duration: Double = 0
-    @Published var streamQuality: StreamQuality = .auto
+    @Published var streamQuality: StreamQuality = .auto {
+        didSet {
+            StorageService.shared.saveStreamQuality(streamQuality.rawValue)
+        }
+    }
+    @Published var subtitleLanguage: String? = nil {
+        didSet {
+            StorageService.shared.saveSubtitleLanguage(subtitleLanguage)
+        }
+    }
     
     private var timeObserver: Any?
     private var statusObserver: NSKeyValueObservation?
     private var rateObserver: NSKeyValueObservation?
     
-    private init() {}
+    private init() {
+        loadSavedSettings()
+    }
+    
+    private func loadSavedSettings() {
+        // Load saved quality
+        let savedQuality = StorageService.shared.getStreamQuality()
+        streamQuality = StreamQuality(rawValue: savedQuality) ?? .auto
+        
+        // Load saved subtitle language
+        subtitleLanguage = StorageService.shared.getSubtitleLanguage()
+    }
     
     // MARK: - Playback Control
     

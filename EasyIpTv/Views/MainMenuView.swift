@@ -116,15 +116,20 @@ struct EmptyStateView: View {
 
 struct LoadingView: View {
     var message: String = L10n.Player.loading
+    var useSkeleton: Bool = true
     
     var body: some View {
-        VStack(spacing: 20) {
-            ProgressView()
-                .scaleEffect(1.5)
-            
-            Text(message)
-                .font(.headline)
-                .foregroundStyle(.secondary)
+        if useSkeleton {
+            SkeletonPageView()
+        } else {
+            VStack(spacing: 20) {
+                ProgressView()
+                    .scaleEffect(1.5)
+                
+                Text(message)
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 }

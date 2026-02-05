@@ -13,22 +13,32 @@ struct PlayerView: View {
     let movie: Movie?
     let episode: Episode?
     
+    // Show context for episode tracking
+    let showContext: Show?
+    let seasonNumber: Int?
+    
     init(channel: Channel) {
         self.channel = channel
         self.movie = nil
         self.episode = nil
+        self.showContext = nil
+        self.seasonNumber = nil
     }
     
     init(movie: Movie) {
         self.channel = nil
         self.movie = movie
         self.episode = nil
+        self.showContext = nil
+        self.seasonNumber = nil
     }
     
-    init(episode: Episode) {
+    init(episode: Episode, showContext: Show? = nil, seasonNumber: Int? = nil) {
         self.channel = nil
         self.movie = nil
         self.episode = episode
+        self.showContext = showContext
+        self.seasonNumber = seasonNumber
     }
     
     var body: some View {
@@ -62,6 +72,7 @@ struct PlayerView: View {
                     currentTime: playerViewModel.formattedCurrentTime,
                     duration: playerViewModel.formattedDuration,
                     progress: playerViewModel.progress,
+                    hasSubtitles: playerViewModel.availableSubtitles.count > 1,
                     onPlayPause: {
                         playerViewModel.togglePlayback()
                     },
@@ -83,6 +94,9 @@ struct PlayerView: View {
                     onShowNavigator: {
                         playerViewModel.showNavigator()
                     },
+                    onShowSubtitles: {
+                        playerViewModel.showSubtitles()
+                    },
                     onDismiss: {
                         playerViewModel.stop()
                         dismiss()
@@ -101,6 +115,33 @@ struct PlayerView: View {
                     },
                     onDismiss: {
                         playerViewModel.hideNavigator()
+                    }
+                )
+            }
+            
+            // Subtitle picker overlay
+            if playerViewModel.showSubtitlePicker {
+                SubtitlePickerOverlay(
+                    tracks: playerViewModel.availableSubtitles,
+                    selectedTrack: playerViewModel.selectedSubtitle,
+                    onSelect: { track in
+                        playerViewModel.selectSubtitle(track)
+                    },
+                    onDismiss: {
+                        playerViewModel.hideSubtitles()
+                    }
+                )
+            }
+            
+            // Resume prompt overlay
+            if playerViewModel.showResumePrompt {
+                ResumePromptOverlay(
+                    formattedTime: playerViewModel.savedPositionFormatted,
+                    onResume: {
+                        playerViewModel.resumePlayback()
+                    },
+                    onStartOver: {
+                        playerViewModel.startFromBeginning()
                     }
                 )
             }
@@ -137,7 +178,7 @@ struct PlayerView: View {
         } else if let movie = movie {
             playerViewModel.play(movie: movie)
         } else if let episode = episode {
-            playerViewModel.play(episode: episode)
+            playerViewModel.play(episode: episode, showContext: showContext, seasonNumber: seasonNumber)
         }
     }
     
@@ -196,6 +237,7 @@ struct PlayerControlsOverlay: View {
     let currentTime: String
     let duration: String
     let progress: Double
+    let hasSubtitles: Bool
     
     var onPlayPause: () -> Void = {}
     var onSeek: (Double) -> Void = { _ in }
@@ -204,6 +246,7 @@ struct PlayerControlsOverlay: View {
     var onChannelUp: () -> Void = {}
     var onChannelDown: () -> Void = {}
     var onShowNavigator: () -> Void = {}
+    var onShowSubtitles: () -> Void = {}
     var onDismiss: () -> Void = {}
     
     var body: some View {
@@ -220,6 +263,19 @@ struct PlayerControlsOverlay: View {
                 .buttonStyle(.plain)
                 
                 Spacer()
+                
+                // Subtitle button (only for VOD with subtitles)
+                if !isLive && hasSubtitles {
+                    Button {
+                        onShowSubtitles()
+                    } label: {
+                        Image(systemName: "captions.bubble")
+                            .font(.title2)
+                            .foregroundStyle(.white.opacity(0.8))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.trailing, 16)
+                }
                 
                 VStack(alignment: .trailing, spacing: 4) {
                     Text(L10n.Player.nowPlaying)
@@ -353,6 +409,129 @@ struct PlayerControlsOverlay: View {
                 endPoint: .bottom
             )
         )
+    }
+}
+
+// MARK: - Resume Prompt Overlay
+
+struct ResumePromptOverlay: View {
+    let formattedTime: String
+    var onResume: () -> Void = {}
+    var onStartOver: () -> Void = {}
+    
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.7)
+                .ignoresSafeArea()
+            
+            VStack(spacing: 30) {
+                Text(L10n.Player.resumeFrom(formattedTime))
+                    .font(.title2)
+                    .foregroundColor(.white)
+                
+                HStack(spacing: 40) {
+                    Button {
+                        onResume()
+                    } label: {
+                        Label(L10n.Player.resume, systemImage: "play.fill")
+                            .font(.headline)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    
+                    Button {
+                        onStartOver()
+                    } label: {
+                        Label(L10n.Player.startOver, systemImage: "arrow.counterclockwise")
+                            .font(.headline)
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+            .padding(60)
+            .background(.ultraThinMaterial)
+            .cornerRadius(24)
+        }
+    }
+}
+
+// MARK: - Subtitle Picker Overlay
+
+struct SubtitlePickerOverlay: View {
+    let tracks: [PlayerViewModel.SubtitleTrack]
+    let selectedTrack: PlayerViewModel.SubtitleTrack?
+    var onSelect: (PlayerViewModel.SubtitleTrack) -> Void = { _ in }
+    var onDismiss: () -> Void = {}
+    
+    @FocusState private var focusedTrackId: String?
+    
+    var body: some View {
+        HStack {
+            Spacer()
+            
+            VStack(spacing: 0) {
+                // Header
+                HStack {
+                    Text(L10n.Player.subtitles)
+                        .font(.headline)
+                    
+                    Spacer()
+                    
+                    Button {
+                        onDismiss()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title2)
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding()
+                .background(.ultraThinMaterial)
+                
+                Divider()
+                
+                // Track list
+                ScrollView {
+                    LazyVStack(spacing: 2) {
+                        ForEach(tracks) { track in
+                            Button {
+                                onSelect(track)
+                            } label: {
+                                HStack {
+                                    Text(track.displayName)
+                                        .font(.callout)
+                                    
+                                    Spacer()
+                                    
+                                    if selectedTrack?.id == track.id {
+                                        Image(systemName: "checkmark")
+                                            .foregroundColor(.accentColor)
+                                    }
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 12)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(selectedTrack?.id == track.id ? Color.accentColor.opacity(0.2) : Color.clear)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .focused($focusedTrackId, equals: track.id)
+                        }
+                    }
+                    .padding(.vertical, 8)
+                }
+            }
+            .frame(width: 350)
+            .background(.ultraThinMaterial)
+            .cornerRadius(16)
+            .padding(.trailing, 40)
+            .padding(.vertical, 60)
+        }
+        .transition(.move(edge: .trailing))
+        .onAppear {
+            focusedTrackId = selectedTrack?.id ?? tracks.first?.id
+        }
     }
 }
 
