@@ -66,10 +66,10 @@ class ContentViewModel: ObservableObject {
     /// Cached credentials for on-demand loading
     private var cachedCredentials: (baseURL: String, username: String, password: String)?
     
-    /// Cache of loaded category items
-    private var channelCache: [String: [Channel]] = [:]
-    private var movieCache: [String: [Movie]] = [:]
-    private var showCache: [String: [Show]] = [:]
+    /// Cache of loaded category items (Published for SwiftUI updates)
+    @Published private(set) var channelCache: [String: [Channel]] = [:]
+    @Published private(set) var movieCache: [String: [Movie]] = [:]
+    @Published private(set) var showCache: [String: [Show]] = [:]
     
     // MARK: - Computed Properties
     
