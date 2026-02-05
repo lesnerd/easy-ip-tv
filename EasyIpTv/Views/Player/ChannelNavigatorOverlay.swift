@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Overlay for navigating channels while watching live TV
+/// Overlay for navigating channels while watching live TV - appears at bottom of screen
 struct ChannelNavigatorOverlay: View {
     let channels: [Channel]
     let currentChannel: Channel
@@ -22,18 +22,13 @@ struct ChannelNavigatorOverlay: View {
     }
     
     var body: some View {
-        HStack(spacing: 0) {
+        VStack {
             Spacer()
             
-            // Navigator panel
+            // Bottom channel strip
             VStack(spacing: 0) {
-                // Header
+                // Header bar with category filter
                 HStack {
-                    Text(L10n.Content.allChannels)
-                        .font(.headline)
-                    
-                    Spacer()
-                    
                     // Category filter
                     Menu {
                         Button("All Categories") {
@@ -46,37 +41,58 @@ struct ChannelNavigatorOverlay: View {
                             }
                         }
                     } label: {
-                        HStack {
+                        HStack(spacing: 8) {
+                            Image(systemName: "line.3.horizontal.decrease.circle")
+                                .font(.title3)
                             Text(selectedCategory ?? "All Categories")
                                 .font(.callout)
                             Image(systemName: "chevron.down")
                                 .font(.caption)
                         }
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.white.opacity(0.9))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(Color.white.opacity(0.2))
+                        .cornerRadius(10)
                     }
                     
+                    Spacer()
+                    
+                    // Current channel info
+                    HStack(spacing: 12) {
+                        Text(L10n.Player.nowPlaying)
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.6))
+                        Text(currentChannel.name)
+                            .font(.callout)
+                            .fontWeight(.medium)
+                            .foregroundStyle(.white)
+                    }
+                    
+                    Spacer()
+                    
+                    // Close button
                     Button {
                         onDismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .font(.title2)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.white.opacity(0.7))
                     }
                     .buttonStyle(.plain)
                 }
-                .padding()
-                .background(.ultraThinMaterial)
+                .padding(.horizontal, 40)
+                .padding(.vertical, 16)
                 
-                Divider()
-                
-                // Channel list
+                // Horizontal channel strip
                 ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(spacing: 2) {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        LazyHStack(spacing: 20) {
                             ForEach(filteredChannels) { channel in
-                                NavigatorChannelRow(
+                                ChannelStripCard(
                                     channel: channel,
-                                    isCurrentChannel: channel.id == currentChannel.id
+                                    isCurrentChannel: channel.id == currentChannel.id,
+                                    isFocused: focusedChannelId == channel.id
                                 ) {
                                     onSelectChannel(channel)
                                 }
@@ -84,7 +100,8 @@ struct ChannelNavigatorOverlay: View {
                                 .id(channel.id)
                             }
                         }
-                        .padding(.vertical, 8)
+                        .padding(.horizontal, 40)
+                        .padding(.bottom, 40)
                     }
                     .onAppear {
                         // Focus and scroll to current channel
@@ -96,186 +113,106 @@ struct ChannelNavigatorOverlay: View {
                         }
                     }
                 }
+                .focusSection()
             }
-            .frame(width: 500)
-            .background(.ultraThinMaterial)
-            .cornerRadius(16)
-            .padding(.trailing, 40)
-            .padding(.vertical, 60)
+            .background(
+                LinearGradient(
+                    colors: [Color.clear, Color.black.opacity(0.95)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
         }
-        .transition(.move(edge: .trailing))
+        .transition(.move(edge: .bottom))
     }
 }
 
-// MARK: - Navigator Channel Row
+// MARK: - Channel Strip Card (for bottom strip)
 
-struct NavigatorChannelRow: View {
+struct ChannelStripCard: View {
     let channel: Channel
     let isCurrentChannel: Bool
+    let isFocused: Bool
     var onSelect: () -> Void = {}
-    
-    @FocusState private var isFocused: Bool
     
     var body: some View {
         Button {
             onSelect()
         } label: {
-            HStack(spacing: 12) {
-                // Channel number
-                if let number = channel.channelNumber {
-                    Text("\(number)")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .frame(width: 36, alignment: .trailing)
-                }
-                
+            VStack(spacing: 10) {
                 // Channel logo
-                CachedAsyncImage(url: channel.logoURL) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                } placeholder: {
-                    Image(systemName: "tv")
-                        .font(.title3)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(width: 50, height: 32)
-                .background(Color.gray.opacity(0.1))
-                .cornerRadius(4)
-                
-                // Channel name
-                Text(channel.name)
-                    .font(.callout)
-                    .lineLimit(1)
-                
-                Spacer()
-                
-                // Favorite indicator
-                if channel.isFavorite {
-                    Image(systemName: "heart.fill")
-                        .font(.caption)
-                        .foregroundColor(.red)
-                }
-                
-                // Currently playing indicator
-                if isCurrentChannel {
-                    HStack(spacing: 4) {
-                        Circle()
-                            .fill(Color.green)
-                            .frame(width: 8, height: 8)
-                        Text("Now Playing")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.gray.opacity(0.3))
+                    
+                    CachedAsyncImage(url: channel.logoURL) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .padding(12)
+                    } placeholder: {
+                        Image(systemName: "tv")
+                            .font(.system(size: 30))
+                            .foregroundStyle(.white.opacity(0.5))
+                    }
+                    
+                    // Currently playing indicator
+                    if isCurrentChannel {
+                        VStack {
+                            HStack {
+                                Spacer()
+                                Circle()
+                                    .fill(Color.green)
+                                    .frame(width: 12, height: 12)
+                                    .overlay(
+                                        Circle()
+                                            .stroke(Color.black, lineWidth: 2)
+                                    )
+                                    .padding(8)
+                            }
+                            Spacer()
+                        }
+                    }
+                    
+                    // Favorite indicator
+                    if channel.isFavorite {
+                        VStack {
+                            HStack {
+                                Image(systemName: "heart.fill")
+                                    .font(.caption)
+                                    .foregroundColor(.red)
+                                    .padding(8)
+                                Spacer()
+                            }
+                            Spacer()
+                        }
                     }
                 }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(backgroundColor)
-            )
-        }
-        .buttonStyle(.plain)
-        .focused($isFocused)
-        .scaleEffect(isFocused ? 1.02 : 1.0)
-        .animation(.easeInOut(duration: 0.15), value: isFocused)
-    }
-    
-    private var backgroundColor: Color {
-        if isCurrentChannel {
-            return Color.accentColor.opacity(0.3)
-        } else if isFocused {
-            return Color.gray.opacity(0.2)
-        }
-        return Color.clear
-    }
-}
-
-// MARK: - Quick Channel Switch View
-
-/// Compact view for quick channel switching with up/down navigation
-struct QuickChannelSwitchView: View {
-    let previousChannel: Channel?
-    let currentChannel: Channel
-    let nextChannel: Channel?
-    
-    var onSwitchToPrevious: () -> Void = {}
-    var onSwitchToNext: () -> Void = {}
-    
-    var body: some View {
-        VStack(spacing: 12) {
-            // Previous channel
-            if let prev = previousChannel {
-                Button {
-                    onSwitchToPrevious()
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "chevron.up")
+                .frame(width: 200, height: 120)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(isCurrentChannel ? Color.green : (isFocused ? Color.white : Color.clear), lineWidth: 3)
+                )
+                
+                // Channel info
+                VStack(spacing: 4) {
+                    if let number = channel.channelNumber {
+                        Text("\(number)")
                             .font(.caption)
-                        Text(prev.name)
-                            .font(.caption)
-                            .lineLimit(1)
+                            .foregroundStyle(.white.opacity(0.6))
                     }
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(.ultraThinMaterial)
-                    .cornerRadius(8)
-                }
-                .buttonStyle(.plain)
-            }
-            
-            // Current channel
-            HStack(spacing: 12) {
-                CachedAsyncImage(url: currentChannel.logoURL) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                } placeholder: {
-                    Image(systemName: "tv")
-                        .font(.title2)
-                }
-                .frame(width: 60, height: 40)
-                .background(Color.gray.opacity(0.2))
-                .cornerRadius(6)
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    if let number = currentChannel.channelNumber {
-                        Text("Ch. \(number)")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    Text(currentChannel.name)
+                    Text(channel.name)
                         .font(.callout)
                         .fontWeight(.medium)
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .frame(width: 200)
                 }
-            }
-            .padding(16)
-            .background(.ultraThinMaterial)
-            .cornerRadius(12)
-            
-            // Next channel
-            if let next = nextChannel {
-                Button {
-                    onSwitchToNext()
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "chevron.down")
-                            .font(.caption)
-                        Text(next.name)
-                            .font(.caption)
-                            .lineLimit(1)
-                    }
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(.ultraThinMaterial)
-                    .cornerRadius(8)
-                }
-                .buttonStyle(.plain)
             }
         }
+        .buttonStyle(.plain)
+        .scaleEffect(isFocused ? 1.1 : 1.0)
+        .animation(.easeInOut(duration: 0.15), value: isFocused)
     }
 }
 
@@ -285,11 +222,19 @@ struct QuickChannelSwitchView: View {
     let channels = [
         Channel(name: "Channel 1", streamURL: URL(string: "http://test.com")!, category: "Sports", channelNumber: 1),
         Channel(name: "Channel 2", streamURL: URL(string: "http://test.com")!, category: "Sports", channelNumber: 2, isFavorite: true),
-        Channel(name: "Channel 3", streamURL: URL(string: "http://test.com")!, category: "News", channelNumber: 3)
+        Channel(name: "Channel 3", streamURL: URL(string: "http://test.com")!, category: "News", channelNumber: 3),
+        Channel(name: "Channel 4", streamURL: URL(string: "http://test.com")!, category: "Movies", channelNumber: 4),
+        Channel(name: "Channel 5", streamURL: URL(string: "http://test.com")!, category: "Movies", channelNumber: 5)
     ]
     
     return ZStack {
         Color.black
+            .ignoresSafeArea()
+        
+        // Simulated video content
+        Text("Video Playing")
+            .foregroundStyle(.white.opacity(0.3))
+        
         ChannelNavigatorOverlay(
             channels: channels,
             currentChannel: channels[1]
