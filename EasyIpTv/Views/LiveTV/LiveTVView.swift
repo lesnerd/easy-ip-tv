@@ -3,7 +3,6 @@ import SwiftUI
 /// Filter mode for Live TV
 enum ChannelFilterMode: String, CaseIterable {
     case all = "All"
-    case favorites = "Favorites"
     case hungarian = "Hungarian"
     case israeli = "Israeli"
     case other = "Other"
@@ -11,7 +10,6 @@ enum ChannelFilterMode: String, CaseIterable {
     var icon: String {
         switch self {
         case .all: return "tv"
-        case .favorites: return "heart.fill"
         case .hungarian: return "flag"
         case .israeli: return "flag.fill"
         case .other: return "globe"
@@ -46,8 +44,6 @@ struct LiveTVView: View {
         switch filterMode {
         case .all:
             return contentViewModel.liveCategories
-        case .favorites:
-            return [] // Favorites shown separately
         case .hungarian:
             return contentViewModel.hungarianCategories
         case .israeli:
@@ -55,15 +51,6 @@ struct LiveTVView: View {
         case .other:
             return contentViewModel.otherCategories
         }
-    }
-    
-    /// Get favorite channels from cache
-    private var favoriteChannels: [Channel] {
-        var favorites: [Channel] = []
-        for channels in contentViewModel.channelsByCategory.values {
-            favorites.append(contentsOf: channels.filter { $0.isFavorite })
-        }
-        return favorites
     }
     
     var body: some View {
@@ -179,27 +166,6 @@ struct LiveTVView: View {
     private var categoryListView: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 50) {
-                // Favorites row (always show first if there are favorites)
-                if filterMode == .all || filterMode == .favorites {
-                    let favorites = favoriteChannels
-                    if !favorites.isEmpty {
-                        CategoryRow(
-                            title: L10n.Navigation.favorites,
-                            icon: "heart.fill",
-                            itemCount: favorites.count
-                        ) {
-                            ForEach(favorites.prefix(10)) { channel in
-                                ChannelCard(channel: channel) {
-                                    playChannel(channel)
-                                } onLongPress: {
-                                    toggleFavorite(channel)
-                                }
-                                .frame(width: 300)
-                            }
-                        }
-                    }
-                }
-                
                 // Featured channels row (only in "all" mode)
                 if filterMode == .all && !contentViewModel.featuredChannels.isEmpty {
                     CategoryRow(
