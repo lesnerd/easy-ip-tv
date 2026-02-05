@@ -1,0 +1,544 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10001001111111100000001 /* EasyIpTvApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000001 /* EasyIpTvApp.swift */; };
+		A10001001111111100000002 /* LocalizationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000002 /* LocalizationManager.swift */; };
+		A10001001111111100000003 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000003 /* Localizable.xcstrings */; };
+		A10001001111111100000004 /* Channel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000004 /* Channel.swift */; };
+		A10001001111111100000005 /* ContentCategory.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000005 /* ContentCategory.swift */; };
+		A10001001111111100000006 /* ContentType.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000006 /* ContentType.swift */; };
+		A10001001111111100000007 /* M3UItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000007 /* M3UItem.swift */; };
+		A10001001111111100000008 /* Movie.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000008 /* Movie.swift */; };
+		A10001001111111100000009 /* Show.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000009 /* Show.swift */; };
+		A10001001111111100000010 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000010 /* Assets.xcassets */; };
+		A10001001111111100000011 /* M3UParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000011 /* M3UParser.swift */; };
+		A10001001111111100000012 /* StorageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000012 /* StorageService.swift */; };
+		A10001001111111100000013 /* StreamService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000013 /* StreamService.swift */; };
+		A10001001111111100000029 /* XtreamCodesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000029 /* XtreamCodesService.swift */; };
+		A10001001111111100000014 /* ContentViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000014 /* ContentViewModel.swift */; };
+		A10001001111111100000015 /* FavoritesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000015 /* FavoritesViewModel.swift */; };
+		A10001001111111100000016 /* PlayerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000016 /* PlayerViewModel.swift */; };
+		A10001001111111100000017 /* CategoryHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000017 /* CategoryHeader.swift */; };
+		A10001001111111100000018 /* ContentCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000018 /* ContentCard.swift */; };
+		A10001001111111100000019 /* FavoritesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000019 /* FavoritesView.swift */; };
+		A10001001111111100000020 /* ChannelRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000020 /* ChannelRowView.swift */; };
+		A10001001111111100000021 /* LiveTVView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000021 /* LiveTVView.swift */; };
+		A10001001111111100000022 /* MainMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000022 /* MainMenuView.swift */; };
+		A10001001111111100000023 /* MoviesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000023 /* MoviesView.swift */; };
+		A10001001111111100000024 /* ChannelNavigatorOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000024 /* ChannelNavigatorOverlay.swift */; };
+		A10001001111111100000025 /* PlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000025 /* PlayerView.swift */; };
+		A10001001111111100000026 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000026 /* SettingsView.swift */; };
+		A10001001111111100000027 /* ShowsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000027 /* ShowsView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A10003001111111100000001 /* EasyIpTv.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EasyIpTv.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10002001111111100000028 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A10002001111111100000001 /* EasyIpTvApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EasyIpTvApp.swift; sourceTree = "<group>"; };
+		A10002001111111100000002 /* LocalizationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationManager.swift; sourceTree = "<group>"; };
+		A10002001111111100000003 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		A10002001111111100000004 /* Channel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Channel.swift; sourceTree = "<group>"; };
+		A10002001111111100000005 /* ContentCategory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentCategory.swift; sourceTree = "<group>"; };
+		A10002001111111100000006 /* ContentType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentType.swift; sourceTree = "<group>"; };
+		A10002001111111100000007 /* M3UItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = M3UItem.swift; sourceTree = "<group>"; };
+		A10002001111111100000008 /* Movie.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Movie.swift; sourceTree = "<group>"; };
+		A10002001111111100000009 /* Show.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Show.swift; sourceTree = "<group>"; };
+		A10002001111111100000010 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A10002001111111100000011 /* M3UParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = M3UParser.swift; sourceTree = "<group>"; };
+		A10002001111111100000012 /* StorageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageService.swift; sourceTree = "<group>"; };
+		A10002001111111100000013 /* StreamService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamService.swift; sourceTree = "<group>"; };
+		A10002001111111100000029 /* XtreamCodesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XtreamCodesService.swift; sourceTree = "<group>"; };
+		A10002001111111100000014 /* ContentViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentViewModel.swift; sourceTree = "<group>"; };
+		A10002001111111100000015 /* FavoritesViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesViewModel.swift; sourceTree = "<group>"; };
+		A10002001111111100000016 /* PlayerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerViewModel.swift; sourceTree = "<group>"; };
+		A10002001111111100000017 /* CategoryHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryHeader.swift; sourceTree = "<group>"; };
+		A10002001111111100000018 /* ContentCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentCard.swift; sourceTree = "<group>"; };
+		A10002001111111100000019 /* FavoritesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesView.swift; sourceTree = "<group>"; };
+		A10002001111111100000020 /* ChannelRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelRowView.swift; sourceTree = "<group>"; };
+		A10002001111111100000021 /* LiveTVView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveTVView.swift; sourceTree = "<group>"; };
+		A10002001111111100000022 /* MainMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainMenuView.swift; sourceTree = "<group>"; };
+		A10002001111111100000023 /* MoviesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoviesView.swift; sourceTree = "<group>"; };
+		A10002001111111100000024 /* ChannelNavigatorOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelNavigatorOverlay.swift; sourceTree = "<group>"; };
+		A10002001111111100000025 /* PlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerView.swift; sourceTree = "<group>"; };
+		A10002001111111100000026 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		A10002001111111100000027 /* ShowsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShowsView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A10004001111111100000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A10005001111111100000001 = {
+			isa = PBXGroup;
+			children = (
+				A10005001111111100000002 /* EasyIpTv */,
+				A10005001111111100000003 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A10005001111111100000002 /* EasyIpTv */ = {
+			isa = PBXGroup;
+			children = (
+				A10005001111111100000004 /* App */,
+				A10002001111111100000028 /* Info.plist */,
+				A10005001111111100000005 /* Localization */,
+				A10005001111111100000006 /* Models */,
+				A10005001111111100000007 /* Resources */,
+				A10005001111111100000008 /* Services */,
+				A10005001111111100000009 /* ViewModels */,
+				A10005001111111100000010 /* Views */,
+			);
+			path = EasyIpTv;
+			sourceTree = "<group>";
+		};
+		A10005001111111100000003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A10003001111111100000001 /* EasyIpTv.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A10005001111111100000004 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				A10002001111111100000001 /* EasyIpTvApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		A10005001111111100000005 /* Localization */ = {
+			isa = PBXGroup;
+			children = (
+				A10002001111111100000003 /* Localizable.xcstrings */,
+				A10002001111111100000002 /* LocalizationManager.swift */,
+			);
+			path = Localization;
+			sourceTree = "<group>";
+		};
+		A10005001111111100000006 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				A10002001111111100000004 /* Channel.swift */,
+				A10002001111111100000005 /* ContentCategory.swift */,
+				A10002001111111100000006 /* ContentType.swift */,
+				A10002001111111100000007 /* M3UItem.swift */,
+				A10002001111111100000008 /* Movie.swift */,
+				A10002001111111100000009 /* Show.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		A10005001111111100000007 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				A10002001111111100000010 /* Assets.xcassets */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		A10005001111111100000008 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				A10002001111111100000011 /* M3UParser.swift */,
+				A10002001111111100000012 /* StorageService.swift */,
+				A10002001111111100000013 /* StreamService.swift */,
+				A10002001111111100000029 /* XtreamCodesService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		A10005001111111100000009 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				A10002001111111100000014 /* ContentViewModel.swift */,
+				A10002001111111100000015 /* FavoritesViewModel.swift */,
+				A10002001111111100000016 /* PlayerViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		A10005001111111100000010 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				A10005001111111100000011 /* Components */,
+				A10005001111111100000012 /* Favorites */,
+				A10005001111111100000013 /* LiveTV */,
+				A10002001111111100000022 /* MainMenuView.swift */,
+				A10005001111111100000014 /* Movies */,
+				A10005001111111100000015 /* Player */,
+				A10005001111111100000016 /* Settings */,
+				A10005001111111100000017 /* Shows */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		A10005001111111100000011 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				A10002001111111100000017 /* CategoryHeader.swift */,
+				A10002001111111100000018 /* ContentCard.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		A10005001111111100000012 /* Favorites */ = {
+			isa = PBXGroup;
+			children = (
+				A10002001111111100000019 /* FavoritesView.swift */,
+			);
+			path = Favorites;
+			sourceTree = "<group>";
+		};
+		A10005001111111100000013 /* LiveTV */ = {
+			isa = PBXGroup;
+			children = (
+				A10002001111111100000020 /* ChannelRowView.swift */,
+				A10002001111111100000021 /* LiveTVView.swift */,
+			);
+			path = LiveTV;
+			sourceTree = "<group>";
+		};
+		A10005001111111100000014 /* Movies */ = {
+			isa = PBXGroup;
+			children = (
+				A10002001111111100000023 /* MoviesView.swift */,
+			);
+			path = Movies;
+			sourceTree = "<group>";
+		};
+		A10005001111111100000015 /* Player */ = {
+			isa = PBXGroup;
+			children = (
+				A10002001111111100000024 /* ChannelNavigatorOverlay.swift */,
+				A10002001111111100000025 /* PlayerView.swift */,
+			);
+			path = Player;
+			sourceTree = "<group>";
+		};
+		A10005001111111100000016 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				A10002001111111100000026 /* SettingsView.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		A10005001111111100000017 /* Shows */ = {
+			isa = PBXGroup;
+			children = (
+				A10002001111111100000027 /* ShowsView.swift */,
+			);
+			path = Shows;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A10006001111111100000001 /* EasyIpTv */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A10008001111111100000001 /* Build configuration list for PBXNativeTarget "EasyIpTv" */;
+			buildPhases = (
+				A10007001111111100000001 /* Sources */,
+				A10004001111111100000001 /* Frameworks */,
+				A10007001111111100000002 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = EasyIpTv;
+			productName = EasyIpTv;
+			productReference = A10003001111111100000001 /* EasyIpTv.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A10009001111111100000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					A10006001111111100000001 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+				};
+			};
+			buildConfigurationList = A10008001111111100000002 /* Build configuration list for PBXProject "EasyIpTv" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+				he,
+			);
+			mainGroup = A10005001111111100000001;
+			productRefGroup = A10005001111111100000003 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A10006001111111100000001 /* EasyIpTv */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A10007001111111100000002 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10001001111111100000010 /* Assets.xcassets in Resources */,
+				A10001001111111100000003 /* Localizable.xcstrings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A10007001111111100000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10001001111111100000001 /* EasyIpTvApp.swift in Sources */,
+				A10001001111111100000002 /* LocalizationManager.swift in Sources */,
+				A10001001111111100000004 /* Channel.swift in Sources */,
+				A10001001111111100000005 /* ContentCategory.swift in Sources */,
+				A10001001111111100000006 /* ContentType.swift in Sources */,
+				A10001001111111100000007 /* M3UItem.swift in Sources */,
+				A10001001111111100000008 /* Movie.swift in Sources */,
+				A10001001111111100000009 /* Show.swift in Sources */,
+				A10001001111111100000011 /* M3UParser.swift in Sources */,
+				A10001001111111100000012 /* StorageService.swift in Sources */,
+				A10001001111111100000013 /* StreamService.swift in Sources */,
+				A10001001111111100000029 /* XtreamCodesService.swift in Sources */,
+				A10001001111111100000014 /* ContentViewModel.swift in Sources */,
+				A10001001111111100000015 /* FavoritesViewModel.swift in Sources */,
+				A10001001111111100000016 /* PlayerViewModel.swift in Sources */,
+				A10001001111111100000017 /* CategoryHeader.swift in Sources */,
+				A10001001111111100000018 /* ContentCard.swift in Sources */,
+				A10001001111111100000019 /* FavoritesView.swift in Sources */,
+				A10001001111111100000020 /* ChannelRowView.swift in Sources */,
+				A10001001111111100000021 /* LiveTVView.swift in Sources */,
+				A10001001111111100000022 /* MainMenuView.swift in Sources */,
+				A10001001111111100000023 /* MoviesView.swift in Sources */,
+				A10001001111111100000024 /* ChannelNavigatorOverlay.swift in Sources */,
+				A10001001111111100000025 /* PlayerView.swift in Sources */,
+				A10001001111111100000026 /* SettingsView.swift in Sources */,
+				A10001001111111100000027 /* ShowsView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A1000A001111111100000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = appletvos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				TVOS_DEPLOYMENT_TARGET = 17.0;
+			};
+			name = Debug;
+		};
+		A1000A001111111100000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = appletvos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				TVOS_DEPLOYMENT_TARGET = 17.0;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		A1000A001111111100000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "App Icon & Top Shelf Image";
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = EasyIpTv/Info.plist;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UIUserInterfaceStyle = Automatic;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.EasyIpTv;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 3;
+			};
+			name = Debug;
+		};
+		A1000A001111111100000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "App Icon & Top Shelf Image";
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = EasyIpTv/Info.plist;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UIUserInterfaceStyle = Automatic;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.EasyIpTv;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 3;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A10008001111111100000001 /* Build configuration list for PBXNativeTarget "EasyIpTv" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1000A001111111100000003 /* Debug */,
+				A1000A001111111100000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A10008001111111100000002 /* Build configuration list for PBXProject "EasyIpTv" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1000A001111111100000001 /* Debug */,
+				A1000A001111111100000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = A10009001111111100000001 /* Project object */;
+}
