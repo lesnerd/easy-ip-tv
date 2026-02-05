@@ -97,6 +97,21 @@ class ContentViewModel: ObservableObject {
         showCache
     }
     
+    /// All loaded channels from all categories
+    var allLoadedChannels: [Channel] {
+        channelCache.values.flatMap { $0 }
+    }
+    
+    /// All loaded movies from all categories
+    var allLoadedMovies: [Movie] {
+        movieCache.values.flatMap { $0 }
+    }
+    
+    /// All loaded shows from all categories
+    var allLoadedShows: [Show] {
+        showCache.values.flatMap { $0 }
+    }
+    
     /// Hungarian categories (prioritized)
     var hungarianCategories: [CategoryInfo] {
         liveCategories.filter { detectCountry(from: $0.name) == "hungary" }

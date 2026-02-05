@@ -14,8 +14,16 @@ struct EasyIpTvApp: App {
                 .environmentObject(localizationManager)
                 .environment(\.layoutDirection, localizationManager.currentLanguage == .hebrew ? .rightToLeft : .leftToRight)
                 .task {
-                    // Load content at app launch
+                    // Favorites are already loaded from storage in FavoritesViewModel.init()
+                    // Now load content categories
                     await contentViewModel.loadContentIfNeeded()
+                    
+                    // Sync favorites with loaded content (handles old favorites with IDs only)
+                    favoritesViewModel.syncFavorites(
+                        channels: contentViewModel.allLoadedChannels,
+                        movies: contentViewModel.allLoadedMovies,
+                        shows: contentViewModel.allLoadedShows
+                    )
                 }
         }
     }

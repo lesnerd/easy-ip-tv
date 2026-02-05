@@ -13,6 +13,9 @@ class StorageService: ObservableObject {
         static let favoriteChannelIds = "favorite_channel_ids"
         static let favoriteMovieIds = "favorite_movie_ids"
         static let favoriteShowIds = "favorite_show_ids"
+        static let favoriteChannels = "favorite_channels"
+        static let favoriteMovies = "favorite_movies"
+        static let favoriteShows = "favorite_shows"
         static let watchProgress = "watch_progress"
         static let lastWatchedChannel = "last_watched_channel"
         static let playlistURLs = "playlist_urls"
@@ -155,6 +158,149 @@ class StorageService: ObservableObject {
         if let data = try? encoder.encode(favoriteShowIds) {
             defaults.set(data, forKey: Keys.favoriteShowIds)
         }
+    }
+    
+    // MARK: - Favorite Items Storage (full objects)
+    
+    /// Saves a channel to favorites with full data
+    func saveFavoriteChannel(_ channel: Channel) {
+        var channels = getFavoriteChannels()
+        if !channels.contains(where: { $0.id == channel.id }) {
+            var favoriteChannel = channel
+            favoriteChannel.isFavorite = true
+            channels.append(favoriteChannel)
+            saveFavoriteChannels(channels)
+            print("[Storage] Saved channel to favorites: \(channel.name), total: \(channels.count)")
+        }
+    }
+    
+    /// Removes a channel from saved favorites
+    func removeFavoriteChannel(id: String) {
+        var channels = getFavoriteChannels()
+        channels.removeAll { $0.id == id }
+        saveFavoriteChannels(channels)
+    }
+    
+    /// Gets all saved favorite channels
+    func getFavoriteChannels() -> [Channel] {
+        guard let data = defaults.data(forKey: Keys.favoriteChannels) else {
+            print("[Storage] No favorite channels data found")
+            return []
+        }
+        guard let channels = try? decoder.decode([Channel].self, from: data) else {
+            print("[Storage] Failed to decode favorite channels")
+            return []
+        }
+        print("[Storage] Loaded \(channels.count) favorite channels")
+        return channels
+    }
+    
+    private func saveFavoriteChannels(_ channels: [Channel]) {
+        do {
+            let data = try encoder.encode(channels)
+            defaults.set(data, forKey: Keys.favoriteChannels)
+            defaults.synchronize()
+            print("[Storage] Successfully saved \(channels.count) favorite channels")
+        } catch {
+            print("[Storage] ERROR saving favorite channels: \(error)")
+        }
+    }
+    
+    /// Saves a movie to favorites with full data
+    func saveFavoriteMovie(_ movie: Movie) {
+        var movies = getFavoriteMovies()
+        if !movies.contains(where: { $0.id == movie.id }) {
+            var favoriteMovie = movie
+            favoriteMovie.isFavorite = true
+            movies.append(favoriteMovie)
+            saveFavoriteMovies(movies)
+        }
+    }
+    
+    /// Removes a movie from saved favorites
+    func removeFavoriteMovie(id: String) {
+        var movies = getFavoriteMovies()
+        movies.removeAll { $0.id == id }
+        saveFavoriteMovies(movies)
+    }
+    
+    /// Gets all saved favorite movies
+    func getFavoriteMovies() -> [Movie] {
+        guard let data = defaults.data(forKey: Keys.favoriteMovies),
+              let movies = try? decoder.decode([Movie].self, from: data) else {
+            return []
+        }
+        return movies
+    }
+    
+    private func saveFavoriteMovies(_ movies: [Movie]) {
+        do {
+            let data = try encoder.encode(movies)
+            defaults.set(data, forKey: Keys.favoriteMovies)
+            defaults.synchronize()
+            print("[Storage] Successfully saved \(movies.count) favorite movies")
+        } catch {
+            print("[Storage] ERROR saving favorite movies: \(error)")
+        }
+    }
+    
+    /// Saves a show to favorites with full data
+    func saveFavoriteShow(_ show: Show) {
+        var shows = getFavoriteShows()
+        if !shows.contains(where: { $0.id == show.id }) {
+            var favoriteShow = show
+            favoriteShow.isFavorite = true
+            shows.append(favoriteShow)
+            saveFavoriteShows(shows)
+        }
+    }
+    
+    /// Removes a show from saved favorites
+    func removeFavoriteShow(id: String) {
+        var shows = getFavoriteShows()
+        shows.removeAll { $0.id == id }
+        saveFavoriteShows(shows)
+    }
+    
+    /// Gets all saved favorite shows
+    func getFavoriteShows() -> [Show] {
+        guard let data = defaults.data(forKey: Keys.favoriteShows),
+              let shows = try? decoder.decode([Show].self, from: data) else {
+            return []
+        }
+        return shows
+    }
+    
+    private func saveFavoriteShows(_ shows: [Show]) {
+        do {
+            let data = try encoder.encode(shows)
+            defaults.set(data, forKey: Keys.favoriteShows)
+            defaults.synchronize()
+            print("[Storage] Successfully saved \(shows.count) favorite shows")
+        } catch {
+            print("[Storage] ERROR saving favorite shows: \(error)")
+        }
+    }
+    
+    /// Saves multiple channels to favorites
+    func saveFavoriteChannels(channels: [Channel]) {
+        var existing = getFavoriteChannels()
+        for channel in channels {
+            if !existing.contains(where: { $0.id == channel.id }) {
+                var favoriteChannel = channel
+                favoriteChannel.isFavorite = true
+                existing.append(favoriteChannel)
+            }
+        }
+        saveFavoriteChannels(existing)
+    }
+    
+    /// Removes multiple channels from saved favorites
+    func removeFavoriteChannels(ids: [String]) {
+        let idSet = Set(ids)
+        var channels = getFavoriteChannels()
+        channels.removeAll { idSet.contains($0.id) }
+        saveFavoriteChannels(channels)
     }
     
     // MARK: - Watch Progress

@@ -34,6 +34,10 @@ struct FavoritesView: View {
                 }
             }
             .navigationTitle(L10n.Navigation.favorites)
+            .onAppear {
+                // Ensure favorites are loaded
+                favoritesViewModel.loadSavedFavorites()
+            }
         }
         .fullScreenCover(isPresented: $showChannelPlayer) {
             if let channel = selectedChannel {

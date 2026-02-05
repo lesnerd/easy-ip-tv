@@ -195,10 +195,16 @@ struct LiveTVView: View {
                         showFavoriteButton: !channels.isEmpty,
                         isFavorited: allFavorites,
                         onToggleFavorite: {
-                            if allFavorites {
+                            // Get fresh channels data inside the closure
+                            let currentChannels = contentViewModel.channels(in: category.name)
+                            let isCurrentlyAllFavorites = contentViewModel.isCategoryAllFavorites(category)
+                            
+                            if isCurrentlyAllFavorites {
                                 contentViewModel.removeCategoryFromFavorites(category)
+                                favoritesViewModel.removeFavorites(channels: currentChannels)
                             } else {
                                 contentViewModel.addCategoryToFavorites(category)
+                                favoritesViewModel.addFavorites(channels: currentChannels)
                             }
                         }
                     ) {
@@ -288,10 +294,16 @@ struct LiveTVView: View {
                     showFavoriteButton: !channels.isEmpty,
                     isFavorited: allFavorites,
                     onToggleFavorite: {
-                        if allFavorites {
+                        // Get fresh channels data inside the closure
+                        let currentChannels = contentViewModel.channels(in: category.name)
+                        let isCurrentlyAllFavorites = contentViewModel.isCategoryAllFavorites(category)
+                        
+                        if isCurrentlyAllFavorites {
                             contentViewModel.removeCategoryFromFavorites(category)
+                            favoritesViewModel.removeFavorites(channels: currentChannels)
                         } else {
                             contentViewModel.addCategoryToFavorites(category)
+                            favoritesViewModel.addFavorites(channels: currentChannels)
                         }
                     }
                 )
