@@ -84,22 +84,7 @@ struct FavoritesView: View {
     private var contentView: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 50) {
-                // Hero banner with featured content
-                if !featuredMovies.isEmpty && continueWatchingItems.isEmpty {
-                    HeroBanner(
-                        items: featuredMovies,
-                        title: { $0.title },
-                        subtitle: { $0.description },
-                        imageURL: { $0.posterURL },
-                        onSelect: { movie in
-                            selectedMovie = movie
-                            showMovieDetail = true
-                        }
-                    )
-                    .padding(.bottom, 20)
-                }
-                
-                // Continue Watching section
+                // Continue Watching section (highest priority)
                 if !continueWatchingItems.isEmpty {
                     ContinueWatchingSection(
                         items: continueWatchingItems,
@@ -111,7 +96,6 @@ struct FavoritesView: View {
                         },
                         onPlayEpisode: { item in
                             if let episodeId = item.episodeId {
-                                // Create episode from saved data
                                 let episode = Episode(
                                     id: episodeId,
                                     episodeNumber: item.episodeNumber ?? 1,
@@ -126,8 +110,110 @@ struct FavoritesView: View {
                     )
                 }
                 
-                // Recently Watched section (only if Continue Watching is not shown)
-                if continueWatchingItems.isEmpty && !recentlyWatchedItems.isEmpty {
+                // Live TV Favorites Section (all channels in one row)
+                if !favoritesViewModel.favoriteChannels.isEmpty {
+                    VStack(alignment: .leading, spacing: 16) {
+                        // Section header
+                        HStack(spacing: 12) {
+                            Image(systemName: "tv.fill")
+                                .font(.title2)
+                                .foregroundStyle(.blue)
+                            Text("Live TV")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                            Text("(\(favoritesViewModel.favoriteChannels.count))")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.horizontal)
+                        
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            LazyHStack(spacing: 30) {
+                                ForEach(favoritesViewModel.favoriteChannels) { channel in
+                                    ChannelCard(channel: channel) {
+                                        playChannel(channel)
+                                    } onLongPress: {
+                                        toggleFavorite(channel: channel)
+                                    }
+                                    .frame(width: 300)
+                                }
+                            }
+                            .padding(.horizontal)
+                        }
+                        .focusSection()
+                    }
+                }
+                
+                // Movies Favorites Section (all movies in one row)
+                if !favoritesViewModel.favoriteMovies.isEmpty {
+                    VStack(alignment: .leading, spacing: 16) {
+                        // Section header
+                        HStack(spacing: 12) {
+                            Image(systemName: "film.fill")
+                                .font(.title2)
+                                .foregroundStyle(.purple)
+                            Text("Movies")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                            Text("(\(favoritesViewModel.favoriteMovies.count))")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.horizontal)
+                        
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            LazyHStack(spacing: 30) {
+                                ForEach(favoritesViewModel.favoriteMovies) { movie in
+                                    MovieCard(movie: movie) {
+                                        selectMovie(movie)
+                                    } onLongPress: {
+                                        toggleFavorite(movie: movie)
+                                    }
+                                    .frame(width: 200)
+                                }
+                            }
+                            .padding(.horizontal)
+                        }
+                        .focusSection()
+                    }
+                }
+                
+                // Shows Favorites Section (all shows in one row)
+                if !favoritesViewModel.favoriteShows.isEmpty {
+                    VStack(alignment: .leading, spacing: 16) {
+                        // Section header
+                        HStack(spacing: 12) {
+                            Image(systemName: "play.rectangle.on.rectangle.fill")
+                                .font(.title2)
+                                .foregroundStyle(.orange)
+                            Text("Shows")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                            Text("(\(favoritesViewModel.favoriteShows.count))")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.horizontal)
+                        
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            LazyHStack(spacing: 30) {
+                                ForEach(favoritesViewModel.favoriteShows) { show in
+                                    ShowCard(show: show) {
+                                        selectShow(show)
+                                    } onLongPress: {
+                                        toggleFavorite(show: show)
+                                    }
+                                    .frame(width: 200)
+                                }
+                            }
+                            .padding(.horizontal)
+                        }
+                        .focusSection()
+                    }
+                }
+                
+                // Recently Watched section (at the bottom)
+                if !recentlyWatchedItems.isEmpty {
                     RecentlyWatchedSection(
                         items: recentlyWatchedItems,
                         movies: contentViewModel.movies,
@@ -141,72 +227,6 @@ struct FavoritesView: View {
                             showShowDetail = true
                         }
                     )
-                }
-                
-                // Favorite Channels by Category
-                if !favoritesViewModel.favoriteChannels.isEmpty {
-                    ForEach(favoritesViewModel.favoriteChannelsByCategory.keys.sorted(), id: \.self) { category in
-                        if let channels = favoritesViewModel.favoriteChannelsByCategory[category] {
-                            CategoryRow(
-                                title: category,
-                                icon: "tv",
-                                itemCount: channels.count
-                            ) {
-                                ForEach(channels) { channel in
-                                    ChannelCard(channel: channel) {
-                                        playChannel(channel)
-                                    } onLongPress: {
-                                        toggleFavorite(channel: channel)
-                                    }
-                                    .frame(width: 300)
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                // Favorite Movies by Category
-                if !favoritesViewModel.favoriteMovies.isEmpty {
-                    ForEach(favoritesViewModel.favoriteMoviesByCategory.keys.sorted(), id: \.self) { category in
-                        if let movies = favoritesViewModel.favoriteMoviesByCategory[category] {
-                            CategoryRow(
-                                title: category,
-                                icon: "film",
-                                itemCount: movies.count
-                            ) {
-                                ForEach(movies) { movie in
-                                    MovieCard(movie: movie) {
-                                        selectMovie(movie)
-                                    } onLongPress: {
-                                        toggleFavorite(movie: movie)
-                                    }
-                                    .frame(width: 200)
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                // Favorite Shows by Category
-                if !favoritesViewModel.favoriteShows.isEmpty {
-                    ForEach(favoritesViewModel.favoriteShowsByCategory.keys.sorted(), id: \.self) { category in
-                        if let shows = favoritesViewModel.favoriteShowsByCategory[category] {
-                            CategoryRow(
-                                title: category,
-                                icon: "play.rectangle.on.rectangle",
-                                itemCount: shows.count
-                            ) {
-                                ForEach(shows) { show in
-                                    ShowCard(show: show) {
-                                        selectShow(show)
-                                    } onLongPress: {
-                                        toggleFavorite(show: show)
-                                    }
-                                    .frame(width: 200)
-                                }
-                            }
-                        }
-                    }
                 }
             }
             .padding(.vertical, 40)

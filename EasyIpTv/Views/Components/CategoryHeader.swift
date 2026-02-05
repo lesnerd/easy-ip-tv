@@ -8,18 +8,29 @@ struct CategoryHeader: View {
     var showSeeAll: Bool = false
     var onSeeAll: (() -> Void)? = nil
     
+    // Favorite functionality
+    var showFavoriteButton: Bool = false
+    var isFavorited: Bool = false
+    var onToggleFavorite: (() -> Void)? = nil
+    
     init(
         title: String,
         icon: String? = nil,
         itemCount: Int? = nil,
         showSeeAll: Bool = false,
-        onSeeAll: (() -> Void)? = nil
+        onSeeAll: (() -> Void)? = nil,
+        showFavoriteButton: Bool = false,
+        isFavorited: Bool = false,
+        onToggleFavorite: (() -> Void)? = nil
     ) {
         self.title = title
         self.icon = icon
         self.itemCount = itemCount
         self.showSeeAll = showSeeAll
         self.onSeeAll = onSeeAll
+        self.showFavoriteButton = showFavoriteButton
+        self.isFavorited = isFavorited
+        self.onToggleFavorite = onToggleFavorite
     }
     
     var body: some View {
@@ -38,6 +49,18 @@ struct CategoryHeader: View {
                 Text("(\(count))")
                     .font(.callout)
                     .foregroundStyle(.secondary)
+            }
+            
+            // Favorite button
+            if showFavoriteButton, let onToggleFavorite = onToggleFavorite {
+                Button {
+                    onToggleFavorite()
+                } label: {
+                    Image(systemName: isFavorited ? "heart.fill" : "heart")
+                        .font(.title3)
+                        .foregroundColor(isFavorited ? .red : .secondary)
+                }
+                .buttonStyle(.plain)
             }
             
             Spacer()
@@ -71,21 +94,39 @@ struct CategoryRow<Content: View>: View {
     let itemCount: Int?
     let content: () -> Content
     
+    // Favorite functionality
+    var showFavoriteButton: Bool = false
+    var isFavorited: Bool = false
+    var onToggleFavorite: (() -> Void)? = nil
+    
     init(
         title: String,
         icon: String? = nil,
         itemCount: Int? = nil,
+        showFavoriteButton: Bool = false,
+        isFavorited: Bool = false,
+        onToggleFavorite: (() -> Void)? = nil,
         @ViewBuilder content: @escaping () -> Content
     ) {
         self.title = title
         self.icon = icon
         self.itemCount = itemCount
+        self.showFavoriteButton = showFavoriteButton
+        self.isFavorited = isFavorited
+        self.onToggleFavorite = onToggleFavorite
         self.content = content
     }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            CategoryHeader(title: title, icon: icon, itemCount: itemCount)
+            CategoryHeader(
+                title: title,
+                icon: icon,
+                itemCount: itemCount,
+                showFavoriteButton: showFavoriteButton,
+                isFavorited: isFavorited,
+                onToggleFavorite: onToggleFavorite
+            )
             
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: 40) {
