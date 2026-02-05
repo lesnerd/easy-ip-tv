@@ -33,34 +33,70 @@ struct CategoryHeader: View {
         self.onToggleFavorite = onToggleFavorite
     }
     
+    @FocusState private var isFocused: Bool
+    
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
-            if let icon = icon {
-                Image(systemName: icon)
-                    .font(.title2)
-                    .foregroundStyle(.secondary)
-            }
-            
-            Text(title)
-                .font(.title3)
-                .fontWeight(.semibold)
-            
-            if let count = itemCount {
-                Text("(\(count))")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            }
-            
-            // Favorite button
+            // Make the title + heart a single focusable button
             if showFavoriteButton, let onToggleFavorite = onToggleFavorite {
                 Button {
                     onToggleFavorite()
                 } label: {
-                    Image(systemName: isFavorited ? "heart.fill" : "heart")
-                        .font(.title3)
-                        .foregroundColor(isFavorited ? .red : .secondary)
+                    HStack(spacing: 12) {
+                        if let icon = icon {
+                            Image(systemName: icon)
+                                .font(.title2)
+                                .foregroundStyle(.secondary)
+                        }
+                        
+                        Text(title)
+                            .font(.title3)
+                            .fontWeight(.semibold)
+                        
+                        if let count = itemCount {
+                            Text("(\(count))")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                        }
+                        
+                        Image(systemName: isFavorited ? "heart.fill" : "heart")
+                            .font(.title3)
+                            .foregroundColor(isFavorited ? .red : .secondary)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(isFocused ? Color.white.opacity(0.2) : Color.clear)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(isFocused ? Color.white.opacity(0.5) : Color.clear, lineWidth: 2)
+                    )
                 }
                 .buttonStyle(.plain)
+                .focused($isFocused)
+                .scaleEffect(isFocused ? 1.02 : 1.0)
+                .animation(.easeInOut(duration: 0.15), value: isFocused)
+            } else {
+                // Non-clickable header (no favorite button)
+                HStack(spacing: 12) {
+                    if let icon = icon {
+                        Image(systemName: icon)
+                            .font(.title2)
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    Text(title)
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                    
+                    if let count = itemCount {
+                        Text("(\(count))")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
             
             Spacer()
