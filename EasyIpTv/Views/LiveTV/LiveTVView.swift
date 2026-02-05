@@ -221,6 +221,7 @@ struct LiveTVView: View {
                 // Category rows based on filter - tap to load
                 ForEach(filteredCategories) { category in
                     let channels = contentViewModel.channels(in: category.name)
+                    let allFavorites = contentViewModel.isCategoryAllFavorites(category)
                     
                     CategoryRow(
                         title: category.name,
@@ -249,6 +250,18 @@ struct LiveTVView: View {
                             }
                             .buttonStyle(CardButtonStyle())
                         } else {
+                            // Favorite All / Unfavorite All button
+                            FavoriteAllButton(
+                                isAllFavorites: allFavorites,
+                                channelCount: channels.count
+                            ) {
+                                if allFavorites {
+                                    contentViewModel.removeCategoryFromFavorites(category)
+                                } else {
+                                    contentViewModel.addCategoryToFavorites(category)
+                                }
+                            }
+                            
                             ForEach(channels.prefix(10)) { channel in
                                 ChannelCard(channel: channel) {
                                     playChannel(channel)
@@ -287,20 +300,48 @@ struct LiveTVView: View {
     
     private func categoryDetailView(category: ContentViewModel.CategoryInfo) -> some View {
         let channels = contentViewModel.channels(in: category.name)
+        let allFavorites = contentViewModel.isCategoryAllFavorites(category)
         
         return ScrollView {
             VStack(alignment: .leading, spacing: 30) {
-                // Back button
-                Button {
-                    selectedCategory = nil
-                } label: {
-                    HStack {
-                        Image(systemName: "chevron.left")
-                        Text(L10n.Content.categories)
+                // Back button and Favorite All button
+                HStack {
+                    Button {
+                        selectedCategory = nil
+                    } label: {
+                        HStack {
+                            Image(systemName: "chevron.left")
+                            Text(L10n.Content.categories)
+                        }
+                        .font(.callout)
                     }
-                    .font(.callout)
+                    .buttonStyle(.plain)
+                    
+                    Spacer()
+                    
+                    // Favorite All button in header
+                    if !channels.isEmpty {
+                        Button {
+                            if allFavorites {
+                                contentViewModel.removeCategoryFromFavorites(category)
+                            } else {
+                                contentViewModel.addCategoryToFavorites(category)
+                            }
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: allFavorites ? "heart.fill" : "heart")
+                                    .foregroundColor(allFavorites ? .red : .primary)
+                                Text(allFavorites ? "Remove All from Favorites" : "Add All to Favorites")
+                            }
+                            .font(.callout)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+                            .background(Color.gray.opacity(0.2))
+                            .cornerRadius(8)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
-                .buttonStyle(.plain)
                 .padding(.horizontal)
                 
                 // Category header
@@ -355,6 +396,46 @@ struct LiveTVView: View {
     private func toggleFavorite(_ channel: Channel) {
         contentViewModel.toggleFavorite(channel: channel)
         favoritesViewModel.toggleFavorite(channel: channel)
+    }
+}
+
+// MARK: - Favorite All Button
+
+/// Button to add/remove all channels in a category to/from favorites
+struct FavoriteAllButton: View {
+    let isAllFavorites: Bool
+    let channelCount: Int
+    var onTap: () -> Void = {}
+    
+    @FocusState private var isFocused: Bool
+    
+    var body: some View {
+        Button {
+            onTap()
+        } label: {
+            VStack(spacing: 12) {
+                Image(systemName: isAllFavorites ? "heart.slash.fill" : "heart.fill")
+                    .font(.system(size: 36))
+                    .foregroundColor(isAllFavorites ? .gray : .red)
+                
+                Text(isAllFavorites ? "Remove All" : "Favorite All")
+                    .font(.callout)
+                    .fontWeight(.medium)
+                
+                Text("\(channelCount) channels")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(width: 150, height: 169)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.gray.opacity(isFocused ? 0.3 : 0.2))
+            )
+        }
+        .buttonStyle(.plain)
+        .focused($isFocused)
+        .scaleEffect(isFocused ? 1.05 : 1.0)
+        .animation(.easeInOut(duration: 0.2), value: isFocused)
     }
 }
 

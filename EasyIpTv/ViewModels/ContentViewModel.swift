@@ -498,6 +498,41 @@ class ContentViewModel: ObservableObject {
         }
     }
     
+    /// Adds all channels in a category to favorites
+    func addCategoryToFavorites(_ category: CategoryInfo) {
+        let channels = channelCache[category.name] ?? []
+        let channelIds = channels.map { $0.id }
+        storage.addFavorites(channelIds: channelIds)
+        
+        // Update in cache
+        var updatedChannels = channels
+        for i in updatedChannels.indices {
+            updatedChannels[i].isFavorite = true
+        }
+        channelCache[category.name] = updatedChannels
+    }
+    
+    /// Removes all channels in a category from favorites
+    func removeCategoryFromFavorites(_ category: CategoryInfo) {
+        let channels = channelCache[category.name] ?? []
+        let channelIds = channels.map { $0.id }
+        storage.removeFavorites(channelIds: channelIds)
+        
+        // Update in cache
+        var updatedChannels = channels
+        for i in updatedChannels.indices {
+            updatedChannels[i].isFavorite = false
+        }
+        channelCache[category.name] = updatedChannels
+    }
+    
+    /// Checks if all channels in a category are favorites
+    func isCategoryAllFavorites(_ category: CategoryInfo) -> Bool {
+        let channels = channelCache[category.name] ?? []
+        guard !channels.isEmpty else { return false }
+        return channels.allSatisfy { $0.isFavorite }
+    }
+    
     func toggleFavorite(movie: Movie) {
         storage.toggleFavorite(movieId: movie.id)
         for (cat, var movies) in movieCache {

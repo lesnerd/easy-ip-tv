@@ -133,6 +133,27 @@ class FavoritesViewModel: ObservableObject {
         }
     }
     
+    /// Adds multiple channels to favorites
+    func addFavorites(channels: [Channel]) {
+        let channelIds = channels.map { $0.id }
+        storage.addFavorites(channelIds: channelIds)
+        
+        for channel in channels {
+            if !favoriteChannels.contains(where: { $0.id == channel.id }) {
+                var updatedChannel = channel
+                updatedChannel.isFavorite = true
+                favoriteChannels.append(updatedChannel)
+            }
+        }
+    }
+    
+    /// Removes multiple channels from favorites
+    func removeFavorites(channels: [Channel]) {
+        let channelIds = Set(channels.map { $0.id })
+        storage.removeFavorites(channelIds: Array(channelIds))
+        favoriteChannels.removeAll { channelIds.contains($0.id) }
+    }
+    
     /// Removes a favorite item
     func removeFavorite(_ item: FavoriteItem) {
         switch item {

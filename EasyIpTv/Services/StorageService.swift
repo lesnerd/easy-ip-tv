@@ -82,6 +82,28 @@ class StorageService: ObservableObject {
         saveFavoriteChannelIds()
     }
     
+    /// Adds multiple channels to favorites
+    func addFavorites(channelIds: [String]) {
+        for id in channelIds {
+            favoriteChannelIds.insert(id)
+        }
+        saveFavoriteChannelIds()
+    }
+    
+    /// Removes multiple channels from favorites
+    func removeFavorites(channelIds: [String]) {
+        for id in channelIds {
+            favoriteChannelIds.remove(id)
+        }
+        saveFavoriteChannelIds()
+    }
+    
+    /// Checks if all given channel IDs are favorites
+    func areAllFavorites(channelIds: [String]) -> Bool {
+        guard !channelIds.isEmpty else { return false }
+        return channelIds.allSatisfy { favoriteChannelIds.contains($0) }
+    }
+    
     /// Toggles favorite status for a movie
     func toggleFavorite(movieId: String) {
         if favoriteMovieIds.contains(movieId) {
