@@ -74,12 +74,12 @@ struct LiveTVView: View {
                 showSearchResults = !newValue.isEmpty
             }
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .automatic) {
                     filterMenu
                 }
             }
         }
-        .fullScreenCover(isPresented: $showPlayer) {
+        .platformFullScreen(isPresented: $showPlayer) {
             if let channel = selectedChannel {
                 PlayerView(channel: channel)
             }
@@ -118,7 +118,7 @@ struct LiveTVView: View {
     
     private var searchResultsView: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 30) {
+            VStack(alignment: .leading, spacing: 24) {
                 // Back button
                 Button {
                     searchText = ""
@@ -148,7 +148,7 @@ struct LiveTVView: View {
                     )
                 } else {
                     // Channel grid
-                    CategoryGrid(items: filteredChannels, columns: 5) { channel in
+                    CategoryGrid(items: filteredChannels, columns: PlatformMetrics.gridColumns) { channel in
                         ChannelCard(channel: channel) {
                             playChannel(channel)
                         } onLongPress: {
@@ -157,7 +157,7 @@ struct LiveTVView: View {
                     }
                 }
             }
-            .padding(.vertical, 40)
+            .padding(.vertical, PlatformMetrics.contentPadding)
         }
     }
     
@@ -165,7 +165,7 @@ struct LiveTVView: View {
     
     private var categoryListView: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 50) {
+            LazyVStack(alignment: .leading, spacing: PlatformMetrics.sectionSpacing) {
                 // Featured channels row (only in "all" mode)
                 if filterMode == .all && !contentViewModel.featuredChannels.isEmpty {
                     CategoryRow(
@@ -173,13 +173,13 @@ struct LiveTVView: View {
                         icon: "star.fill",
                         itemCount: contentViewModel.featuredChannels.count
                     ) {
-                        ForEach(contentViewModel.featuredChannels.prefix(10)) { channel in
+                        ForEach(contentViewModel.featuredChannels.prefix(PlatformMetrics.rowItemLimit)) { channel in
                             ChannelCard(channel: channel) {
                                 playChannel(channel)
                             } onLongPress: {
                                 toggleFavorite(channel)
                             }
-                            .frame(width: 300)
+                            .frame(width: PlatformMetrics.channelCardWidth)
                         }
                     }
                 }
@@ -195,7 +195,6 @@ struct LiveTVView: View {
                         showFavoriteButton: !channels.isEmpty,
                         isFavorited: allFavorites,
                         onToggleFavorite: {
-                            // Get fresh channels data inside the closure
                             let currentChannels = contentViewModel.channels(in: category.name)
                             let isCurrentlyAllFavorites = contentViewModel.isCategoryAllFavorites(category)
                             
@@ -231,24 +230,24 @@ struct LiveTVView: View {
                             }
                             .buttonStyle(CardButtonStyle())
                         } else {
-                            ForEach(channels.prefix(10)) { channel in
+                            ForEach(channels.prefix(PlatformMetrics.rowItemLimit)) { channel in
                                 ChannelCard(channel: channel) {
                                     playChannel(channel)
                                 } onLongPress: {
                                     toggleFavorite(channel)
                                 }
-                                .frame(width: 300)
+                                .frame(width: PlatformMetrics.channelCardWidth)
                             }
                             
                             // See more button
-                            if channels.count > 10 {
+                            if channels.count > PlatformMetrics.rowItemLimit {
                                 Button {
                                     selectedCategory = category
                                 } label: {
                                     VStack {
                                         Image(systemName: "ellipsis")
                                             .font(.largeTitle)
-                                        Text("See All")
+                                        Text(L10n.Content.seeAll)
                                             .font(.callout)
                                     }
                                     .frame(width: 150, height: 169)
@@ -261,7 +260,7 @@ struct LiveTVView: View {
                     }
                 }
             }
-            .padding(.vertical, 40)
+            .padding(.vertical, PlatformMetrics.contentPadding)
         }
     }
     
@@ -272,7 +271,7 @@ struct LiveTVView: View {
         let allFavorites = contentViewModel.isCategoryAllFavorites(category)
         
         return ScrollView {
-            VStack(alignment: .leading, spacing: 30) {
+            VStack(alignment: .leading, spacing: 24) {
                 // Back button
                 Button {
                     selectedCategory = nil
@@ -294,7 +293,6 @@ struct LiveTVView: View {
                     showFavoriteButton: !channels.isEmpty,
                     isFavorited: allFavorites,
                     onToggleFavorite: {
-                        // Get fresh channels data inside the closure
                         let currentChannels = contentViewModel.channels(in: category.name)
                         let isCurrentlyAllFavorites = contentViewModel.isCategoryAllFavorites(category)
                         
@@ -324,7 +322,7 @@ struct LiveTVView: View {
                         .padding(.top, 100)
                 } else {
                     // Channel grid
-                    CategoryGrid(items: channels, columns: 5) { channel in
+                    CategoryGrid(items: channels, columns: PlatformMetrics.gridColumns) { channel in
                         ChannelCard(channel: channel) {
                             playChannel(channel)
                         } onLongPress: {
@@ -333,7 +331,7 @@ struct LiveTVView: View {
                     }
                 }
             }
-            .padding(.vertical, 40)
+            .padding(.vertical, PlatformMetrics.contentPadding)
         }
     }
     

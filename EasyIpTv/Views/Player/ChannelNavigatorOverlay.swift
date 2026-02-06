@@ -81,7 +81,7 @@ struct ChannelNavigatorOverlay: View {
                     }
                     .buttonStyle(.plain)
                 }
-                .padding(.horizontal, 40)
+                .padding(.horizontal, PlatformMetrics.contentPadding)
                 .padding(.vertical, 16)
                 
                 // Horizontal channel strip
@@ -100,8 +100,8 @@ struct ChannelNavigatorOverlay: View {
                                 .id(channel.id)
                             }
                         }
-                        .padding(.horizontal, 40)
-                        .padding(.bottom, 40)
+                        .padding(.horizontal, PlatformMetrics.contentPadding)
+                        .padding(.bottom, PlatformMetrics.contentPadding)
                     }
                     .onAppear {
                         // Focus and scroll to current channel
@@ -113,7 +113,7 @@ struct ChannelNavigatorOverlay: View {
                         }
                     }
                 }
-                .focusSection()
+                .platformFocusSection()
             }
             .background(
                 LinearGradient(
@@ -134,6 +134,16 @@ struct ChannelStripCard: View {
     let isCurrentChannel: Bool
     let isFocused: Bool
     var onSelect: () -> Void = {}
+    
+    private var cardSize: CGSize {
+        #if os(tvOS)
+        return CGSize(width: 200, height: 120)
+        #elseif os(macOS)
+        return CGSize(width: 160, height: 96)
+        #else
+        return CGSize(width: 140, height: 84)
+        #endif
+    }
     
     var body: some View {
         Button {
@@ -188,7 +198,7 @@ struct ChannelStripCard: View {
                         }
                     }
                 }
-                .frame(width: 200, height: 120)
+                .frame(width: cardSize.width, height: cardSize.height)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
                         .stroke(isCurrentChannel ? Color.green : (isFocused ? Color.white : Color.clear), lineWidth: 3)
@@ -206,13 +216,15 @@ struct ChannelStripCard: View {
                         .fontWeight(.medium)
                         .foregroundStyle(.white)
                         .lineLimit(1)
-                        .frame(width: 200)
+                        .frame(width: cardSize.width)
                 }
             }
         }
         .buttonStyle(.plain)
+        #if os(tvOS)
         .scaleEffect(isFocused ? 1.1 : 1.0)
         .animation(.easeInOut(duration: 0.15), value: isFocused)
+        #endif
     }
 }
 
@@ -231,7 +243,6 @@ struct ChannelStripCard: View {
         Color.black
             .ignoresSafeArea()
         
-        // Simulated video content
         Text("Video Playing")
             .foregroundStyle(.white.opacity(0.3))
         

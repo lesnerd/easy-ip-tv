@@ -35,7 +35,7 @@ struct MoviesView: View {
                 }
             }
         }
-        .fullScreenCover(isPresented: $showPlayer) {
+        .platformFullScreen(isPresented: $showPlayer) {
             if let movie = selectedMovie {
                 PlayerView(movie: movie)
             }
@@ -46,7 +46,7 @@ struct MoviesView: View {
     
     private var categoryListView: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 50) {
+            LazyVStack(alignment: .leading, spacing: PlatformMetrics.sectionSpacing) {
                 // Featured Movies row
                 if !contentViewModel.featuredMovies.isEmpty {
                     CategoryRow(
@@ -54,13 +54,13 @@ struct MoviesView: View {
                         icon: "star.fill",
                         itemCount: contentViewModel.featuredMovies.count
                     ) {
-                        ForEach(contentViewModel.featuredMovies.prefix(8)) { movie in
+                        ForEach(contentViewModel.featuredMovies.prefix(PlatformMetrics.posterRowItemLimit)) { movie in
                             MovieCard(movie: movie) {
                                 selectMovie(movie)
                             } onLongPress: {
                                 toggleFavorite(movie)
                             }
-                            .frame(width: 200)
+                            .frame(width: PlatformMetrics.posterCardWidth)
                         }
                     }
                 }
@@ -90,33 +90,33 @@ struct MoviesView: View {
                                             .font(.callout)
                                     }
                                 }
-                                .frame(width: 200, height: 300)
+                                .frame(width: PlatformMetrics.posterCardWidth, height: PlatformMetrics.posterCardWidth * 1.5)
                                 .background(Color.gray.opacity(0.2))
                                 .cornerRadius(12)
                             }
                             .buttonStyle(CardButtonStyle())
                         } else {
-                            ForEach(movies.prefix(8)) { movie in
+                            ForEach(movies.prefix(PlatformMetrics.posterRowItemLimit)) { movie in
                                 MovieCard(movie: movie) {
                                     selectMovie(movie)
                                 } onLongPress: {
                                     toggleFavorite(movie)
                                 }
-                                .frame(width: 200)
+                                .frame(width: PlatformMetrics.posterCardWidth)
                             }
                             
                             // See more button
-                            if movies.count > 8 {
+                            if movies.count > PlatformMetrics.posterRowItemLimit {
                                 Button {
                                     selectedCategory = category
                                 } label: {
                                     VStack {
                                         Image(systemName: "ellipsis")
                                             .font(.largeTitle)
-                                        Text("See All")
+                                        Text(L10n.Content.seeAll)
                                             .font(.callout)
                                     }
-                                    .frame(width: 150, height: 300)
+                                    .frame(width: 150, height: PlatformMetrics.posterCardWidth * 1.5)
                                     .background(Color.gray.opacity(0.2))
                                     .cornerRadius(12)
                                 }
@@ -126,7 +126,7 @@ struct MoviesView: View {
                     }
                 }
             }
-            .padding(.vertical, 40)
+            .padding(.vertical, PlatformMetrics.contentPadding)
         }
     }
     
@@ -136,7 +136,7 @@ struct MoviesView: View {
         let movies = contentViewModel.movies(in: category.name)
         
         return ScrollView {
-            VStack(alignment: .leading, spacing: 30) {
+            VStack(alignment: .leading, spacing: 24) {
                 // Back button
                 Button {
                     selectedCategory = nil
@@ -169,7 +169,7 @@ struct MoviesView: View {
                         .padding(.top, 100)
                 } else {
                     // Movie grid
-                    CategoryGrid(items: movies, columns: 6) { movie in
+                    CategoryGrid(items: movies, columns: PlatformMetrics.posterGridColumns) { movie in
                         MovieCard(movie: movie) {
                             selectMovie(movie)
                         } onLongPress: {
@@ -178,7 +178,7 @@ struct MoviesView: View {
                     }
                 }
             }
-            .padding(.vertical, 40)
+            .padding(.vertical, PlatformMetrics.contentPadding)
         }
     }
     
@@ -215,92 +215,123 @@ struct MovieDetailView: View {
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
+        #if os(tvOS)
+        tvOSDetailLayout
+        #else
+        adaptiveDetailLayout
+        #endif
+    }
+    
+    #if os(tvOS)
+    private var tvOSDetailLayout: some View {
         HStack(alignment: .top, spacing: 60) {
-            // Poster
-            CachedAsyncImage(url: movie.posterURL) { image in
-                image
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-            } placeholder: {
-                Rectangle()
-                    .fill(Color.gray.opacity(0.3))
-                    .overlay {
-                        Image(systemName: "film")
-                            .font(.system(size: 60))
-                            .foregroundStyle(.secondary)
-                    }
-            }
-            .aspectRatio(2/3, contentMode: .fit)
-            .frame(height: 500)
-            .cornerRadius(16)
+            posterView
+                .frame(height: PlatformMetrics.detailPosterHeight)
             
-            // Details
-            VStack(alignment: .leading, spacing: 24) {
-                // Title
-                Text(movie.title)
-                    .font(.title)
-                    .fontWeight(.bold)
-                
-                // Metadata
-                HStack(spacing: 16) {
-                    if let year = movie.year {
-                        Text(String(year))
-                            .foregroundStyle(.secondary)
-                    }
-                    
-                    if let duration = movie.duration {
-                        Text("\(duration) min")
-                            .foregroundStyle(.secondary)
-                    }
-                    
-                    if let rating = movie.rating {
-                        HStack(spacing: 4) {
-                            Image(systemName: "star.fill")
-                                .foregroundColor(.yellow)
-                            Text(String(format: "%.1f", rating))
-                        }
-                    }
-                    
-                    Text(movie.category)
-                        .foregroundStyle(.secondary)
-                }
-                .font(.callout)
-                
-                // Description
-                if let description = movie.description {
-                    Text(description)
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(5)
-                }
-                
-                Spacer()
-                
-                // Actions
-                HStack(spacing: 24) {
-                    Button {
-                        onPlay()
-                    } label: {
-                        Label(L10n.Player.play, systemImage: "play.fill")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    
-                    Button {
-                        onToggleFavorite()
-                    } label: {
-                        Label(
-                            movie.isFavorite ? L10n.Favorites.removeFromFavorites : L10n.Favorites.addToFavorites,
-                            systemImage: movie.isFavorite ? "heart.fill" : "heart"
-                        )
-                    }
-                    .buttonStyle(.bordered)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            
+            detailContent
             Spacer()
         }
-        .padding(60)
+        .padding(PlatformMetrics.detailPadding)
+    }
+    #endif
+    
+    #if !os(tvOS)
+    private var adaptiveDetailLayout: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                HStack(alignment: .top, spacing: 24) {
+                    posterView
+                        .frame(height: PlatformMetrics.detailPosterHeight)
+                    
+                    detailContent
+                }
+            }
+            .padding(PlatformMetrics.detailPadding)
+        }
+    }
+    #endif
+    
+    private var posterView: some View {
+        CachedAsyncImage(url: movie.posterURL) { image in
+            image
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+        } placeholder: {
+            Rectangle()
+                .fill(Color.gray.opacity(0.3))
+                .overlay {
+                    Image(systemName: "film")
+                        .font(.system(size: 60))
+                        .foregroundStyle(.secondary)
+                }
+        }
+        .aspectRatio(2/3, contentMode: .fit)
+        .cornerRadius(16)
+    }
+    
+    private var detailContent: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            // Title
+            Text(movie.title)
+                .font(.title)
+                .fontWeight(.bold)
+            
+            // Metadata
+            HStack(spacing: 16) {
+                if let year = movie.year {
+                    Text(String(year))
+                        .foregroundStyle(.secondary)
+                }
+                
+                if let duration = movie.duration {
+                    Text("\(duration) min")
+                        .foregroundStyle(.secondary)
+                }
+                
+                if let rating = movie.rating {
+                    HStack(spacing: 4) {
+                        Image(systemName: "star.fill")
+                            .foregroundColor(.yellow)
+                        Text(String(format: "%.1f", rating))
+                    }
+                }
+                
+                Text(movie.category)
+                    .foregroundStyle(.secondary)
+            }
+            .font(.callout)
+            
+            // Description
+            if let description = movie.description {
+                Text(description)
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(5)
+            }
+            
+            Spacer()
+            
+            // Actions
+            HStack(spacing: 24) {
+                Button {
+                    onPlay()
+                } label: {
+                    Label(L10n.Player.play, systemImage: "play.fill")
+                }
+                .buttonStyle(.borderedProminent)
+                
+                Button {
+                    onToggleFavorite()
+                } label: {
+                    Label(
+                        movie.isFavorite ? L10n.Favorites.removeFromFavorites : L10n.Favorites.addToFavorites,
+                        systemImage: movie.isFavorite ? "heart.fill" : "heart"
+                    )
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

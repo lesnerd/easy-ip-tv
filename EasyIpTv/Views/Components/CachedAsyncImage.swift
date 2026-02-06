@@ -1,4 +1,9 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
 
 /// Image cache manager for app-wide image caching
 final class ImageCacheManager {
@@ -112,8 +117,8 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
         let request = URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad)
         
         if let cachedResponse = urlCache.cachedResponse(for: request),
-           let uiImage = UIImage(data: cachedResponse.data) {
-            phase = .success(Image(uiImage: uiImage))
+           let image = Self.platformImage(from: cachedResponse.data) {
+            phase = .success(image)
             return
         }
         
@@ -137,8 +142,8 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
                 urlCache.storeCachedResponse(cachedResponse, for: request)
             }
             
-            if let uiImage = UIImage(data: data) {
-                phase = .success(Image(uiImage: uiImage))
+            if let image = Self.platformImage(from: data) {
+                phase = .success(image)
             } else {
                 phase = .failure(ImageError.invalidData)
             }
@@ -146,6 +151,17 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
             guard !Task.isCancelled else { return }
             phase = .failure(error)
         }
+    }
+    
+    /// Creates a SwiftUI Image from data, using the appropriate platform image type
+    private static func platformImage(from data: Data) -> Image? {
+        #if canImport(UIKit)
+        guard let uiImage = UIImage(data: data) else { return nil }
+        return Image(uiImage: uiImage)
+        #elseif canImport(AppKit)
+        guard let nsImage = NSImage(data: data) else { return nil }
+        return Image(nsImage: nsImage)
+        #endif
     }
     
     enum ImageError: Error {

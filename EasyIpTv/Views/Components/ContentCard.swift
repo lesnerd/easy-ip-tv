@@ -11,6 +11,7 @@ struct ContentCard: View {
     var onLongPress: () -> Void = {}
     
     @State private var isPressed = false
+    @State private var isHovered = false
     @FocusState private var isFocused: Bool
     
     init(
@@ -35,7 +36,7 @@ struct ContentCard: View {
         Button {
             onTap()
         } label: {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 8) {
                 // Image
                 ZStack(alignment: .topTrailing) {
                     CachedAsyncImage(url: imageURL) { image in
@@ -47,22 +48,29 @@ struct ContentCard: View {
                     }
                     .aspectRatio(aspectRatio, contentMode: .fit)
                     .clipped()
-                    .cornerRadius(12)
+                    .cornerRadius(10)
+                    #if !os(tvOS)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(isHovered ? Color.accentColor.opacity(0.6) : Color.clear, lineWidth: 2)
+                    )
+                    .shadow(color: isHovered ? Color.accentColor.opacity(0.3) : Color.black.opacity(0.15), radius: isHovered ? 12 : 4, y: isHovered ? 4 : 2)
+                    #endif
                     
                     // Favorite indicator
                     if isFavorite {
                         Image(systemName: "heart.fill")
-                            .font(.title3)
+                            .font(.caption)
                             .foregroundColor(.red)
-                            .padding(8)
+                            .padding(6)
                             .background(.ultraThinMaterial)
                             .clipShape(Circle())
-                            .padding(8)
+                            .padding(6)
                     }
                 }
                 
                 // Text
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(title)
                         .font(.callout)
                         .fontWeight(.medium)
@@ -80,6 +88,13 @@ struct ContentCard: View {
         }
         .buttonStyle(CardButtonStyle())
         .focused($isFocused)
+        #if !os(tvOS)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isHovered = hovering
+            }
+        }
+        #endif
         .contextMenu {
             Button {
                 onLongPress()
@@ -94,24 +109,30 @@ struct ContentCard: View {
     
     private var placeholderImage: some View {
         Rectangle()
-            .fill(Color.gray.opacity(0.3))
+            .fill(Color.gray.opacity(0.2))
             .overlay {
                 Image(systemName: "photo")
-                    .font(.largeTitle)
-                    .foregroundStyle(.secondary)
+                    .font(.title2)
+                    .foregroundStyle(.tertiary)
             }
     }
 }
 
-/// Custom button style for cards with focus effects
+/// Custom button style for cards with focus/hover effects
 struct CardButtonStyle: ButtonStyle {
     @Environment(\.isFocused) var isFocused
     
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
+            #if os(tvOS)
             .scaleEffect(isFocused ? 1.05 : 1.0)
             .shadow(radius: isFocused ? 20 : 0)
             .animation(.easeInOut(duration: 0.2), value: isFocused)
+            #else
+            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
+            .opacity(configuration.isPressed ? 0.85 : 1.0)
+            .animation(.easeInOut(duration: 0.12), value: configuration.isPressed)
+            #endif
     }
 }
 

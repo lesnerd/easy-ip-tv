@@ -65,6 +65,7 @@ struct CategoryHeader: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
+                    #if os(tvOS)
                     .background(
                         RoundedRectangle(cornerRadius: 10)
                             .fill(isFocused ? Color.white.opacity(0.2) : Color.clear)
@@ -73,11 +74,19 @@ struct CategoryHeader: View {
                         RoundedRectangle(cornerRadius: 10)
                             .stroke(isFocused ? Color.white.opacity(0.5) : Color.clear, lineWidth: 2)
                     )
+                    #else
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Color.clear)
+                    )
+                    #endif
                 }
                 .buttonStyle(.plain)
                 .focused($isFocused)
+                #if os(tvOS)
                 .scaleEffect(isFocused ? 1.02 : 1.0)
                 .animation(.easeInOut(duration: 0.15), value: isFocused)
+                #endif
             } else {
                 // Non-clickable header (no favorite button)
                 HStack(spacing: 12) {
@@ -106,7 +115,7 @@ struct CategoryHeader: View {
                     onSeeAll()
                 } label: {
                     HStack(spacing: 4) {
-                        Text("See All")
+                        Text(L10n.Content.seeAll)
                             .font(.callout)
                         Image(systemName: "chevron.right")
                             .font(.caption)
@@ -165,12 +174,12 @@ struct CategoryRow<Content: View>: View {
             )
             
             ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 40) {
+                LazyHStack(spacing: PlatformMetrics.horizontalSpacing) {
                     content()
                 }
                 .padding(.horizontal)
             }
-            .focusSection()
+            .platformFocusSection()
         }
     }
 }
@@ -185,7 +194,7 @@ struct CategoryGrid<Item: Identifiable, ItemView: View>: View {
     
     init(
         items: [Item],
-        columns: Int = 5,
+        columns: Int = PlatformMetrics.gridColumns,
         @ViewBuilder itemView: @escaping (Item) -> ItemView
     ) {
         self.items = items
@@ -195,8 +204,8 @@ struct CategoryGrid<Item: Identifiable, ItemView: View>: View {
     
     var body: some View {
         LazyVGrid(
-            columns: Array(repeating: GridItem(.flexible(), spacing: 40), count: columns),
-            spacing: 40
+            columns: Array(repeating: GridItem(.flexible(), spacing: PlatformMetrics.horizontalSpacing), count: columns),
+            spacing: PlatformMetrics.horizontalSpacing
         ) {
             ForEach(items) { item in
                 itemView(item)
@@ -232,7 +241,7 @@ struct HeroBanner<Item: Identifiable>: View {
                     } placeholder: {
                         ShimmerPlaceholder()
                     }
-                    .frame(height: 500)
+                    .frame(height: PlatformMetrics.heroBannerHeight)
                     .clipped()
                     
                     // Gradient overlay
@@ -280,9 +289,10 @@ struct HeroBanner<Item: Identifiable>: View {
                             }
                         }
                     }
-                    .padding(50)
+                    .padding(PlatformMetrics.detailPadding)
                 }
                 .focused($isFocused)
+                #if os(tvOS)
                 .onMoveCommand { direction in
                     switch direction {
                     case .left:
@@ -293,6 +303,7 @@ struct HeroBanner<Item: Identifiable>: View {
                         break
                     }
                 }
+                #endif
             }
         }
         .onAppear {
@@ -371,10 +382,10 @@ struct SkeletonRow: View {
     let aspectRatio: CGFloat
     let cardWidth: CGFloat
     
-    init(cardCount: Int = 5, aspectRatio: CGFloat = 16/9, cardWidth: CGFloat = 300) {
+    init(cardCount: Int = 5, aspectRatio: CGFloat = 16/9, cardWidth: CGFloat = 0) {
         self.cardCount = cardCount
         self.aspectRatio = aspectRatio
-        self.cardWidth = cardWidth
+        self.cardWidth = cardWidth > 0 ? cardWidth : PlatformMetrics.channelCardWidth
     }
     
     var body: some View {
@@ -395,7 +406,7 @@ struct SkeletonRow: View {
             
             // Cards skeleton
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 40) {
+                HStack(spacing: PlatformMetrics.horizontalSpacing) {
                     ForEach(0..<cardCount, id: \.self) { _ in
                         SkeletonCard(aspectRatio: aspectRatio)
                             .frame(width: cardWidth)
@@ -411,15 +422,15 @@ struct SkeletonRow: View {
 struct SkeletonPageView: View {
     var body: some View {
         ScrollView {
-            VStack(spacing: 50) {
+            VStack(spacing: PlatformMetrics.sectionSpacing) {
                 // Hero skeleton
                 ShimmerPlaceholder()
-                    .frame(height: 400)
+                    .frame(height: PlatformMetrics.heroBannerHeight - 100)
                 
                 // Row skeletons
-                SkeletonRow(cardCount: 5, aspectRatio: 16/9, cardWidth: 300)
-                SkeletonRow(cardCount: 6, aspectRatio: 2/3, cardWidth: 200)
-                SkeletonRow(cardCount: 6, aspectRatio: 2/3, cardWidth: 200)
+                SkeletonRow(cardCount: 5, aspectRatio: 16/9, cardWidth: PlatformMetrics.channelCardWidth)
+                SkeletonRow(cardCount: 6, aspectRatio: 2/3, cardWidth: PlatformMetrics.posterCardWidth)
+                SkeletonRow(cardCount: 6, aspectRatio: 2/3, cardWidth: PlatformMetrics.posterCardWidth)
             }
         }
     }

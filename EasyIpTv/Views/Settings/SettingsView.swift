@@ -67,6 +67,15 @@ struct SettingsView: View {
                         Text(Bundle.main.appVersion)
                             .foregroundStyle(.secondary)
                     }
+                    
+                    #if !os(tvOS)
+                    HStack {
+                        Text("Platform")
+                        Spacer()
+                        Text(platformName)
+                            .foregroundStyle(.secondary)
+                    }
+                    #endif
                 } header: {
                     Label(L10n.Settings.about, systemImage: "info.circle")
                 }
@@ -82,6 +91,9 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle(L10n.Navigation.settings)
+            #if os(macOS)
+            .listStyle(.inset)
+            #endif
         }
         .sheet(isPresented: $showAddPlaylist) {
             AddPlaylistView { url in
@@ -99,6 +111,19 @@ struct SettingsView: View {
         } message: {
             Text(L10n.Settings.clearDataConfirmation)
         }
+    }
+    
+    private var platformName: String {
+        #if os(macOS)
+        return "macOS"
+        #elseif os(iOS)
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            return "iPadOS"
+        }
+        return "iOS"
+        #else
+        return "tvOS"
+        #endif
     }
     
     // MARK: - Actions
@@ -233,15 +258,20 @@ struct AddPlaylistView: View {
     
     var body: some View {
         NavigationStack {
-            VStack(spacing: 30) {
+            VStack(spacing: 24) {
                 Text(L10n.Settings.enterPlaylistURL)
                     .font(.headline)
                 
                 TextField("https://example.com/playlist.m3u", text: $urlString)
+                    #if os(iOS)
                     .textInputAutocapitalization(.never)
+                    #endif
                     .autocorrectionDisabled()
                     .focused($isTextFieldFocused)
-                    .padding(.horizontal, 60)
+                    .padding(.horizontal, PlatformMetrics.detailPadding)
+                    #if os(macOS)
+                    .textFieldStyle(.roundedBorder)
+                    #endif
                 
                 if showError {
                     Text(errorMessage)
@@ -262,8 +292,11 @@ struct AddPlaylistView: View {
                     .disabled(urlString.isEmpty)
                 }
             }
-            .padding(60)
+            .padding(PlatformMetrics.detailPadding)
             .navigationTitle(L10n.Settings.addPlaylist)
+            #if os(macOS)
+            .frame(minWidth: 400, minHeight: 200)
+            #endif
             .onAppear {
                 isTextFieldFocused = true
             }

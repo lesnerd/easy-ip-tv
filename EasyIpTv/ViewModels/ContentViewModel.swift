@@ -144,6 +144,12 @@ class ContentViewModel: ObservableObject {
             return "israel"
         }
         
+        if lowercased.contains("arabic") || lowercased.contains("arab") ||
+           lowercased.hasPrefix("ar ") || lowercased.hasSuffix(" ar") ||
+           lowercased.contains("| ar") || lowercased.contains("العربية") {
+            return "arabic"
+        }
+        
         return nil
     }
     
@@ -217,13 +223,13 @@ class ContentViewModel: ObservableObject {
                     vodCategories = vod.compactMap { cat -> CategoryInfo? in
                         guard let id = cat.categoryId, let name = cat.categoryName else { return nil }
                         return CategoryInfo(id: id, name: name)
-                    }
+                    }.sorted { categoryPriority($0.name) < categoryPriority($1.name) }
                     
                     if let series = series {
                         seriesCategories = series.compactMap { cat -> CategoryInfo? in
                             guard let id = cat.categoryId, let name = cat.categoryName else { return nil }
                             return CategoryInfo(id: id, name: name)
-                        }
+                        }.sorted { categoryPriority($0.name) < categoryPriority($1.name) }
                     }
                     
                     hasContent = !liveCategories.isEmpty || !vodCategories.isEmpty || !seriesCategories.isEmpty
@@ -433,12 +439,13 @@ class ContentViewModel: ObservableObject {
         isLoadingCategory = false
     }
     
-    /// Gets priority for category sorting
+    /// Gets priority for category sorting (lower = shown first, higher = shown last)
     private func categoryPriority(_ category: String) -> Int {
         if let country = detectCountry(from: category) {
             switch country {
             case "hungary": return 0
             case "israel": return 1
+            case "arabic": return 99 // Push Arabic to the end
             default: return 2
             }
         }

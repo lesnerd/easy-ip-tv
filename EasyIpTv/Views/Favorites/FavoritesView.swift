@@ -35,11 +35,10 @@ struct FavoritesView: View {
             }
             .navigationTitle(L10n.Navigation.favorites)
             .onAppear {
-                // Ensure favorites are loaded
                 favoritesViewModel.loadSavedFavorites()
             }
         }
-        .fullScreenCover(isPresented: $showChannelPlayer) {
+        .platformFullScreen(isPresented: $showChannelPlayer) {
             if let channel = selectedChannel {
                 PlayerView(channel: channel)
             }
@@ -54,7 +53,7 @@ struct FavoritesView: View {
                 }
             }
         }
-        .fullScreenCover(isPresented: $showMoviePlayer) {
+        .platformFullScreen(isPresented: $showMoviePlayer) {
             if let movie = selectedMovie {
                 PlayerView(movie: movie)
             }
@@ -71,7 +70,7 @@ struct FavoritesView: View {
                 }
             }
         }
-        .fullScreenCover(isPresented: $showEpisodePlayer) {
+        .platformFullScreen(isPresented: $showEpisodePlayer) {
             if let episode = selectedEpisode {
                 PlayerView(episode: episode, showContext: selectedShow, seasonNumber: selectedSeasonNumber)
             }
@@ -87,7 +86,7 @@ struct FavoritesView: View {
     
     private var contentView: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 50) {
+            LazyVStack(alignment: .leading, spacing: PlatformMetrics.sectionSpacing) {
                 // Continue Watching section (highest priority)
                 if !continueWatchingItems.isEmpty {
                     ContinueWatchingSection(
@@ -122,7 +121,7 @@ struct FavoritesView: View {
                             Image(systemName: "tv.fill")
                                 .font(.title2)
                                 .foregroundStyle(.blue)
-                            Text("Live TV")
+                            Text(L10n.Navigation.liveTV)
                                 .font(.title2)
                                 .fontWeight(.bold)
                             Text("(\(favoritesViewModel.favoriteChannels.count))")
@@ -132,19 +131,19 @@ struct FavoritesView: View {
                         .padding(.horizontal)
                         
                         ScrollView(.horizontal, showsIndicators: false) {
-                            LazyHStack(spacing: 30) {
+                            LazyHStack(spacing: PlatformMetrics.horizontalSpacing) {
                                 ForEach(favoritesViewModel.favoriteChannels) { channel in
                                     ChannelCard(channel: channel) {
                                         playChannel(channel)
                                     } onLongPress: {
                                         toggleFavorite(channel: channel)
                                     }
-                                    .frame(width: 300)
+                                    .frame(width: PlatformMetrics.channelCardWidth)
                                 }
                             }
                             .padding(.horizontal)
                         }
-                        .focusSection()
+                        .platformFocusSection()
                     }
                 }
                 
@@ -156,7 +155,7 @@ struct FavoritesView: View {
                             Image(systemName: "film.fill")
                                 .font(.title2)
                                 .foregroundStyle(.purple)
-                            Text("Movies")
+                            Text(L10n.Navigation.movies)
                                 .font(.title2)
                                 .fontWeight(.bold)
                             Text("(\(favoritesViewModel.favoriteMovies.count))")
@@ -166,19 +165,19 @@ struct FavoritesView: View {
                         .padding(.horizontal)
                         
                         ScrollView(.horizontal, showsIndicators: false) {
-                            LazyHStack(spacing: 30) {
+                            LazyHStack(spacing: PlatformMetrics.horizontalSpacing) {
                                 ForEach(favoritesViewModel.favoriteMovies) { movie in
                                     MovieCard(movie: movie) {
                                         selectMovie(movie)
                                     } onLongPress: {
                                         toggleFavorite(movie: movie)
                                     }
-                                    .frame(width: 200)
+                                    .frame(width: PlatformMetrics.posterCardWidth)
                                 }
                             }
                             .padding(.horizontal)
                         }
-                        .focusSection()
+                        .platformFocusSection()
                     }
                 }
                 
@@ -190,7 +189,7 @@ struct FavoritesView: View {
                             Image(systemName: "play.rectangle.on.rectangle.fill")
                                 .font(.title2)
                                 .foregroundStyle(.orange)
-                            Text("Shows")
+                            Text(L10n.Navigation.shows)
                                 .font(.title2)
                                 .fontWeight(.bold)
                             Text("(\(favoritesViewModel.favoriteShows.count))")
@@ -200,19 +199,19 @@ struct FavoritesView: View {
                         .padding(.horizontal)
                         
                         ScrollView(.horizontal, showsIndicators: false) {
-                            LazyHStack(spacing: 30) {
+                            LazyHStack(spacing: PlatformMetrics.horizontalSpacing) {
                                 ForEach(favoritesViewModel.favoriteShows) { show in
                                     ShowCard(show: show) {
                                         selectShow(show)
                                     } onLongPress: {
                                         toggleFavorite(show: show)
                                     }
-                                    .frame(width: 200)
+                                    .frame(width: PlatformMetrics.posterCardWidth)
                                 }
                             }
                             .padding(.horizontal)
                         }
-                        .focusSection()
+                        .platformFocusSection()
                     }
                 }
                 
@@ -233,7 +232,7 @@ struct FavoritesView: View {
                     )
                 }
             }
-            .padding(.vertical, 40)
+            .padding(.vertical, PlatformMetrics.contentPadding)
         }
     }
     
@@ -316,7 +315,7 @@ struct ContinueWatchingSection: View {
             )
             
             ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 24) {
+                LazyHStack(spacing: PlatformMetrics.horizontalSpacing) {
                     ForEach(items) { item in
                         ContinueWatchingItemCard(item: item) {
                             if item.contentType == "movie" {
@@ -327,7 +326,7 @@ struct ContinueWatchingSection: View {
                         }
                     }
                 }
-                .padding(.horizontal, 50)
+                .padding(.horizontal, PlatformMetrics.contentPadding + 10)
             }
         }
     }
@@ -340,6 +339,16 @@ struct ContinueWatchingItemCard: View {
     var onPlay: () -> Void = {}
     
     @FocusState private var isFocused: Bool
+    
+    private var cardWidth: CGFloat {
+        #if os(tvOS)
+        return 300
+        #elseif os(macOS)
+        return 260
+        #else
+        return 220
+        #endif
+    }
     
     var body: some View {
         Button {
@@ -376,7 +385,7 @@ struct ContinueWatchingItemCard: View {
                         .frame(height: 4)
                     }
                 }
-                .frame(width: 300)
+                .frame(width: cardWidth)
                 .cornerRadius(12)
                 
                 // Info
@@ -410,13 +419,15 @@ struct ContinueWatchingItemCard: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                .frame(width: 300, alignment: .leading)
+                .frame(width: cardWidth, alignment: .leading)
             }
         }
         .buttonStyle(.plain)
         .focused($isFocused)
+        #if os(tvOS)
         .scaleEffect(isFocused ? 1.05 : 1.0)
         .animation(.easeInOut(duration: 0.2), value: isFocused)
+        #endif
     }
 }
 
@@ -438,7 +449,7 @@ struct RecentlyWatchedSection: View {
             )
             
             ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 24) {
+                LazyHStack(spacing: PlatformMetrics.horizontalSpacing) {
                     ForEach(items) { item in
                         RecentlyWatchedCard(
                             item: item,
@@ -449,7 +460,7 @@ struct RecentlyWatchedSection: View {
                         )
                     }
                 }
-                .padding(.horizontal, 50)
+                .padding(.horizontal, PlatformMetrics.contentPadding + 10)
             }
         }
     }
@@ -465,6 +476,16 @@ struct RecentlyWatchedCard: View {
     var onSelectShow: (Show) -> Void = { _ in }
     
     @FocusState private var isFocused: Bool
+    
+    private var cardWidth: CGFloat {
+        #if os(tvOS)
+        return 150
+        #elseif os(macOS)
+        return 130
+        #else
+        return 120
+        #endif
+    }
     
     var body: some View {
         Button {
@@ -498,7 +519,7 @@ struct RecentlyWatchedCard: View {
                     }
                 }
                 .aspectRatio(2/3, contentMode: .fit)
-                .frame(width: 150)
+                .frame(width: cardWidth)
                 .cornerRadius(12)
                 .clipped()
                 
@@ -522,13 +543,15 @@ struct RecentlyWatchedCard: View {
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
-                .frame(width: 150, alignment: .leading)
+                .frame(width: cardWidth, alignment: .leading)
             }
         }
         .buttonStyle(.plain)
         .focused($isFocused)
+        #if os(tvOS)
         .scaleEffect(isFocused ? 1.05 : 1.0)
         .animation(.easeInOut(duration: 0.2), value: isFocused)
+        #endif
     }
 }
 

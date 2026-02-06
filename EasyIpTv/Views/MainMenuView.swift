@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Main navigation view with tab bar
+/// Main navigation view - sidebar on macOS, tabs on iOS/tvOS
 struct MainMenuView: View {
     @EnvironmentObject var contentViewModel: ContentViewModel
     @EnvironmentObject var favoritesViewModel: FavoritesViewModel
@@ -8,12 +8,14 @@ struct MainMenuView: View {
     
     @State private var selectedTab: Tab = .favorites
     
-    enum Tab: String, CaseIterable {
+    enum Tab: String, CaseIterable, Identifiable {
         case favorites
         case liveTV
         case movies
         case shows
         case settings
+        
+        var id: String { rawValue }
         
         var title: String {
             switch self {
@@ -37,6 +39,42 @@ struct MainMenuView: View {
     }
     
     var body: some View {
+        #if os(macOS)
+        macOSNavigation
+        #else
+        tabNavigation
+        #endif
+    }
+    
+    // MARK: - macOS Sidebar Navigation
+    
+    #if os(macOS)
+    private var macOSNavigation: some View {
+        NavigationSplitView {
+            List(selection: $selectedTab) {
+                Section {
+                    ForEach(Tab.allCases.filter { $0 != .settings }) { tab in
+                        Label(tab.title, systemImage: tab.icon)
+                            .tag(tab)
+                    }
+                }
+                
+                Section {
+                    Label(Tab.settings.title, systemImage: Tab.settings.icon)
+                        .tag(Tab.settings)
+                }
+            }
+            .navigationTitle("Easy IPTV")
+            .listStyle(.sidebar)
+        } detail: {
+            tabContent(for: selectedTab)
+        }
+    }
+    #endif
+    
+    // MARK: - Tab Navigation (iOS/tvOS)
+    
+    private var tabNavigation: some View {
         TabView(selection: $selectedTab) {
             FavoritesView()
                 .tabItem {
@@ -69,6 +107,24 @@ struct MainMenuView: View {
                 .tag(Tab.settings)
         }
     }
+    
+    // MARK: - Tab Content (for macOS detail view)
+    
+    @ViewBuilder
+    private func tabContent(for tab: Tab) -> some View {
+        switch tab {
+        case .favorites:
+            FavoritesView()
+        case .liveTV:
+            LiveTVView()
+        case .movies:
+            MoviesView()
+        case .shows:
+            ShowsView()
+        case .settings:
+            SettingsView()
+        }
+    }
 }
 
 // MARK: - Empty State View
@@ -81,9 +137,9 @@ struct EmptyStateView: View {
     var actionTitle: String? = nil
     
     var body: some View {
-        VStack(spacing: 30) {
+        VStack(spacing: 20) {
             Image(systemName: icon)
-                .font(.system(size: 80))
+                .font(.system(size: PlatformMetrics.usesFocusScaling ? 80 : 50))
                 .foregroundStyle(.secondary)
             
             Text(title)

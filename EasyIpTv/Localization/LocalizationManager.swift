@@ -44,6 +44,9 @@ class LocalizationManager: ObservableObject {
     
     static let shared = LocalizationManager()
     
+    /// Non-isolated bundle for string lookups (Bundle is thread-safe for reading)
+    nonisolated(unsafe) static var currentBundle: Bundle = .main
+    
     @Published var currentLanguage: AppLanguage {
         didSet {
             StorageService.shared.saveSelectedLanguage(currentLanguage)
@@ -51,6 +54,7 @@ class LocalizationManager: ObservableObject {
         }
     }
     
+    /// The bundle for the currently selected language
     private(set) var bundle: Bundle = .main
     
     private init() {
@@ -74,108 +78,125 @@ class LocalizationManager: ObservableObject {
         if let path = Bundle.main.path(forResource: currentLanguage.rawValue, ofType: "lproj"),
            let bundle = Bundle(path: path) {
             self.bundle = bundle
+            Self.currentBundle = bundle
         } else {
             self.bundle = .main
+            Self.currentBundle = .main
         }
     }
 }
 
+// MARK: - Localized String Helper
+
+/// Looks up a localized string using the in-app selected language bundle.
+/// Uses the static `currentBundle` which is safe to read from any context.
+private func tr(_ key: String) -> String {
+    NSLocalizedString(key, bundle: LocalizationManager.currentBundle, comment: "")
+}
+
+/// Looks up a localized format string and applies arguments
+private func tr(_ key: String, _ args: CVarArg...) -> String {
+    let format = NSLocalizedString(key, bundle: LocalizationManager.currentBundle, comment: "")
+    return String(format: format, arguments: args)
+}
+
 // MARK: - Localized Strings
 
-/// Namespace for localized strings used throughout the app
+/// Namespace for localized strings used throughout the app.
+/// All strings resolve against the in-app selected language, not the system locale.
 enum L10n {
     
     // MARK: - Navigation
     enum Navigation {
-        static var home: String { String(localized: "Home") }
-        static var favorites: String { String(localized: "Favorites") }
-        static var liveTV: String { String(localized: "Live TV") }
-        static var movies: String { String(localized: "Movies") }
-        static var shows: String { String(localized: "Shows") }
-        static var settings: String { String(localized: "Settings") }
+        static var home: String { tr("Home") }
+        static var favorites: String { tr("Favorites") }
+        static var liveTV: String { tr("Live TV") }
+        static var movies: String { tr("Movies") }
+        static var shows: String { tr("Shows") }
+        static var settings: String { tr("Settings") }
     }
     
     // MARK: - Player
     enum Player {
-        static var play: String { String(localized: "Play") }
-        static var pause: String { String(localized: "Pause") }
-        static var stop: String { String(localized: "Stop") }
-        static var channelUp: String { String(localized: "Channel Up") }
-        static var channelDown: String { String(localized: "Channel Down") }
-        static var nowPlaying: String { String(localized: "Now Playing") }
-        static var loading: String { String(localized: "Loading...") }
-        static var buffering: String { String(localized: "Buffering...") }
-        static var resume: String { String(localized: "Resume") }
-        static var startOver: String { String(localized: "Start Over") }
-        static func resumeFrom(_ time: String) -> String { String(localized: "Resume from \(time)?") }
-        static var subtitles: String { String(localized: "Subtitles") }
-        static var off: String { String(localized: "Off") }
-        static var upNext: String { String(localized: "Up Next") }
-        static var autoPlayNext: String { String(localized: "Auto-Play Next Episode") }
+        static var play: String { tr("Play") }
+        static var pause: String { tr("Pause") }
+        static var stop: String { tr("Stop") }
+        static var channelUp: String { tr("Channel Up") }
+        static var channelDown: String { tr("Channel Down") }
+        static var nowPlaying: String { tr("Now Playing") }
+        static var loading: String { tr("Loading...") }
+        static var buffering: String { tr("Buffering...") }
+        static var resume: String { tr("Resume") }
+        static var startOver: String { tr("Start Over") }
+        static func resumeFrom(_ time: String) -> String { tr("Resume from %@?", time) }
+        static var subtitles: String { tr("Subtitles") }
+        static var off: String { tr("Off") }
+        static var upNext: String { tr("Up Next") }
+        static var autoPlayNext: String { tr("Auto-Play Next Episode") }
     }
     
     // MARK: - Favorites
     enum Favorites {
-        static var addToFavorites: String { String(localized: "Add to Favorites") }
-        static var removeFromFavorites: String { String(localized: "Remove from Favorites") }
-        static var noFavorites: String { String(localized: "No favorites yet") }
-        static var noFavoritesDescription: String { String(localized: "Long press on any channel, movie, or show to add it to your favorites.") }
+        static var addToFavorites: String { tr("Add to Favorites") }
+        static var removeFromFavorites: String { tr("Remove from Favorites") }
+        static var noFavorites: String { tr("No favorites yet") }
+        static var noFavoritesDescription: String { tr("Long press on any channel, movie, or show to add it to your favorites.") }
     }
     
     // MARK: - Settings
     enum Settings {
-        static var language: String { String(localized: "Language") }
-        static var playlists: String { String(localized: "Playlists") }
-        static var addPlaylist: String { String(localized: "Add Playlist") }
-        static var removePlaylist: String { String(localized: "Remove Playlist") }
-        static var enterPlaylistURL: String { String(localized: "Enter playlist URL") }
-        static var quality: String { String(localized: "Quality") }
-        static var subtitleLanguage: String { String(localized: "Subtitle Language") }
-        static var about: String { String(localized: "About") }
-        static var version: String { String(localized: "Version") }
-        static var clearData: String { String(localized: "Clear All Data") }
-        static var clearDataConfirmation: String { String(localized: "Are you sure you want to clear all data? This action cannot be undone.") }
+        static var language: String { tr("Language") }
+        static var playlists: String { tr("Playlists") }
+        static var addPlaylist: String { tr("Add Playlist") }
+        static var removePlaylist: String { tr("Remove Playlist") }
+        static var enterPlaylistURL: String { tr("Enter playlist URL") }
+        static var quality: String { tr("Quality") }
+        static var subtitleLanguage: String { tr("Subtitle Language") }
+        static var about: String { tr("About") }
+        static var version: String { tr("Version") }
+        static var clearData: String { tr("Clear All Data") }
+        static var clearDataConfirmation: String { tr("Are you sure you want to clear all data? This action cannot be undone.") }
     }
     
     // MARK: - Content
     enum Content {
-        static var allChannels: String { String(localized: "All Channels") }
-        static var allMovies: String { String(localized: "All Movies") }
-        static var allShows: String { String(localized: "All Shows") }
-        static var categories: String { String(localized: "Categories") }
-        static var recentlyWatched: String { String(localized: "Recently Watched") }
-        static var continueWatching: String { String(localized: "Continue Watching") }
-        static var featured: String { String(localized: "Featured") }
-        static var seeAll: String { String(localized: "See All") }
-        static var noResults: String { String(localized: "No Results") }
-        static func season(_ number: Int) -> String { String(localized: "Season \(number)") }
-        static func episode(_ number: Int) -> String { String(localized: "Episode \(number)") }
-        static func seasonEpisode(_ season: Int, _ episode: Int) -> String { 
-            String(localized: "S\(season) E\(episode)") 
+        static var allChannels: String { tr("All Channels") }
+        static var allMovies: String { tr("All Movies") }
+        static var allShows: String { tr("All Shows") }
+        static var categories: String { tr("Categories") }
+        static var recentlyWatched: String { tr("Recently Watched") }
+        static var continueWatching: String { tr("Continue Watching") }
+        static var featured: String { tr("Featured") }
+        static var seeAll: String { tr("See All") }
+        static var noResults: String { tr("No Results") }
+        static func season(_ number: Int) -> String { tr("Season %lld", number) }
+        static func episode(_ number: Int) -> String { tr("Episode %lld", number) }
+        static func seasonEpisode(_ season: Int, _ episode: Int) -> String {
+            tr("S%lld E%lld", season, episode)
         }
-        static func duration(_ minutes: Int) -> String { String(localized: "\(minutes) min") }
-        static func episodeCount(_ count: Int) -> String { String(localized: "\(count) episodes") }
+        static func duration(_ minutes: Int) -> String { tr("%lld min", minutes) }
+        static func episodeCount(_ count: Int) -> String { tr("%lld episodes", count) }
     }
     
     // MARK: - Errors
     enum Errors {
-        static var loadingFailed: String { String(localized: "Failed to load content") }
-        static var playbackFailed: String { String(localized: "Playback failed") }
-        static var noPlaylist: String { String(localized: "No playlist configured") }
-        static var noPlaylistDescription: String { String(localized: "Add a playlist URL in Settings to get started.") }
-        static var invalidURL: String { String(localized: "Invalid URL") }
-        static var networkError: String { String(localized: "Network error") }
-        static var tryAgain: String { String(localized: "Try Again") }
+        static var loadingFailed: String { tr("Failed to load content") }
+        static var playbackFailed: String { tr("Playback failed") }
+        static var noPlaylist: String { tr("No playlist configured") }
+        static var noPlaylistDescription: String { tr("Add a playlist URL in Settings to get started.") }
+        static var invalidURL: String { tr("Invalid URL") }
+        static var networkError: String { tr("Network error") }
+        static var tryAgain: String { tr("Try Again") }
     }
     
     // MARK: - Actions
     enum Actions {
-        static var ok: String { String(localized: "OK") }
-        static var cancel: String { String(localized: "Cancel") }
-        static var done: String { String(localized: "Done") }
-        static var save: String { String(localized: "Save") }
-        static var delete: String { String(localized: "Delete") }
-        static var confirm: String { String(localized: "Confirm") }
-        static var search: String { String(localized: "Search") }
+        static var ok: String { tr("OK") }
+        static var cancel: String { tr("Cancel") }
+        static var done: String { tr("Done") }
+        static var save: String { tr("Save") }
+        static var delete: String { tr("Delete") }
+        static var confirm: String { tr("Confirm") }
+        static var search: String { tr("Search") }
     }
 }

@@ -64,8 +64,10 @@ struct ChannelRowView: View {
         }
         .buttonStyle(.plain)
         .focused($isFocused)
+        #if os(tvOS)
         .scaleEffect(isFocused ? 1.02 : 1.0)
         .animation(.easeInOut(duration: 0.15), value: isFocused)
+        #endif
     }
 }
 
@@ -145,7 +147,7 @@ struct MiniChannelNavigator: View {
                 }
             }
         }
-        .frame(width: 500)
+        .frame(width: PlatformMetrics.usesFocusScaling ? 500 : 400)
         .background(.ultraThinMaterial)
         .cornerRadius(16)
     }

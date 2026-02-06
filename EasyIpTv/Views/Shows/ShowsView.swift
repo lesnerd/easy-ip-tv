@@ -43,7 +43,7 @@ struct ShowsView: View {
                 }
             }
         }
-        .fullScreenCover(isPresented: $showPlayer) {
+        .platformFullScreen(isPresented: $showPlayer) {
             if let episode = selectedEpisode {
                 PlayerView(episode: episode, showContext: selectedShow, seasonNumber: selectedSeasonNumber)
             }
@@ -54,21 +54,18 @@ struct ShowsView: View {
     
     private var categoryListView: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 50) {
+            LazyVStack(alignment: .leading, spacing: PlatformMetrics.sectionSpacing) {
                 // Continue Watching row
                 if !continueWatchingItems.isEmpty {
                     ContinueWatchingRow(
                         items: continueWatchingItems,
                         onPlayItem: { item in
-                            // Find the episode and play it
                             if let episodeId = item.episodeId {
-                                // Create a temporary episode to play
-                                // In a real app, you'd fetch the full episode data
                                 let episode = Episode(
                                     id: episodeId,
                                     episodeNumber: item.episodeNumber ?? 1,
                                     title: item.episodeTitle ?? item.title,
-                                    streamURL: URL(string: "placeholder")!, // Would need to store/fetch this
+                                    streamURL: URL(string: "placeholder")!,
                                     watchProgress: item.progress
                                 )
                                 selectedEpisode = episode
@@ -85,13 +82,13 @@ struct ShowsView: View {
                         icon: "star.fill",
                         itemCount: contentViewModel.featuredShows.count
                     ) {
-                        ForEach(contentViewModel.featuredShows.prefix(8)) { show in
+                        ForEach(contentViewModel.featuredShows.prefix(PlatformMetrics.posterRowItemLimit)) { show in
                             ShowCard(show: show) {
                                 selectShow(show)
                             } onLongPress: {
                                 toggleFavorite(show)
                             }
-                            .frame(width: 200)
+                            .frame(width: PlatformMetrics.posterCardWidth)
                         }
                     }
                 }
@@ -105,7 +102,6 @@ struct ShowsView: View {
                         itemCount: category.itemCount ?? shows.count
                     ) {
                         if shows.isEmpty {
-                            // Show loading placeholder or tap to load
                             Button {
                                 Task {
                                     await contentViewModel.loadShowsForCategory(category)
@@ -121,33 +117,33 @@ struct ShowsView: View {
                                             .font(.callout)
                                     }
                                 }
-                                .frame(width: 200, height: 300)
+                                .frame(width: PlatformMetrics.posterCardWidth, height: PlatformMetrics.posterCardWidth * 1.5)
                                 .background(Color.gray.opacity(0.2))
                                 .cornerRadius(12)
                             }
                             .buttonStyle(CardButtonStyle())
                         } else {
-                            ForEach(shows.prefix(8)) { show in
+                            ForEach(shows.prefix(PlatformMetrics.posterRowItemLimit)) { show in
                                 ShowCard(show: show) {
                                     selectShow(show)
                                 } onLongPress: {
                                     toggleFavorite(show)
                                 }
-                                .frame(width: 200)
+                                .frame(width: PlatformMetrics.posterCardWidth)
                             }
                             
                             // See more button
-                            if shows.count > 8 {
+                            if shows.count > PlatformMetrics.posterRowItemLimit {
                                 Button {
                                     selectedCategory = category
                                 } label: {
                                     VStack {
                                         Image(systemName: "ellipsis")
                                             .font(.largeTitle)
-                                        Text("See All")
+                                        Text(L10n.Content.seeAll)
                                             .font(.callout)
                                     }
-                                    .frame(width: 150, height: 300)
+                                    .frame(width: 150, height: PlatformMetrics.posterCardWidth * 1.5)
                                     .background(Color.gray.opacity(0.2))
                                     .cornerRadius(12)
                                 }
@@ -157,7 +153,7 @@ struct ShowsView: View {
                     }
                 }
             }
-            .padding(.vertical, 40)
+            .padding(.vertical, PlatformMetrics.contentPadding)
         }
     }
     
@@ -167,7 +163,7 @@ struct ShowsView: View {
         let shows = contentViewModel.shows(in: category.name)
         
         return ScrollView {
-            VStack(alignment: .leading, spacing: 30) {
+            VStack(alignment: .leading, spacing: 24) {
                 // Back button
                 Button {
                     selectedCategory = nil
@@ -189,7 +185,6 @@ struct ShowsView: View {
                         .frame(maxWidth: .infinity, alignment: .center)
                         .padding(.top, 100)
                 } else if shows.isEmpty {
-                    // Auto-load when navigating to detail
                     Color.clear.onAppear {
                         Task {
                             await contentViewModel.loadShowsForCategory(category)
@@ -200,7 +195,7 @@ struct ShowsView: View {
                         .padding(.top, 100)
                 } else {
                     // Show grid
-                    CategoryGrid(items: shows, columns: 6) { show in
+                    CategoryGrid(items: shows, columns: PlatformMetrics.posterGridColumns) { show in
                         ShowCard(show: show) {
                             selectShow(show)
                         } onLongPress: {
@@ -209,7 +204,7 @@ struct ShowsView: View {
                     }
                 }
             }
-            .padding(.vertical, 40)
+            .padding(.vertical, PlatformMetrics.contentPadding)
         }
     }
     
@@ -247,119 +242,169 @@ struct ShowDetailView: View {
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
+        #if os(tvOS)
+        tvOSLayout
+        #else
+        adaptiveLayout
+        #endif
+    }
+    
+    #if os(tvOS)
+    private var tvOSLayout: some View {
         HStack(alignment: .top, spacing: 60) {
-            // Poster
-            CachedAsyncImage(url: show.posterURL) { image in
-                image
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-            } placeholder: {
-                Rectangle()
-                    .fill(Color.gray.opacity(0.3))
-                    .overlay {
-                        Image(systemName: "play.rectangle.on.rectangle")
-                            .font(.system(size: 60))
-                            .foregroundStyle(.secondary)
-                    }
-            }
-            .aspectRatio(2/3, contentMode: .fit)
-            .frame(height: 400)
-            .cornerRadius(16)
-            
-            // Details and Episodes
-            VStack(alignment: .leading, spacing: 24) {
-                // Title
-                Text(show.title)
-                    .font(.title)
-                    .fontWeight(.bold)
-                
-                // Metadata
-                HStack(spacing: 16) {
-                    if let year = show.year {
-                        Text(String(year))
-                            .foregroundStyle(.secondary)
-                    }
-                    
-                    Text("\(show.seasons.count) Seasons")
-                        .foregroundStyle(.secondary)
-                    
-                    Text("\(show.totalEpisodes) Episodes")
-                        .foregroundStyle(.secondary)
-                    
-                    if let rating = show.rating {
-                        HStack(spacing: 4) {
-                            Image(systemName: "star.fill")
-                                .foregroundColor(.yellow)
-                            Text(String(format: "%.1f", rating))
-                        }
-                    }
-                }
-                .font(.callout)
-                
-                // Description
-                if let description = show.description {
-                    Text(description)
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(3)
-                }
-                
-                // Favorite button
-                Button {
-                    onToggleFavorite()
-                } label: {
-                    Label(
-                        show.isFavorite ? L10n.Favorites.removeFromFavorites : L10n.Favorites.addToFavorites,
-                        systemImage: show.isFavorite ? "heart.fill" : "heart"
-                    )
-                }
-                .buttonStyle(.bordered)
-                
-                Divider()
-                
-                // Season picker
-                if !show.seasons.isEmpty {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 12) {
-                            ForEach(show.seasons) { season in
-                                Button {
-                                    selectedSeason = season
-                                } label: {
-                                    Text(season.displayTitle)
-                                        .padding(.horizontal, 16)
-                                        .padding(.vertical, 8)
-                                        .background(
-                                            selectedSeason?.id == season.id ?
-                                            Color.accentColor : Color.gray.opacity(0.3)
-                                        )
-                                        .cornerRadius(8)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    }
-                    
-                    // Episodes list
-                    if let season = selectedSeason ?? show.seasons.first {
-                        ScrollView {
-                            LazyVStack(spacing: 8) {
-                                ForEach(season.episodes) { episode in
-                                    EpisodeRowView(episode: episode) {
-                                        onPlayEpisode(episode, season.seasonNumber)
-                                    }
-                                }
-                            }
-                        }
-                        .frame(maxHeight: 300)
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            posterView
+                .frame(height: PlatformMetrics.showDetailPosterHeight)
+            detailContent
         }
-        .padding(60)
+        .padding(PlatformMetrics.detailPadding)
         .onAppear {
             selectedSeason = show.seasons.first
         }
+    }
+    #endif
+    
+    #if !os(tvOS)
+    private var adaptiveLayout: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                HStack(alignment: .top, spacing: 24) {
+                    posterView
+                        .frame(height: PlatformMetrics.showDetailPosterHeight)
+                    
+                    VStack(alignment: .leading, spacing: 16) {
+                        showHeader
+                        favoriteButton
+                    }
+                }
+                
+                Divider()
+                
+                seasonsAndEpisodes
+            }
+            .padding(PlatformMetrics.detailPadding)
+        }
+        .onAppear {
+            selectedSeason = show.seasons.first
+        }
+    }
+    #endif
+    
+    private var posterView: some View {
+        CachedAsyncImage(url: show.posterURL) { image in
+            image
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+        } placeholder: {
+            Rectangle()
+                .fill(Color.gray.opacity(0.3))
+                .overlay {
+                    Image(systemName: "play.rectangle.on.rectangle")
+                        .font(.system(size: 60))
+                        .foregroundStyle(.secondary)
+                }
+        }
+        .aspectRatio(2/3, contentMode: .fit)
+        .cornerRadius(16)
+    }
+    
+    private var showHeader: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text(show.title)
+                .font(.title)
+                .fontWeight(.bold)
+            
+            HStack(spacing: 16) {
+                if let year = show.year {
+                    Text(String(year))
+                        .foregroundStyle(.secondary)
+                }
+                
+                Text("\(show.seasons.count) Seasons")
+                    .foregroundStyle(.secondary)
+                
+                Text("\(show.totalEpisodes) Episodes")
+                    .foregroundStyle(.secondary)
+                
+                if let rating = show.rating {
+                    HStack(spacing: 4) {
+                        Image(systemName: "star.fill")
+                            .foregroundColor(.yellow)
+                        Text(String(format: "%.1f", rating))
+                    }
+                }
+            }
+            .font(.callout)
+            
+            if let description = show.description {
+                Text(description)
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(3)
+            }
+        }
+    }
+    
+    private var favoriteButton: some View {
+        Button {
+            onToggleFavorite()
+        } label: {
+            Label(
+                show.isFavorite ? L10n.Favorites.removeFromFavorites : L10n.Favorites.addToFavorites,
+                systemImage: show.isFavorite ? "heart.fill" : "heart"
+            )
+        }
+        .buttonStyle(.bordered)
+    }
+    
+    private var seasonsAndEpisodes: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            if !show.seasons.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(show.seasons) { season in
+                            Button {
+                                selectedSeason = season
+                            } label: {
+                                Text(season.displayTitle)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 8)
+                                    .background(
+                                        selectedSeason?.id == season.id ?
+                                        Color.accentColor : Color.gray.opacity(0.3)
+                                    )
+                                    .cornerRadius(8)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                
+                // Episodes list
+                if let season = selectedSeason ?? show.seasons.first {
+                    ScrollView {
+                        LazyVStack(spacing: 8) {
+                            ForEach(season.episodes) { episode in
+                                EpisodeRowView(episode: episode) {
+                                    onPlayEpisode(episode, season.seasonNumber)
+                                }
+                            }
+                        }
+                    }
+                    .frame(maxHeight: 300)
+                }
+            }
+        }
+    }
+    
+    // tvOS uses combined layout
+    private var detailContent: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            showHeader
+            favoriteButton
+            Divider()
+            seasonsAndEpisodes
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -443,8 +488,10 @@ struct EpisodeRowView: View {
         }
         .buttonStyle(.plain)
         .focused($isFocused)
+        #if os(tvOS)
         .scaleEffect(isFocused ? 1.02 : 1.0)
         .animation(.easeInOut(duration: 0.15), value: isFocused)
+        #endif
     }
 }
 
@@ -463,14 +510,14 @@ struct ContinueWatchingRow: View {
             )
             
             ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 24) {
+                LazyHStack(spacing: PlatformMetrics.horizontalSpacing) {
                     ForEach(items) { item in
                         ContinueWatchingCard(item: item) {
                             onPlayItem(item)
                         }
                     }
                 }
-                .padding(.horizontal, 50)
+                .padding(.horizontal, PlatformMetrics.contentPadding + 10)
             }
         }
     }
@@ -483,6 +530,16 @@ struct ContinueWatchingCard: View {
     var onPlay: () -> Void = {}
     
     @FocusState private var isFocused: Bool
+    
+    private var cardWidth: CGFloat {
+        #if os(tvOS)
+        return 280
+        #elseif os(macOS)
+        return 240
+        #else
+        return 200
+        #endif
+    }
     
     var body: some View {
         Button {
@@ -514,7 +571,7 @@ struct ContinueWatchingCard: View {
                         .frame(height: 4)
                     }
                 }
-                .frame(width: 280)
+                .frame(width: cardWidth)
                 .cornerRadius(12)
                 
                 // Info
@@ -547,13 +604,15 @@ struct ContinueWatchingCard: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                .frame(width: 280, alignment: .leading)
+                .frame(width: cardWidth, alignment: .leading)
             }
         }
         .buttonStyle(.plain)
         .focused($isFocused)
+        #if os(tvOS)
         .scaleEffect(isFocused ? 1.05 : 1.0)
         .animation(.easeInOut(duration: 0.2), value: isFocused)
+        #endif
     }
 }
 

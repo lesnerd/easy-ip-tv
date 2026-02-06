@@ -152,6 +152,7 @@ struct PlayerView: View {
         .onDisappear {
             playerViewModel.stop()
         }
+        #if os(tvOS)
         .onPlayPauseCommand {
             playerViewModel.togglePlayback()
         }
@@ -168,6 +169,56 @@ struct PlayerView: View {
                 playerViewModel.showControlsTemporarily()
             }
         }
+        #endif
+        #if os(macOS)
+        .onKeyPress(.space) {
+            playerViewModel.togglePlayback()
+            return .handled
+        }
+        .onKeyPress(.escape) {
+            if playerViewModel.showChannelNavigator {
+                playerViewModel.hideNavigator()
+            } else if playerViewModel.showControls {
+                playerViewModel.stop()
+                dismiss()
+            } else {
+                playerViewModel.showControlsTemporarily()
+            }
+            return .handled
+        }
+        .onKeyPress(.leftArrow) {
+            if !playerViewModel.isLiveContent {
+                playerViewModel.seekBackward()
+            }
+            return .handled
+        }
+        .onKeyPress(.rightArrow) {
+            if !playerViewModel.isLiveContent {
+                playerViewModel.seekForward()
+            }
+            return .handled
+        }
+        .onKeyPress(.upArrow) {
+            if channel != nil && !playerViewModel.showChannelNavigator {
+                playerViewModel.showNavigator()
+            }
+            return .handled
+        }
+        .onKeyPress(.downArrow) {
+            if playerViewModel.showChannelNavigator {
+                playerViewModel.hideNavigator()
+            } else if channel != nil {
+                playerViewModel.showNavigator()
+            }
+            return .handled
+        }
+        #endif
+        #if os(iOS)
+        .onTapGesture {
+            playerViewModel.showControlsTemporarily()
+        }
+        .statusBarHidden(true)
+        #endif
     }
     
     // MARK: - Playback Control
@@ -198,6 +249,7 @@ struct PlayerView: View {
         playChannel(previous)
     }
     
+    #if os(tvOS)
     private func handleMoveCommand(_ direction: MoveCommandDirection) {
         switch direction {
         case .up:
@@ -226,6 +278,7 @@ struct PlayerView: View {
             playerViewModel.showControlsTemporarily()
         }
     }
+    #endif
 }
 
 // MARK: - Player Controls Overlay
@@ -248,6 +301,10 @@ struct PlayerControlsOverlay: View {
     var onShowNavigator: () -> Void = {}
     var onShowSubtitles: () -> Void = {}
     var onDismiss: () -> Void = {}
+    
+    private var controlPadding: CGFloat {
+        PlatformMetrics.usesFocusScaling ? 40 : 20
+    }
     
     var body: some View {
         VStack {
@@ -286,7 +343,7 @@ struct PlayerControlsOverlay: View {
                         .foregroundStyle(.white)
                 }
             }
-            .padding(40)
+            .padding(controlPadding)
             
             Spacer()
             
@@ -319,11 +376,11 @@ struct PlayerControlsOverlay: View {
                                 .foregroundStyle(.white.opacity(0.8))
                         }
                     }
-                    .padding(.horizontal, 40)
+                    .padding(.horizontal, controlPadding)
                 }
                 
                 // Control buttons
-                HStack(spacing: 60) {
+                HStack(spacing: PlatformMetrics.usesFocusScaling ? 60 : 40) {
                     if isLive {
                         // Channel controls for live TV
                         Button {
@@ -379,7 +436,7 @@ struct PlayerControlsOverlay: View {
                             onPlayPause()
                         } label: {
                             Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                                .font(.system(size: 60))
+                                .font(.system(size: PlatformMetrics.usesFocusScaling ? 60 : 44))
                                 .foregroundStyle(.white)
                         }
                         .buttonStyle(.plain)
@@ -394,7 +451,7 @@ struct PlayerControlsOverlay: View {
                         .buttonStyle(.plain)
                     }
                 }
-                .padding(.bottom, 40)
+                .padding(.bottom, controlPadding)
             }
         }
         .background(
@@ -424,12 +481,12 @@ struct ResumePromptOverlay: View {
             Color.black.opacity(0.7)
                 .ignoresSafeArea()
             
-            VStack(spacing: 30) {
+            VStack(spacing: 24) {
                 Text(L10n.Player.resumeFrom(formattedTime))
                     .font(.title2)
                     .foregroundColor(.white)
                 
-                HStack(spacing: 40) {
+                HStack(spacing: 24) {
                     Button {
                         onResume()
                     } label: {
@@ -447,9 +504,9 @@ struct ResumePromptOverlay: View {
                     .buttonStyle(.bordered)
                 }
             }
-            .padding(60)
+            .padding(PlatformMetrics.detailPadding)
             .background(.ultraThinMaterial)
-            .cornerRadius(24)
+            .cornerRadius(20)
         }
     }
 }
@@ -525,8 +582,8 @@ struct SubtitlePickerOverlay: View {
             .frame(width: 350)
             .background(.ultraThinMaterial)
             .cornerRadius(16)
-            .padding(.trailing, 40)
-            .padding(.vertical, 60)
+            .padding(.trailing, PlatformMetrics.contentPadding)
+            .padding(.vertical, PlatformMetrics.detailPadding)
         }
         .transition(.move(edge: .trailing))
         .onAppear {
