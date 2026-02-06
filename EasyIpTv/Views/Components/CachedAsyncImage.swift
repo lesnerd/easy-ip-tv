@@ -12,12 +12,38 @@ final class ImageCacheManager {
     let cache: URLCache
     
     private init() {
-        // Configure cache: 50MB memory, 100MB disk
+        // Configure cache: 150MB memory, 500MB disk
+        // IPTV apps load thousands of channel logos and movie posters
         cache = URLCache(
-            memoryCapacity: 50 * 1024 * 1024,
-            diskCapacity: 100 * 1024 * 1024,
+            memoryCapacity: 150 * 1024 * 1024,
+            diskCapacity: 500 * 1024 * 1024,
             directory: FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?.appendingPathComponent("ImageCache")
         )
+        
+        // Listen for memory warnings to trim the in-memory cache
+        #if canImport(UIKit)
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.didReceiveMemoryWarningNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.cache.removeAllCachedResponses()
+        }
+        #endif
+    }
+    
+    /// Trims in-memory portion of the cache
+    func trimMemoryCache() {
+        cache.removeAllCachedResponses()
+    }
+    
+    /// Current memory usage stats
+    var memoryUsageMB: Double {
+        Double(cache.currentMemoryUsage) / (1024 * 1024)
+    }
+    
+    var diskUsageMB: Double {
+        Double(cache.currentDiskUsage) / (1024 * 1024)
     }
 }
 

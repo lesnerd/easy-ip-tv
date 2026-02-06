@@ -94,63 +94,15 @@ struct ShowsView: View {
                 }
                 
                 // Category rows - tap to load
+                // Category rows - auto-load on appear (macOS/iOS) or tap to load (tvOS)
                 ForEach(contentViewModel.seriesCategories) { category in
-                    let shows = contentViewModel.shows(in: category.name)
-                    
-                    CategoryRow(
-                        title: category.name,
-                        itemCount: category.itemCount ?? shows.count
-                    ) {
-                        if shows.isEmpty {
-                            Button {
-                                Task {
-                                    await contentViewModel.loadShowsForCategory(category)
-                                }
-                            } label: {
-                                VStack {
-                                    if contentViewModel.isLoadingCategory {
-                                        ProgressView()
-                                    } else {
-                                        Image(systemName: "arrow.down.circle")
-                                            .font(.largeTitle)
-                                        Text("Load Shows")
-                                            .font(.callout)
-                                    }
-                                }
-                                .frame(width: PlatformMetrics.posterCardWidth, height: PlatformMetrics.posterCardWidth * 1.5)
-                                .background(Color.gray.opacity(0.2))
-                                .cornerRadius(12)
-                            }
-                            .buttonStyle(CardButtonStyle())
-                        } else {
-                            ForEach(shows.prefix(PlatformMetrics.posterRowItemLimit)) { show in
-                                ShowCard(show: show) {
-                                    selectShow(show)
-                                } onLongPress: {
-                                    toggleFavorite(show)
-                                }
-                                .frame(width: PlatformMetrics.posterCardWidth)
-                            }
-                            
-                            // See more button
-                            if shows.count > PlatformMetrics.posterRowItemLimit {
-                                Button {
-                                    selectedCategory = category
-                                } label: {
-                                    VStack {
-                                        Image(systemName: "ellipsis")
-                                            .font(.largeTitle)
-                                        Text(L10n.Content.seeAll)
-                                            .font(.callout)
-                                    }
-                                    .frame(width: 150, height: PlatformMetrics.posterCardWidth * 1.5)
-                                    .background(Color.gray.opacity(0.2))
-                                    .cornerRadius(12)
-                                }
-                                .buttonStyle(CardButtonStyle())
-                            }
-                        }
-                    }
+                    ShowCategoryRowView(
+                        category: category,
+                        onSelectShow: { selectShow($0) },
+                        onToggleFavorite: { toggleFavorite($0) },
+                        onSeeAll: { selectedCategory = category }
+                    )
+                    .environmentObject(contentViewModel)
                 }
             }
             .padding(.vertical, PlatformMetrics.contentPadding)
@@ -613,6 +565,51 @@ struct ContinueWatchingCard: View {
         .scaleEffect(isFocused ? 1.05 : 1.0)
         .animation(.easeInOut(duration: 0.2), value: isFocused)
         #endif
+    }
+}
+
+// MARK: - Show Category Row View (handles auto-loading)
+
+private struct ShowCategoryRowView: View {
+    let category: ContentViewModel.CategoryInfo
+    var onSelectShow: (Show) -> Void
+    var onToggleFavorite: (Show) -> Void
+    var onSeeAll: () -> Void
+    
+    @EnvironmentObject var contentViewModel: ContentViewModel
+    
+    var body: some View {
+        let shows = contentViewModel.shows(in: category.name)
+        let isLoading = contentViewModel.isCategoryLoading(category)
+        
+        CategoryRow(
+            title: category.name,
+            itemCount: category.itemCount ?? shows.count
+        ) {
+            if shows.isEmpty {
+                PosterLoadingPlaceholder(isLoading: isLoading, label: "Load Shows") {
+                    Task { await contentViewModel.loadShowsForCategory(category) }
+                }
+                .onAppear {
+                    #if !os(tvOS)
+                    Task { await contentViewModel.loadShowsForCategory(category) }
+                    #endif
+                }
+            } else {
+                ForEach(shows.prefix(PlatformMetrics.posterRowItemLimit)) { show in
+                    ShowCard(show: show) {
+                        onSelectShow(show)
+                    } onLongPress: {
+                        onToggleFavorite(show)
+                    }
+                    .frame(width: PlatformMetrics.posterCardWidth)
+                }
+                
+                if shows.count > PlatformMetrics.posterRowItemLimit {
+                    SeeAllButton(height: PlatformMetrics.posterCardWidth * 1.5) { onSeeAll() }
+                }
+            }
+        }
     }
 }
 

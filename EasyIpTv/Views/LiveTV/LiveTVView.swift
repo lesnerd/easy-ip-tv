@@ -184,80 +184,16 @@ struct LiveTVView: View {
                     }
                 }
                 
-                // Category rows based on filter - tap to load
+                // Category rows - auto-load on appear (macOS/iOS) or tap to load (tvOS)
                 ForEach(filteredCategories) { category in
-                    let channels = contentViewModel.channels(in: category.name)
-                    let allFavorites = contentViewModel.isCategoryAllFavorites(category)
-                    
-                    CategoryRow(
-                        title: category.name,
-                        itemCount: category.itemCount ?? channels.count,
-                        showFavoriteButton: !channels.isEmpty,
-                        isFavorited: allFavorites,
-                        onToggleFavorite: {
-                            let currentChannels = contentViewModel.channels(in: category.name)
-                            let isCurrentlyAllFavorites = contentViewModel.isCategoryAllFavorites(category)
-                            
-                            if isCurrentlyAllFavorites {
-                                contentViewModel.removeCategoryFromFavorites(category)
-                                favoritesViewModel.removeFavorites(channels: currentChannels)
-                            } else {
-                                contentViewModel.addCategoryToFavorites(category)
-                                favoritesViewModel.addFavorites(channels: currentChannels)
-                            }
-                        }
-                    ) {
-                        if channels.isEmpty {
-                            // Show loading placeholder or tap to load
-                            Button {
-                                Task {
-                                    await contentViewModel.loadChannelsForCategory(category)
-                                }
-                            } label: {
-                                VStack {
-                                    if contentViewModel.isLoadingCategory {
-                                        ProgressView()
-                                    } else {
-                                        Image(systemName: "arrow.down.circle")
-                                            .font(.largeTitle)
-                                        Text("Load Channels")
-                                            .font(.callout)
-                                    }
-                                }
-                                .frame(width: 200, height: 150)
-                                .background(Color.gray.opacity(0.2))
-                                .cornerRadius(12)
-                            }
-                            .buttonStyle(CardButtonStyle())
-                        } else {
-                            ForEach(channels.prefix(PlatformMetrics.rowItemLimit)) { channel in
-                                ChannelCard(channel: channel) {
-                                    playChannel(channel)
-                                } onLongPress: {
-                                    toggleFavorite(channel)
-                                }
-                                .frame(width: PlatformMetrics.channelCardWidth)
-                            }
-                            
-                            // See more button
-                            if channels.count > PlatformMetrics.rowItemLimit {
-                                Button {
-                                    selectedCategory = category
-                                } label: {
-                                    VStack {
-                                        Image(systemName: "ellipsis")
-                                            .font(.largeTitle)
-                                        Text(L10n.Content.seeAll)
-                                            .font(.callout)
-                                    }
-                                    .frame(width: 150, height: 169)
-                                    .background(Color.gray.opacity(0.2))
-                                    .cornerRadius(12)
-                                }
-                                .buttonStyle(CardButtonStyle())
-                            }
-                        }
-                    }
+                    LiveCategoryRowView(
+                        category: category,
+                        onPlayChannel: { playChannel($0) },
+                        onToggleFavorite: { toggleFavorite($0) },
+                        onSeeAll: { selectedCategory = category }
+                    )
+                    .environmentObject(contentViewModel)
+                    .environmentObject(favoritesViewModel)
                 }
             }
             .padding(.vertical, PlatformMetrics.contentPadding)
@@ -355,6 +291,131 @@ struct LiveTVView: View {
     private func toggleFavorite(_ channel: Channel) {
         contentViewModel.toggleFavorite(channel: channel)
         favoritesViewModel.toggleFavorite(channel: channel)
+    }
+}
+
+// MARK: - Live Category Row View (handles auto-loading)
+
+/// A category row that auto-loads its content when it appears on screen
+private struct LiveCategoryRowView: View {
+    let category: ContentViewModel.CategoryInfo
+    var onPlayChannel: (Channel) -> Void
+    var onToggleFavorite: (Channel) -> Void
+    var onSeeAll: () -> Void
+    
+    @EnvironmentObject var contentViewModel: ContentViewModel
+    @EnvironmentObject var favoritesViewModel: FavoritesViewModel
+    
+    var body: some View {
+        let channels = contentViewModel.channels(in: category.name)
+        let allFavorites = contentViewModel.isCategoryAllFavorites(category)
+        let isLoading = contentViewModel.isCategoryLoading(category)
+        
+        CategoryRow(
+            title: category.name,
+            itemCount: category.itemCount ?? channels.count,
+            showFavoriteButton: !channels.isEmpty,
+            isFavorited: allFavorites,
+            onToggleFavorite: {
+                let currentChannels = contentViewModel.channels(in: category.name)
+                let isCurrentlyAllFavorites = contentViewModel.isCategoryAllFavorites(category)
+                
+                if isCurrentlyAllFavorites {
+                    contentViewModel.removeCategoryFromFavorites(category)
+                    favoritesViewModel.removeFavorites(channels: currentChannels)
+                } else {
+                    contentViewModel.addCategoryToFavorites(category)
+                    favoritesViewModel.addFavorites(channels: currentChannels)
+                }
+            }
+        ) {
+            if channels.isEmpty {
+                // Loading placeholder
+                CategoryLoadingPlaceholder(isLoading: isLoading, label: "Load Channels") {
+                    Task { await contentViewModel.loadChannelsForCategory(category) }
+                }
+                .onAppear {
+                    #if !os(tvOS)
+                    // Auto-load when visible on macOS/iOS
+                    Task { await contentViewModel.loadChannelsForCategory(category) }
+                    #endif
+                }
+            } else {
+                ForEach(channels.prefix(PlatformMetrics.rowItemLimit)) { channel in
+                    ChannelCard(channel: channel) {
+                        onPlayChannel(channel)
+                    } onLongPress: {
+                        onToggleFavorite(channel)
+                    }
+                    .frame(width: PlatformMetrics.channelCardWidth)
+                }
+                
+                if channels.count > PlatformMetrics.rowItemLimit {
+                    SeeAllButton(height: 169) { onSeeAll() }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Reusable Loading / See All Components
+
+/// Placeholder shown while a category is loading
+struct CategoryLoadingPlaceholder: View {
+    let isLoading: Bool
+    let label: String
+    var onTap: () -> Void = {}
+    
+    var body: some View {
+        #if os(tvOS)
+        Button {
+            onTap()
+        } label: {
+            placeholderContent
+        }
+        .buttonStyle(CardButtonStyle())
+        #else
+        placeholderContent
+        #endif
+    }
+    
+    private var placeholderContent: some View {
+        HStack(spacing: PlatformMetrics.horizontalSpacing) {
+            ForEach(0..<3, id: \.self) { _ in
+                SkeletonCard(aspectRatio: 16/9)
+                    .frame(width: PlatformMetrics.channelCardWidth)
+            }
+        }
+        .overlay {
+            if isLoading {
+                ProgressView()
+                    .scaleEffect(1.2)
+            }
+        }
+    }
+}
+
+/// "See All" button at the end of a row
+struct SeeAllButton: View {
+    var height: CGFloat = 169
+    var onTap: () -> Void = {}
+    
+    var body: some View {
+        Button {
+            onTap()
+        } label: {
+            VStack(spacing: 8) {
+                Image(systemName: "ellipsis")
+                    .font(.title2)
+                Text(L10n.Content.seeAll)
+                    .font(.callout)
+            }
+            .foregroundStyle(.secondary)
+            .frame(width: 120, height: height)
+            .background(Color.gray.opacity(0.15))
+            .cornerRadius(12)
+        }
+        .buttonStyle(CardButtonStyle())
     }
 }
 

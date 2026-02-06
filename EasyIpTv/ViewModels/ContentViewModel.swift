@@ -25,6 +25,7 @@ class ContentViewModel: ObservableObject {
     
     @Published var isLoading: Bool = false
     @Published var isLoadingCategory: Bool = false
+    @Published var loadingCategoryIds: Set<String> = []
     @Published var error: Error?
     @Published var hasContent: Bool = false
     
@@ -53,6 +54,8 @@ class ContentViewModel: ObservableObject {
     static let maxFeaturedItems = 20
     /// Max items for search results
     static let maxSearchResults = 100
+    /// Max number of categories to keep in memory per content type
+    static let maxCachedCategories = 30
     
     // MARK: - Private Properties
     
@@ -70,6 +73,11 @@ class ContentViewModel: ObservableObject {
     @Published private(set) var channelCache: [String: [Channel]] = [:]
     @Published private(set) var movieCache: [String: [Movie]] = [:]
     @Published private(set) var showCache: [String: [Show]] = [:]
+    
+    /// Tracks access order for LRU eviction (most recent at end)
+    private var channelCacheOrder: [String] = []
+    private var movieCacheOrder: [String] = []
+    private var showCacheOrder: [String] = []
     
     // MARK: - Computed Properties
     
@@ -156,9 +164,76 @@ class ContentViewModel: ObservableObject {
     // MARK: - Initialization
     
     init() {
+        setupMemoryWarningObserver()
         Task {
             await loadCategories()
         }
+    }
+    
+    // MARK: - Memory Management
+    
+    private func setupMemoryWarningObserver() {
+        #if canImport(UIKit)
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.didReceiveMemoryWarningNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.handleMemoryWarning()
+            }
+        }
+        #endif
+    }
+    
+    /// Sheds memory by evicting non-essential cached categories
+    private func handleMemoryWarning() {
+        let keepCount = 5 // Keep only the 5 most recently accessed categories per type
+        
+        evictChannelCache(keepCount: keepCount)
+        evictMovieCache(keepCount: keepCount)
+        evictShowCache(keepCount: keepCount)
+        
+        // Also trim image cache
+        ImageCacheManager.shared.trimMemoryCache()
+        
+        print("[Memory] Warning received - evicted caches, kept \(keepCount) per type")
+    }
+    
+    /// Evicts the oldest channel cache entries, keeping the most recent `keepCount`
+    private func evictChannelCache(keepCount: Int) {
+        guard channelCacheOrder.count > keepCount else { return }
+        let toEvict = channelCacheOrder.prefix(channelCacheOrder.count - keepCount)
+        for name in toEvict {
+            channelCache.removeValue(forKey: name)
+        }
+        channelCacheOrder = Array(channelCacheOrder.suffix(keepCount))
+    }
+    
+    /// Evicts the oldest movie cache entries
+    private func evictMovieCache(keepCount: Int) {
+        guard movieCacheOrder.count > keepCount else { return }
+        let toEvict = movieCacheOrder.prefix(movieCacheOrder.count - keepCount)
+        for name in toEvict {
+            movieCache.removeValue(forKey: name)
+        }
+        movieCacheOrder = Array(movieCacheOrder.suffix(keepCount))
+    }
+    
+    /// Evicts the oldest show cache entries
+    private func evictShowCache(keepCount: Int) {
+        guard showCacheOrder.count > keepCount else { return }
+        let toEvict = showCacheOrder.prefix(showCacheOrder.count - keepCount)
+        for name in toEvict {
+            showCache.removeValue(forKey: name)
+        }
+        showCacheOrder = Array(showCacheOrder.suffix(keepCount))
+    }
+    
+    /// Tracks a cache access for LRU ordering
+    private func touchCacheOrder(_ name: String, order: inout [String]) {
+        order.removeAll { $0 == name }
+        order.append(name)
     }
     
     // MARK: - Public Methods
@@ -264,14 +339,22 @@ class ContentViewModel: ObservableObject {
         }
     }
     
+    /// Check if a specific category is currently loading
+    func isCategoryLoading(_ category: CategoryInfo) -> Bool {
+        loadingCategoryIds.contains(category.id)
+    }
+    
     /// Loads channels for a specific category (on-demand)
     func loadChannelsForCategory(_ category: CategoryInfo) async {
         // Check cache first
         if channelCache[category.name] != nil { return }
+        // Prevent duplicate loads
+        guard !loadingCategoryIds.contains(category.id) else { return }
         
         guard let credentials = cachedCredentials else { return }
         
         isLoadingCategory = true
+        loadingCategoryIds.insert(category.id)
         
         do {
             let streams = try await xtreamService.getLiveStreamsByCategory(
@@ -314,13 +397,16 @@ class ContentViewModel: ObservableObject {
             }
             
             channelCache[category.name] = processedChannels
+            touchCacheOrder(category.name, order: &channelCacheOrder)
+            evictChannelCache(keepCount: Self.maxCachedCategories)
             self.channels = processedChannels
             
         } catch {
             print("Failed to load channels for category \(category.name): \(error)")
         }
         
-        isLoadingCategory = false
+        loadingCategoryIds.remove(category.id)
+        isLoadingCategory = !loadingCategoryIds.isEmpty
     }
     
     /// Loads movies for a specific category (on-demand)
@@ -330,10 +416,13 @@ class ContentViewModel: ObservableObject {
             movies = movieCache[category.name] ?? []
             return
         }
+        // Prevent duplicate loads
+        guard !loadingCategoryIds.contains(category.id) else { return }
         
         guard let credentials = cachedCredentials else { return }
         
         isLoadingCategory = true
+        loadingCategoryIds.insert(category.id)
         
         do {
             let streams = try await xtreamService.getVodStreamsByCategory(
@@ -375,13 +464,16 @@ class ContentViewModel: ObservableObject {
             }
             
             movieCache[category.name] = processedMovies
+            touchCacheOrder(category.name, order: &movieCacheOrder)
+            evictMovieCache(keepCount: Self.maxCachedCategories)
             self.movies = processedMovies
             
         } catch {
             print("Failed to load movies for category \(category.name): \(error)")
         }
         
-        isLoadingCategory = false
+        loadingCategoryIds.remove(category.id)
+        isLoadingCategory = !loadingCategoryIds.isEmpty
     }
     
     /// Loads shows for a specific category (on-demand)
@@ -391,10 +483,13 @@ class ContentViewModel: ObservableObject {
             shows = showCache[category.name] ?? []
             return
         }
+        // Prevent duplicate loads
+        guard !loadingCategoryIds.contains(category.id) else { return }
         
         guard let credentials = cachedCredentials else { return }
         
         isLoadingCategory = true
+        loadingCategoryIds.insert(category.id)
         
         do {
             let seriesList = try await xtreamService.getSeriesByCategory(
@@ -430,13 +525,16 @@ class ContentViewModel: ObservableObject {
             }
             
             showCache[category.name] = processedShows
+            touchCacheOrder(category.name, order: &showCacheOrder)
+            evictShowCache(keepCount: Self.maxCachedCategories)
             self.shows = processedShows
             
         } catch {
             print("Failed to load shows for category \(category.name): \(error)")
         }
         
-        isLoadingCategory = false
+        loadingCategoryIds.remove(category.id)
+        isLoadingCategory = !loadingCategoryIds.isEmpty
     }
     
     /// Gets priority for category sorting (lower = shown first, higher = shown last)
@@ -457,6 +555,9 @@ class ContentViewModel: ObservableObject {
         channelCache.removeAll()
         movieCache.removeAll()
         showCache.removeAll()
+        channelCacheOrder.removeAll()
+        movieCacheOrder.removeAll()
+        showCacheOrder.removeAll()
         hasLoadedOnce = false
         isLoadingInProgress = false
         await loadCategories()
@@ -498,15 +599,24 @@ class ContentViewModel: ObservableObject {
     }
     
     func channels(in category: String) -> [Channel] {
-        channelCache[category] ?? []
+        if channelCache[category] != nil {
+            touchCacheOrder(category, order: &channelCacheOrder)
+        }
+        return channelCache[category] ?? []
     }
     
     func movies(in category: String) -> [Movie] {
-        movieCache[category] ?? []
+        if movieCache[category] != nil {
+            touchCacheOrder(category, order: &movieCacheOrder)
+        }
+        return movieCache[category] ?? []
     }
     
     func shows(in category: String) -> [Show] {
-        showCache[category] ?? []
+        if showCache[category] != nil {
+            touchCacheOrder(category, order: &showCacheOrder)
+        }
+        return showCache[category] ?? []
     }
     
     func toggleFavorite(channel: Channel) {

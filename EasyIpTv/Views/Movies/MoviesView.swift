@@ -65,65 +65,15 @@ struct MoviesView: View {
                     }
                 }
                 
-                // Category rows - tap to load
+                // Category rows - auto-load on appear (macOS/iOS) or tap to load (tvOS)
                 ForEach(contentViewModel.vodCategories) { category in
-                    let movies = contentViewModel.movies(in: category.name)
-                    
-                    CategoryRow(
-                        title: category.name,
-                        itemCount: category.itemCount ?? movies.count
-                    ) {
-                        if movies.isEmpty {
-                            // Show loading placeholder or tap to load
-                            Button {
-                                Task {
-                                    await contentViewModel.loadMoviesForCategory(category)
-                                }
-                            } label: {
-                                VStack {
-                                    if contentViewModel.isLoadingCategory {
-                                        ProgressView()
-                                    } else {
-                                        Image(systemName: "arrow.down.circle")
-                                            .font(.largeTitle)
-                                        Text("Load Movies")
-                                            .font(.callout)
-                                    }
-                                }
-                                .frame(width: PlatformMetrics.posterCardWidth, height: PlatformMetrics.posterCardWidth * 1.5)
-                                .background(Color.gray.opacity(0.2))
-                                .cornerRadius(12)
-                            }
-                            .buttonStyle(CardButtonStyle())
-                        } else {
-                            ForEach(movies.prefix(PlatformMetrics.posterRowItemLimit)) { movie in
-                                MovieCard(movie: movie) {
-                                    selectMovie(movie)
-                                } onLongPress: {
-                                    toggleFavorite(movie)
-                                }
-                                .frame(width: PlatformMetrics.posterCardWidth)
-                            }
-                            
-                            // See more button
-                            if movies.count > PlatformMetrics.posterRowItemLimit {
-                                Button {
-                                    selectedCategory = category
-                                } label: {
-                                    VStack {
-                                        Image(systemName: "ellipsis")
-                                            .font(.largeTitle)
-                                        Text(L10n.Content.seeAll)
-                                            .font(.callout)
-                                    }
-                                    .frame(width: 150, height: PlatformMetrics.posterCardWidth * 1.5)
-                                    .background(Color.gray.opacity(0.2))
-                                    .cornerRadius(12)
-                                }
-                                .buttonStyle(CardButtonStyle())
-                            }
-                        }
-                    }
+                    MovieCategoryRowView(
+                        category: category,
+                        onSelectMovie: { selectMovie($0) },
+                        onToggleFavorite: { toggleFavorite($0) },
+                        onSeeAll: { selectedCategory = category }
+                    )
+                    .environmentObject(contentViewModel)
                 }
             }
             .padding(.vertical, PlatformMetrics.contentPadding)
@@ -332,6 +282,86 @@ struct MovieDetailView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+// MARK: - Movie Category Row View (handles auto-loading)
+
+private struct MovieCategoryRowView: View {
+    let category: ContentViewModel.CategoryInfo
+    var onSelectMovie: (Movie) -> Void
+    var onToggleFavorite: (Movie) -> Void
+    var onSeeAll: () -> Void
+    
+    @EnvironmentObject var contentViewModel: ContentViewModel
+    
+    var body: some View {
+        let movies = contentViewModel.movies(in: category.name)
+        let isLoading = contentViewModel.isCategoryLoading(category)
+        
+        CategoryRow(
+            title: category.name,
+            itemCount: category.itemCount ?? movies.count
+        ) {
+            if movies.isEmpty {
+                PosterLoadingPlaceholder(isLoading: isLoading, label: "Load Movies") {
+                    Task { await contentViewModel.loadMoviesForCategory(category) }
+                }
+                .onAppear {
+                    #if !os(tvOS)
+                    Task { await contentViewModel.loadMoviesForCategory(category) }
+                    #endif
+                }
+            } else {
+                ForEach(movies.prefix(PlatformMetrics.posterRowItemLimit)) { movie in
+                    MovieCard(movie: movie) {
+                        onSelectMovie(movie)
+                    } onLongPress: {
+                        onToggleFavorite(movie)
+                    }
+                    .frame(width: PlatformMetrics.posterCardWidth)
+                }
+                
+                if movies.count > PlatformMetrics.posterRowItemLimit {
+                    SeeAllButton(height: PlatformMetrics.posterCardWidth * 1.5) { onSeeAll() }
+                }
+            }
+        }
+    }
+}
+
+/// Poster-style loading placeholder (for movies/shows with 2:3 aspect ratio)
+struct PosterLoadingPlaceholder: View {
+    let isLoading: Bool
+    let label: String
+    var onTap: () -> Void = {}
+    
+    var body: some View {
+        #if os(tvOS)
+        Button {
+            onTap()
+        } label: {
+            placeholderContent
+        }
+        .buttonStyle(CardButtonStyle())
+        #else
+        placeholderContent
+        #endif
+    }
+    
+    private var placeholderContent: some View {
+        HStack(spacing: PlatformMetrics.horizontalSpacing) {
+            ForEach(0..<3, id: \.self) { _ in
+                SkeletonCard(aspectRatio: 2/3)
+                    .frame(width: PlatformMetrics.posterCardWidth)
+            }
+        }
+        .overlay {
+            if isLoading {
+                ProgressView()
+                    .scaleEffect(1.2)
+            }
+        }
     }
 }
 
