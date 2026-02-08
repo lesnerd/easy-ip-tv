@@ -83,7 +83,7 @@ enum PlatformMetrics {
     /// Horizontal spacing between items
     static var horizontalSpacing: CGFloat {
         #if os(tvOS)
-        return 40
+        return 50
         #elseif os(macOS)
         return 20
         #else
@@ -94,7 +94,7 @@ enum PlatformMetrics {
     /// Vertical section spacing
     static var sectionSpacing: CGFloat {
         #if os(tvOS)
-        return 50
+        return 60
         #elseif os(macOS)
         return 32
         #else

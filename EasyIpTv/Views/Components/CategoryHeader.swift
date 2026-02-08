@@ -35,6 +35,14 @@ struct CategoryHeader: View {
     
     @FocusState private var isFocused: Bool
     
+    private var headerFont: Font {
+        #if os(tvOS)
+        return .title2
+        #else
+        return .title3
+        #endif
+    }
+    
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
             // Make the title + heart a single focusable button
@@ -50,7 +58,7 @@ struct CategoryHeader: View {
                         }
                         
                         Text(title)
-                            .font(.title3)
+                            .font(headerFont)
                             .fontWeight(.semibold)
                         
                         if let count = itemCount {
@@ -97,7 +105,7 @@ struct CategoryHeader: View {
                     }
                     
                     Text(title)
-                        .font(.title3)
+                        .font(headerFont)
                         .fontWeight(.semibold)
                     
                     if let count = itemCount {
@@ -125,7 +133,11 @@ struct CategoryHeader: View {
                 .buttonStyle(.plain)
             }
         }
+        #if os(tvOS)
+        .padding(.horizontal, 50)
+        #else
         .padding(.horizontal)
+        #endif
         .padding(.vertical, 8)
     }
 }
@@ -162,8 +174,24 @@ struct CategoryRow<Content: View>: View {
         self.content = content
     }
     
+    private var headerToContentSpacing: CGFloat {
+        #if os(tvOS)
+        return 24
+        #else
+        return 16
+        #endif
+    }
+    
+    private var rowHorizontalPadding: CGFloat {
+        #if os(tvOS)
+        return 50
+        #else
+        return 16
+        #endif
+    }
+    
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: headerToContentSpacing) {
             CategoryHeader(
                 title: title,
                 icon: icon,
@@ -177,7 +205,7 @@ struct CategoryRow<Content: View>: View {
                 LazyHStack(spacing: PlatformMetrics.horizontalSpacing) {
                     content()
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, rowHorizontalPadding)
             }
             .platformFocusSection()
         }

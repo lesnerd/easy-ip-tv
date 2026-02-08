@@ -125,8 +125,9 @@ struct CardButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             #if os(tvOS)
-            .scaleEffect(isFocused ? 1.05 : 1.0)
-            .shadow(radius: isFocused ? 20 : 0)
+            .scaleEffect(isFocused ? 1.08 : 1.0)
+            .offset(y: isFocused ? -8 : 0)
+            .shadow(color: .black.opacity(isFocused ? 0.4 : 0), radius: isFocused ? 30 : 0, y: isFocused ? 12 : 0)
             .animation(.easeInOut(duration: 0.2), value: isFocused)
             #else
             .scaleEffect(configuration.isPressed ? 0.97 : 1.0)

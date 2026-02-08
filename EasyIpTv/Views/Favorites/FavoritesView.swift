@@ -115,103 +115,58 @@ struct FavoritesView: View {
                 
                 // Live TV Favorites Section (all channels in one row)
                 if !favoritesViewModel.favoriteChannels.isEmpty {
-                    VStack(alignment: .leading, spacing: 16) {
-                        // Section header
-                        HStack(spacing: 12) {
-                            Image(systemName: "tv.fill")
-                                .font(.title2)
-                                .foregroundStyle(.blue)
-                            Text(L10n.Navigation.liveTV)
-                                .font(.title2)
-                                .fontWeight(.bold)
-                            Text("(\(favoritesViewModel.favoriteChannels.count))")
-                                .font(.callout)
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding(.horizontal)
-                        
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            LazyHStack(spacing: PlatformMetrics.horizontalSpacing) {
-                                ForEach(favoritesViewModel.favoriteChannels) { channel in
-                                    ChannelCard(channel: channel) {
-                                        playChannel(channel)
-                                    } onLongPress: {
-                                        toggleFavorite(channel: channel)
-                                    }
-                                    .frame(width: PlatformMetrics.channelCardWidth)
-                                }
+                    FavoritesSectionView(
+                        title: L10n.Navigation.liveTV,
+                        icon: "tv.fill",
+                        iconColor: .blue,
+                        count: favoritesViewModel.favoriteChannels.count
+                    ) {
+                        ForEach(favoritesViewModel.favoriteChannels) { channel in
+                            ChannelCard(channel: channel) {
+                                playChannel(channel)
+                            } onLongPress: {
+                                toggleFavorite(channel: channel)
                             }
-                            .padding(.horizontal)
+                            .frame(width: PlatformMetrics.channelCardWidth)
                         }
-                        .platformFocusSection()
                     }
                 }
                 
                 // Movies Favorites Section (all movies in one row)
                 if !favoritesViewModel.favoriteMovies.isEmpty {
-                    VStack(alignment: .leading, spacing: 16) {
-                        // Section header
-                        HStack(spacing: 12) {
-                            Image(systemName: "film.fill")
-                                .font(.title2)
-                                .foregroundStyle(.purple)
-                            Text(L10n.Navigation.movies)
-                                .font(.title2)
-                                .fontWeight(.bold)
-                            Text("(\(favoritesViewModel.favoriteMovies.count))")
-                                .font(.callout)
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding(.horizontal)
-                        
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            LazyHStack(spacing: PlatformMetrics.horizontalSpacing) {
-                                ForEach(favoritesViewModel.favoriteMovies) { movie in
-                                    MovieCard(movie: movie) {
-                                        selectMovie(movie)
-                                    } onLongPress: {
-                                        toggleFavorite(movie: movie)
-                                    }
-                                    .frame(width: PlatformMetrics.posterCardWidth)
-                                }
+                    FavoritesSectionView(
+                        title: L10n.Navigation.movies,
+                        icon: "film.fill",
+                        iconColor: .purple,
+                        count: favoritesViewModel.favoriteMovies.count
+                    ) {
+                        ForEach(favoritesViewModel.favoriteMovies) { movie in
+                            MovieCard(movie: movie) {
+                                selectMovie(movie)
+                            } onLongPress: {
+                                toggleFavorite(movie: movie)
                             }
-                            .padding(.horizontal)
+                            .frame(width: PlatformMetrics.posterCardWidth)
                         }
-                        .platformFocusSection()
                     }
                 }
                 
                 // Shows Favorites Section (all shows in one row)
                 if !favoritesViewModel.favoriteShows.isEmpty {
-                    VStack(alignment: .leading, spacing: 16) {
-                        // Section header
-                        HStack(spacing: 12) {
-                            Image(systemName: "play.rectangle.on.rectangle.fill")
-                                .font(.title2)
-                                .foregroundStyle(.orange)
-                            Text(L10n.Navigation.shows)
-                                .font(.title2)
-                                .fontWeight(.bold)
-                            Text("(\(favoritesViewModel.favoriteShows.count))")
-                                .font(.callout)
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding(.horizontal)
-                        
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            LazyHStack(spacing: PlatformMetrics.horizontalSpacing) {
-                                ForEach(favoritesViewModel.favoriteShows) { show in
-                                    ShowCard(show: show) {
-                                        selectShow(show)
-                                    } onLongPress: {
-                                        toggleFavorite(show: show)
-                                    }
-                                    .frame(width: PlatformMetrics.posterCardWidth)
-                                }
+                    FavoritesSectionView(
+                        title: L10n.Navigation.shows,
+                        icon: "play.rectangle.on.rectangle.fill",
+                        iconColor: .orange,
+                        count: favoritesViewModel.favoriteShows.count
+                    ) {
+                        ForEach(favoritesViewModel.favoriteShows) { show in
+                            ShowCard(show: show) {
+                                selectShow(show)
+                            } onLongPress: {
+                                toggleFavorite(show: show)
                             }
-                            .padding(.horizontal)
+                            .frame(width: PlatformMetrics.posterCardWidth)
                         }
-                        .platformFocusSection()
                     }
                 }
                 
@@ -276,6 +231,62 @@ struct FavoritesView: View {
     private func toggleFavorite(show: Show) {
         contentViewModel.toggleFavorite(show: show)
         favoritesViewModel.toggleFavorite(show: show)
+    }
+}
+
+// MARK: - Favorites Section View (reusable for all content types)
+
+struct FavoritesSectionView<Content: View>: View {
+    let title: String
+    let icon: String
+    let iconColor: Color
+    let count: Int
+    @ViewBuilder let content: () -> Content
+    
+    private var sectionHeaderFont: Font {
+        #if os(tvOS)
+        return .title
+        #else
+        return .title2
+        #endif
+    }
+    
+    private var rowPadding: CGFloat {
+        #if os(tvOS)
+        return 50
+        #else
+        return 16
+        #endif
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            // Section header
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.title2)
+                    .foregroundStyle(iconColor)
+                Text(title)
+                    .font(sectionHeaderFont)
+                    .fontWeight(.bold)
+                Text("(\(count))")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+            #if os(tvOS)
+            .padding(.horizontal, 50)
+            #else
+            .padding(.horizontal)
+            #endif
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: PlatformMetrics.horizontalSpacing) {
+                    content()
+                }
+                .padding(.horizontal, rowPadding)
+            }
+            .platformFocusSection()
+        }
     }
 }
 
