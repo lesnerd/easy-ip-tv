@@ -1,0 +1,45 @@
+# SwiftLint configuration for Easy IPTV
+
+included:
+  - EasyIpTv
+
+excluded:
+  - EasyIpTv/Resources
+
+# Rules
+disabled_rules:
+  - trailing_whitespace
+  - line_length
+  - type_body_length
+  - file_length
+  - function_body_length
+  - cyclomatic_complexity
+  - force_cast
+  - identifier_name
+
+opt_in_rules:
+  - empty_count
+  - closure_spacing
+  - contains_over_first_not_nil
+  - discouraged_optional_boolean
+  - empty_string
+  - first_where
+  - modifier_order
+  - overridden_super_call
+  - private_action
+  - redundant_nil_coalescing
+  - single_test_class
+  - sorted_first_last
+  - unneeded_parentheses_in_closure_argument
+
+# Configurable rules
+type_name:
+  min_length: 2
+  max_length: 50
+
+large_tuple:
+  warning: 4
+
+nesting:
+  type_level: 3
+  function_level: 5

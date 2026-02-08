@@ -1,0 +1,24 @@
+name: Lint
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '**/*.swift'
+
+jobs:
+  swiftlint:
+    name: SwiftLint
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install SwiftLint
+        run: brew install swiftlint
+
+      - name: Run SwiftLint
+        run: |
+          swiftlint lint \
+            --config .swiftlint.yml \
+            --reporter github-actions-logging \
+            EasyIpTv/

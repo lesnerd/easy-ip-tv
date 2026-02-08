@@ -1,0 +1,105 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    name: Build Release
+    runs-on: macos-15
+    strategy:
+      matrix:
+        include:
+          - platform: macOS
+            destination: "platform=macOS"
+            artifact_name: EasyIpTv-macOS
+          - platform: iOS
+            destination: "generic/platform=iOS Simulator"
+            artifact_name: EasyIpTv-iOS
+          - platform: tvOS
+            destination: "generic/platform=tvOS Simulator"
+            artifact_name: EasyIpTv-tvOS
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
+
+      - name: Build ${{ matrix.platform }}
+        run: |
+          xcodebuild build \
+            -project EasyIpTv.xcodeproj \
+            -scheme EasyIpTv \
+            -destination "${{ matrix.destination }}" \
+            -configuration Release \
+            -derivedDataPath build \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO
+
+      - name: Package ${{ matrix.platform }} artifact
+        run: |
+          cd build/Build/Products
+          RELEASE_DIR=$(ls -d Release* | head -1)
+          if [ -d "$RELEASE_DIR/EasyIpTv.app" ]; then
+            cd "$RELEASE_DIR"
+            zip -r "${{ matrix.artifact_name }}.zip" EasyIpTv.app
+            mv "${{ matrix.artifact_name }}.zip" "$GITHUB_WORKSPACE/"
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: "*.zip"
+          if-no-files-found: ignore
+
+  create-release:
+    name: Create GitHub Release
+    needs: build-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Generate release notes
+        id: notes
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          # Get commits since last tag
+          PREV_TAG=$(git describe --tags --abbrev=0 "$TAG^" 2>/dev/null || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            NOTES=$(git log --pretty=format:"- %s" "$PREV_TAG..$TAG")
+          else
+            NOTES=$(git log --pretty=format:"- %s" -20)
+          fi
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          echo "$NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.notes.outputs.tag }}
+          name: Easy IPTV ${{ steps.notes.outputs.tag }}
+          body: |
+            ## What's Changed
+            ${{ steps.notes.outputs.notes }}
+
+            ## Platforms
+            - macOS 14+
+            - iOS / iPadOS 17+
+            - tvOS 17+
+          draft: false
+          prerelease: ${{ contains(github.ref, '-beta') || contains(github.ref, '-rc') }}
+          files: artifacts/*
