@@ -1,0 +1,73 @@
+{
+  "identifier" : "8A3B4C5D-6E7F-8901-2345-6789ABCDEF01",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "49.99",
+      "familyShareable" : false,
+      "internalID" : "lifetime001",
+      "localizations" : [
+        {
+          "description" : "Unlock all premium features forever. No ads, unlimited playlists, favorites, and more.",
+          "displayName" : "Easy IPTV Premium (Lifetime)",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.example.EasyIpTv.premium.lifetime",
+      "referenceName" : "Premium Lifetime",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_failTransactionsEnabled" : false,
+    "_storeKitErrors" : [
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Load Products"
+      }
+    ]
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "premium_group",
+      "localizations" : [
+
+      ],
+      "name" : "Premium",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "4.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "monthly001",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Ad-free experience with unlimited playlists, favorites, HD quality, and subtitle support.",
+              "displayName" : "Easy IPTV Premium (Monthly)",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.example.EasyIpTv.premium.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Premium Monthly",
+          "subscriptionGroupID" : "premium_group",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

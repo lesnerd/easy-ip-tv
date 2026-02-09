@@ -221,6 +221,22 @@ class PremiumManager: ObservableObject {
         UserDefaults.standard.set(subscriptionType.rawValue, forKey: "premium_subscription_type")
     }
     
+    // MARK: - Debug Toggle
+    
+    #if DEBUG
+    /// Manually toggle premium for testing (debug builds only)
+    func debugTogglePremium() {
+        if isPremium {
+            isPremium = false
+            subscriptionType = .free
+        } else {
+            isPremium = true
+            subscriptionType = .lifetime
+        }
+        cacheState()
+    }
+    #endif
+    
     // MARK: - Feature Gating Helpers
     
     /// Whether the user can add another playlist

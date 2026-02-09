@@ -156,6 +156,22 @@ struct SettingsView: View {
                             .foregroundColor(.red)
                     }
                 }
+                
+                #if DEBUG
+                // Debug Section (only in debug builds)
+                Section {
+                    Button {
+                        premiumManager.debugTogglePremium()
+                    } label: {
+                        Label(
+                            premiumManager.isPremium ? "Switch to Free (Debug)" : "Switch to Premium (Debug)",
+                            systemImage: "ladybug"
+                        )
+                    }
+                } header: {
+                    Label("Debug", systemImage: "hammer")
+                }
+                #endif
             }
             .navigationTitle(L10n.Navigation.settings)
             #if os(macOS)
@@ -163,7 +179,7 @@ struct SettingsView: View {
             #endif
         }
         .sheet(isPresented: $showAddPlaylist) {
-            AddPlaylistView { url in
+            AddSourceView { url in
                 addPlaylist(url)
                 showAddPlaylist = false
             } onCancel: {
@@ -321,80 +337,374 @@ struct QualityRow: View {
     }
 }
 
-// MARK: - Add Playlist View
+// MARK: - Add Source View (M3U / Xtream Codes / Stalker Portal)
 
-struct AddPlaylistView: View {
-    @State private var urlString = ""
-    @State private var showError = false
-    @State private var errorMessage = ""
+enum SourceInputType: String, CaseIterable {
+    case m3u = "M3U URL"
+    case xtreamCodes = "Xtream Codes"
+    case stalkerPortal = "Stalker Portal"
+}
+
+struct AddSourceView: View {
+    @State private var selectedType: SourceInputType = .m3u
     
     var onAdd: (URL) -> Void = { _ in }
     var onCancel: () -> Void = {}
     
-    @FocusState private var isTextFieldFocused: Bool
-    
     var body: some View {
         NavigationStack {
-            VStack(spacing: 24) {
-                Text(L10n.Settings.enterPlaylistURL)
-                    .font(.headline)
+            VStack(spacing: 20) {
+                // Source type picker
+                Picker("Source Type", selection: $selectedType) {
+                    ForEach(SourceInputType.allCases, id: \.self) { type in
+                        Text(type.rawValue).tag(type)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
                 
+                // Input form based on selected type
+                switch selectedType {
+                case .m3u:
+                    M3UInputForm(onAdd: onAdd, onCancel: onCancel)
+                case .xtreamCodes:
+                    XtreamCodesInputForm(onAdd: onAdd, onCancel: onCancel)
+                case .stalkerPortal:
+                    StalkerPortalInputForm(onAdd: onAdd, onCancel: onCancel)
+                }
+                
+                Spacer()
+            }
+            .padding(.top)
+            .navigationTitle(L10n.Settings.addPlaylist)
+            #if os(macOS)
+            .frame(minWidth: 480, minHeight: 350)
+            #endif
+        }
+    }
+}
+
+// MARK: - M3U Input Form
+
+private struct M3UInputForm: View {
+    @State private var urlString = ""
+    @State private var errorMessage = ""
+    
+    var onAdd: (URL) -> Void
+    var onCancel: () -> Void
+    
+    @FocusState private var isFocused: Bool
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Playlist URL")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
                 TextField("https://example.com/playlist.m3u", text: $urlString)
                     #if os(iOS)
                     .textInputAutocapitalization(.never)
                     #endif
                     .autocorrectionDisabled()
-                    .focused($isTextFieldFocused)
-                    .padding(.horizontal, PlatformMetrics.detailPadding)
+                    .focused($isFocused)
                     #if os(macOS)
                     .textFieldStyle(.roundedBorder)
                     #endif
-                
-                if showError {
-                    Text(errorMessage)
-                        .font(.caption)
-                        .foregroundColor(.red)
-                }
-                
-                HStack(spacing: 24) {
-                    Button(L10n.Actions.cancel) {
-                        onCancel()
-                    }
-                    .buttonStyle(.bordered)
-                    
-                    Button(L10n.Actions.save) {
-                        validateAndAdd()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(urlString.isEmpty)
-                }
             }
-            .padding(PlatformMetrics.detailPadding)
-            .navigationTitle(L10n.Settings.addPlaylist)
-            #if os(macOS)
-            .frame(minWidth: 400, minHeight: 200)
-            #endif
-            .onAppear {
-                isTextFieldFocused = true
+            .padding(.horizontal)
+            
+            if !errorMessage.isEmpty {
+                Text(errorMessage)
+                    .font(.caption)
+                    .foregroundColor(.red)
             }
+            
+            formButtons(
+                canSave: !urlString.isEmpty,
+                onCancel: onCancel,
+                onSave: {
+                    guard let url = URL(string: urlString),
+                          url.scheme == "http" || url.scheme == "https" else {
+                        errorMessage = L10n.Errors.invalidURL
+                        return
+                    }
+                    onAdd(url)
+                }
+            )
         }
+        .onAppear { isFocused = true }
+    }
+}
+
+// MARK: - Xtream Codes Input Form
+
+private struct XtreamCodesInputForm: View {
+    @State private var server = ""
+    @State private var username = ""
+    @State private var password = ""
+    @State private var errorMessage = ""
+    @State private var isTesting = false
+    @State private var testSuccess = false
+    
+    var onAdd: (URL) -> Void
+    var onCancel: () -> Void
+    
+    @FocusState private var focusedField: Field?
+    
+    enum Field { case server, username, password }
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Server URL")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                TextField("http://server.com:port", text: $server)
+                    #if os(iOS)
+                    .textInputAutocapitalization(.never)
+                    #endif
+                    .autocorrectionDisabled()
+                    .focused($focusedField, equals: .server)
+                    #if os(macOS)
+                    .textFieldStyle(.roundedBorder)
+                    #endif
+            }
+            .padding(.horizontal)
+            
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Username")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                TextField("username", text: $username)
+                    #if os(iOS)
+                    .textInputAutocapitalization(.never)
+                    #endif
+                    .autocorrectionDisabled()
+                    .focused($focusedField, equals: .username)
+                    #if os(macOS)
+                    .textFieldStyle(.roundedBorder)
+                    #endif
+            }
+            .padding(.horizontal)
+            
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Password")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                SecureField("password", text: $password)
+                    .focused($focusedField, equals: .password)
+                    #if os(macOS)
+                    .textFieldStyle(.roundedBorder)
+                    #endif
+            }
+            .padding(.horizontal)
+            
+            // Test connection button
+            if testSuccess {
+                Label("Connection successful", systemImage: "checkmark.circle.fill")
+                    .font(.callout)
+                    .foregroundStyle(.green)
+            }
+            
+            if !errorMessage.isEmpty {
+                Text(errorMessage)
+                    .font(.caption)
+                    .foregroundColor(.red)
+            }
+            
+            HStack(spacing: 16) {
+                Button {
+                    testConnection()
+                } label: {
+                    if isTesting {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Label("Test Connection", systemImage: "network")
+                    }
+                }
+                .buttonStyle(.bordered)
+                .disabled(server.isEmpty || username.isEmpty || password.isEmpty || isTesting)
+            }
+            
+            formButtons(
+                canSave: !server.isEmpty && !username.isEmpty && !password.isEmpty,
+                onCancel: onCancel,
+                onSave: {
+                    let cleanServer = server.hasSuffix("/") ? String(server.dropLast()) : server
+                    let urlString = "\(cleanServer)/get.php?username=\(username)&password=\(password)&type=m3u_plus&output=ts"
+                    guard let url = URL(string: urlString) else {
+                        errorMessage = L10n.Errors.invalidURL
+                        return
+                    }
+                    onAdd(url)
+                }
+            )
+        }
+        .onAppear { focusedField = .server }
     }
     
-    private func validateAndAdd() {
-        guard let url = URL(string: urlString) else {
-            errorMessage = L10n.Errors.invalidURL
-            showError = true
-            return
-        }
+    private func testConnection() {
+        isTesting = true
+        errorMessage = ""
+        testSuccess = false
         
-        guard url.scheme == "http" || url.scheme == "https" else {
-            errorMessage = L10n.Errors.invalidURL
-            showError = true
-            return
-        }
+        let cleanServer = server.hasSuffix("/") ? String(server.dropLast()) : server
         
-        onAdd(url)
+        Task {
+            do {
+                let service = XtreamCodesService()
+                _ = try await service.authenticate(
+                    baseURL: cleanServer,
+                    username: username,
+                    password: password
+                )
+                testSuccess = true
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+            isTesting = false
+        }
     }
+}
+
+// MARK: - Stalker Portal Input Form
+
+private struct StalkerPortalInputForm: View {
+    @State private var portalURL = ""
+    @State private var macAddress = ""
+    @State private var errorMessage = ""
+    @State private var isTesting = false
+    @State private var testSuccess = false
+    
+    var onAdd: (URL) -> Void
+    var onCancel: () -> Void
+    
+    @FocusState private var focusedField: Field?
+    
+    enum Field { case portal, mac }
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Portal URL")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                TextField("http://portal.example.com/c/", text: $portalURL)
+                    #if os(iOS)
+                    .textInputAutocapitalization(.never)
+                    #endif
+                    .autocorrectionDisabled()
+                    .focused($focusedField, equals: .portal)
+                    #if os(macOS)
+                    .textFieldStyle(.roundedBorder)
+                    #endif
+            }
+            .padding(.horizontal)
+            
+            VStack(alignment: .leading, spacing: 8) {
+                Text("MAC Address")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                TextField("00:1A:79:XX:XX:XX", text: $macAddress)
+                    #if os(iOS)
+                    .textInputAutocapitalization(.never)
+                    #endif
+                    .autocorrectionDisabled()
+                    .focused($focusedField, equals: .mac)
+                    #if os(macOS)
+                    .textFieldStyle(.roundedBorder)
+                    #endif
+                Text("Format: XX:XX:XX:XX:XX:XX")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal)
+            
+            // Test connection
+            if testSuccess {
+                Label("Connection successful", systemImage: "checkmark.circle.fill")
+                    .font(.callout)
+                    .foregroundStyle(.green)
+            }
+            
+            if !errorMessage.isEmpty {
+                Text(errorMessage)
+                    .font(.caption)
+                    .foregroundColor(.red)
+            }
+            
+            HStack(spacing: 16) {
+                Button {
+                    testConnection()
+                } label: {
+                    if isTesting {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Label("Test Connection", systemImage: "network")
+                    }
+                }
+                .buttonStyle(.bordered)
+                .disabled(portalURL.isEmpty || macAddress.isEmpty || isTesting)
+            }
+            
+            formButtons(
+                canSave: !portalURL.isEmpty && !macAddress.isEmpty,
+                onCancel: onCancel,
+                onSave: {
+                    guard StalkerPortalService.isValidMACAddress(macAddress) else {
+                        errorMessage = "Invalid MAC address format. Use XX:XX:XX:XX:XX:XX"
+                        return
+                    }
+                    let cleanPortal = portalURL.hasSuffix("/") ? String(portalURL.dropLast()) : portalURL
+                    guard let url = StalkerPortalService.buildStalkerURL(portalURL: cleanPortal, macAddress: macAddress) else {
+                        errorMessage = L10n.Errors.invalidURL
+                        return
+                    }
+                    onAdd(url)
+                }
+            )
+        }
+        .onAppear { focusedField = .portal }
+    }
+    
+    private func testConnection() {
+        isTesting = true
+        errorMessage = ""
+        testSuccess = false
+        
+        let cleanPortal = portalURL.hasSuffix("/") ? String(portalURL.dropLast()) : portalURL
+        
+        Task {
+            do {
+                let service = StalkerPortalService()
+                _ = try await service.authenticate(portalURL: cleanPortal, macAddress: macAddress)
+                testSuccess = true
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+            isTesting = false
+        }
+    }
+}
+
+// MARK: - Form Buttons Helper
+
+private func formButtons(canSave: Bool, onCancel: @escaping () -> Void, onSave: @escaping () -> Void) -> some View {
+    HStack(spacing: 24) {
+        Button(L10n.Actions.cancel) {
+            onCancel()
+        }
+        .buttonStyle(.bordered)
+        
+        Button(L10n.Actions.save) {
+            onSave()
+        }
+        .buttonStyle(.borderedProminent)
+        .disabled(!canSave)
+    }
+    .padding(.top, 8)
 }
 
 // MARK: - Bundle Extension

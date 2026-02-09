@@ -341,6 +341,26 @@ class StorageService: ObservableObject {
         defaults.string(forKey: Keys.lastWatchedChannel)
     }
     
+    // MARK: - Playlist Type Detection
+    
+    /// Types of IPTV playlist sources
+    enum PlaylistType: Equatable {
+        case m3u
+        case xtreamCodes
+        case stalkerPortal
+    }
+    
+    /// Detects the playlist type from a URL
+    static func playlistType(for url: URL) -> PlaylistType {
+        if StalkerPortalService.isStalkerPortalURL(url) {
+            return .stalkerPortal
+        } else if XtreamCodesService.isXtreamCodesURL(url) {
+            return .xtreamCodes
+        } else {
+            return .m3u
+        }
+    }
+    
     // MARK: - Playlist Management
     
     /// Adds a playlist URL

@@ -61,13 +61,20 @@ class ContentViewModel: ObservableObject {
     
     private let parser = M3UParser()
     private let xtreamService = XtreamCodesService()
+    private let stalkerService = StalkerPortalService()
     private let storage = StorageService.shared
     
     private var isLoadingInProgress = false
     private var hasLoadedOnce = false
     
-    /// Cached credentials for on-demand loading
+    /// The type of playlist currently loaded
+    private var currentPlaylistType: StorageService.PlaylistType = .m3u
+    
+    /// Cached credentials for on-demand loading (Xtream Codes)
     private var cachedCredentials: (baseURL: String, username: String, password: String)?
+    
+    /// Cached credentials for Stalker Portal
+    private var cachedStalkerCredentials: (portalURL: String, macAddress: String, token: String)?
     
     /// Cache of loaded category items (Published for SwiftUI updates)
     @Published private(set) var channelCache: [String: [Channel]] = [:]
@@ -254,67 +261,16 @@ class ContentViewModel: ObservableObject {
         
         // Process first playlist URL
         if let url = playlistURLs.first {
-            if XtreamCodesService.isXtreamCodesURL(url),
-               let credentials = XtreamCodesService.extractCredentials(from: url) {
-                
-                // Cache credentials for on-demand loading
-                cachedCredentials = credentials
-                
-                do {
-                    // Authenticate
-                    _ = try await xtreamService.authenticate(
-                        baseURL: credentials.baseURL,
-                        username: credentials.username,
-                        password: credentials.password
-                    )
-                    
-                    // Load only categories (fast)
-                    async let liveTask = xtreamService.getLiveCategories(
-                        baseURL: credentials.baseURL,
-                        username: credentials.username,
-                        password: credentials.password
-                    )
-                    
-                    async let vodTask = xtreamService.getVodCategories(
-                        baseURL: credentials.baseURL,
-                        username: credentials.username,
-                        password: credentials.password
-                    )
-                    
-                    async let seriesTask = try? xtreamService.getSeriesCategories(
-                        baseURL: credentials.baseURL,
-                        username: credentials.username,
-                        password: credentials.password
-                    )
-                    
-                    let (live, vod, series) = await (try liveTask, try vodTask, seriesTask)
-                    
-                    // Convert to CategoryInfo
-                    liveCategories = live.compactMap { cat -> CategoryInfo? in
-                        guard let id = cat.categoryId, let name = cat.categoryName else { return nil }
-                        return CategoryInfo(id: id, name: name)
-                    }.sorted { categoryPriority($0.name) < categoryPriority($1.name) }
-                    
-                    vodCategories = vod.compactMap { cat -> CategoryInfo? in
-                        guard let id = cat.categoryId, let name = cat.categoryName else { return nil }
-                        return CategoryInfo(id: id, name: name)
-                    }.sorted { categoryPriority($0.name) < categoryPriority($1.name) }
-                    
-                    if let series = series {
-                        seriesCategories = series.compactMap { cat -> CategoryInfo? in
-                            guard let id = cat.categoryId, let name = cat.categoryName else { return nil }
-                            return CategoryInfo(id: id, name: name)
-                        }.sorted { categoryPriority($0.name) < categoryPriority($1.name) }
-                    }
-                    
-                    hasContent = !liveCategories.isEmpty || !vodCategories.isEmpty || !seriesCategories.isEmpty
-                    
-                    // Load featured items (small subset for home screen)
-                    await loadFeaturedContent()
-                    
-                } catch {
-                    self.error = error
-                }
+            let type = StorageService.playlistType(for: url)
+            currentPlaylistType = type
+            
+            switch type {
+            case .xtreamCodes:
+                await loadXtreamCodesCategories(from: url)
+            case .stalkerPortal:
+                await loadStalkerPortalCategories(from: url)
+            case .m3u:
+                await loadM3UContent(from: url)
             }
         }
         
@@ -322,6 +278,170 @@ class ContentViewModel: ObservableObject {
         isLoading = false
         isLoadingInProgress = false
     }
+    
+    // MARK: - Xtream Codes Loading
+    
+    private func loadXtreamCodesCategories(from url: URL) async {
+        guard let credentials = XtreamCodesService.extractCredentials(from: url) else { return }
+        
+        cachedCredentials = credentials
+        
+        do {
+            _ = try await xtreamService.authenticate(
+                baseURL: credentials.baseURL,
+                username: credentials.username,
+                password: credentials.password
+            )
+            
+            async let liveTask = xtreamService.getLiveCategories(
+                baseURL: credentials.baseURL,
+                username: credentials.username,
+                password: credentials.password
+            )
+            
+            async let vodTask = xtreamService.getVodCategories(
+                baseURL: credentials.baseURL,
+                username: credentials.username,
+                password: credentials.password
+            )
+            
+            async let seriesTask = try? xtreamService.getSeriesCategories(
+                baseURL: credentials.baseURL,
+                username: credentials.username,
+                password: credentials.password
+            )
+            
+            let (live, vod, series) = await (try liveTask, try vodTask, seriesTask)
+            
+            liveCategories = live.compactMap { cat -> CategoryInfo? in
+                guard let id = cat.categoryId, let name = cat.categoryName else { return nil }
+                return CategoryInfo(id: id, name: name)
+            }.sorted { categoryPriority($0.name) < categoryPriority($1.name) }
+            
+            vodCategories = vod.compactMap { cat -> CategoryInfo? in
+                guard let id = cat.categoryId, let name = cat.categoryName else { return nil }
+                return CategoryInfo(id: id, name: name)
+            }.sorted { categoryPriority($0.name) < categoryPriority($1.name) }
+            
+            if let series = series {
+                seriesCategories = series.compactMap { cat -> CategoryInfo? in
+                    guard let id = cat.categoryId, let name = cat.categoryName else { return nil }
+                    return CategoryInfo(id: id, name: name)
+                }.sorted { categoryPriority($0.name) < categoryPriority($1.name) }
+            }
+            
+            hasContent = !liveCategories.isEmpty || !vodCategories.isEmpty || !seriesCategories.isEmpty
+            await loadFeaturedContent()
+            
+        } catch {
+            self.error = error
+        }
+    }
+    
+    // MARK: - Stalker Portal Loading
+    
+    private func loadStalkerPortalCategories(from url: URL) async {
+        guard let credentials = StalkerPortalService.extractCredentials(from: url) else { return }
+        
+        do {
+            let token = try await stalkerService.authenticate(
+                portalURL: credentials.portalURL,
+                macAddress: credentials.macAddress
+            )
+            
+            cachedStalkerCredentials = (credentials.portalURL, credentials.macAddress, token)
+            
+            // Load categories in parallel
+            async let liveTask = stalkerService.getLiveCategories(
+                portalURL: credentials.portalURL,
+                macAddress: credentials.macAddress,
+                token: token
+            )
+            
+            async let vodTask = try? stalkerService.getVodCategories(
+                portalURL: credentials.portalURL,
+                macAddress: credentials.macAddress,
+                token: token
+            )
+            
+            async let seriesTask = try? stalkerService.getSeriesCategories(
+                portalURL: credentials.portalURL,
+                macAddress: credentials.macAddress,
+                token: token
+            )
+            
+            let (live, vod, series) = await (try liveTask, vodTask, seriesTask)
+            
+            liveCategories = live.compactMap { cat -> CategoryInfo? in
+                guard let id = cat.id, let name = cat.title else { return nil }
+                return CategoryInfo(id: id, name: name)
+            }.sorted { categoryPriority($0.name) < categoryPriority($1.name) }
+            
+            if let vod = vod {
+                vodCategories = vod.compactMap { cat -> CategoryInfo? in
+                    guard let id = cat.id, let name = cat.title else { return nil }
+                    return CategoryInfo(id: id, name: name)
+                }.sorted { categoryPriority($0.name) < categoryPriority($1.name) }
+            }
+            
+            if let series = series {
+                seriesCategories = series.compactMap { cat -> CategoryInfo? in
+                    guard let id = cat.id, let name = cat.title else { return nil }
+                    return CategoryInfo(id: id, name: name)
+                }.sorted { categoryPriority($0.name) < categoryPriority($1.name) }
+            }
+            
+            hasContent = !liveCategories.isEmpty || !vodCategories.isEmpty || !seriesCategories.isEmpty
+            
+        } catch {
+            self.error = error
+        }
+    }
+    
+    // MARK: - M3U Loading
+    
+    private func loadM3UContent(from url: URL) async {
+        do {
+            let content = try await parser.parse(from: url)
+            
+            // Group channels by category
+            let channelGroups = Dictionary(grouping: content.channels) { $0.category }
+            for (category, channels) in channelGroups {
+                channelCache[category] = channels
+                touchCacheOrder(category, order: &channelCacheOrder)
+            }
+            
+            liveCategories = channelGroups.keys.map { name in
+                CategoryInfo(id: name, name: name, itemCount: channelGroups[name]?.count)
+            }.sorted { categoryPriority($0.name) < categoryPriority($1.name) }
+            
+            // Group movies by category
+            let movieGroups = Dictionary(grouping: content.movies) { $0.category }
+            for (category, movies) in movieGroups {
+                movieCache[category] = movies
+                touchCacheOrder(category, order: &movieCacheOrder)
+            }
+            
+            vodCategories = movieGroups.keys.map { name in
+                CategoryInfo(id: name, name: name, itemCount: movieGroups[name]?.count)
+            }.sorted { categoryPriority($0.name) < categoryPriority($1.name) }
+            
+            // Set featured from first loaded content
+            if let firstChannels = channelGroups.values.first {
+                featuredChannels = Array(firstChannels.prefix(Self.maxFeaturedItems))
+            }
+            if let firstMovies = movieGroups.values.first {
+                featuredMovies = Array(firstMovies.prefix(Self.maxFeaturedItems))
+            }
+            
+            hasContent = !liveCategories.isEmpty || !vodCategories.isEmpty
+            
+        } catch {
+            self.error = error
+        }
+    }
+    
+    // MARK: - Featured Content
     
     /// Loads a small subset of featured content for the home screen
     private func loadFeaturedContent() async {
@@ -350,6 +470,15 @@ class ContentViewModel: ObservableObject {
         if channelCache[category.name] != nil { return }
         // Prevent duplicate loads
         guard !loadingCategoryIds.contains(category.id) else { return }
+        
+        // For M3U, channels are loaded upfront - nothing to do
+        if currentPlaylistType == .m3u { return }
+        
+        // Route to correct service
+        if currentPlaylistType == .stalkerPortal {
+            await loadStalkerChannelsForCategory(category)
+            return
+        }
         
         guard let credentials = cachedCredentials else { return }
         
@@ -409,6 +538,50 @@ class ContentViewModel: ObservableObject {
         isLoadingCategory = !loadingCategoryIds.isEmpty
     }
     
+    /// Loads Stalker Portal channels for a category
+    private func loadStalkerChannelsForCategory(_ category: CategoryInfo) async {
+        guard let creds = cachedStalkerCredentials else { return }
+        
+        isLoadingCategory = true
+        loadingCategoryIds.insert(category.id)
+        
+        do {
+            let items = try await stalkerService.getLiveChannels(
+                portalURL: creds.portalURL,
+                macAddress: creds.macAddress,
+                token: creds.token,
+                categoryId: category.id
+            )
+            
+            var channelNumber = 1
+            let channels: [Channel] = items.compactMap { item -> Channel? in
+                guard let id = item.id, let name = item.name, let cmd = item.cmd,
+                      let streamURL = StalkerPortalService.extractStreamURL(from: cmd) else { return nil }
+                let logoURL = item.logo.flatMap { URL(string: $0) }
+                let ch = Channel(id: id, name: name, logoURL: logoURL, streamURL: streamURL,
+                                 category: category.name, channelNumber: channelNumber)
+                channelNumber += 1
+                return ch
+            }
+            
+            let processed = channels.map { ch -> Channel in
+                var updated = ch
+                updated.isFavorite = storage.isFavorite(channelId: ch.id)
+                return updated
+            }
+            
+            channelCache[category.name] = processed
+            touchCacheOrder(category.name, order: &channelCacheOrder)
+            evictChannelCache(keepCount: Self.maxCachedCategories)
+            self.channels = processed
+        } catch {
+            print("Failed to load Stalker channels for \(category.name): \(error)")
+        }
+        
+        loadingCategoryIds.remove(category.id)
+        isLoadingCategory = !loadingCategoryIds.isEmpty
+    }
+    
     /// Loads movies for a specific category (on-demand)
     func loadMoviesForCategory(_ category: CategoryInfo) async {
         // Check cache first
@@ -418,6 +591,9 @@ class ContentViewModel: ObservableObject {
         }
         // Prevent duplicate loads
         guard !loadingCategoryIds.contains(category.id) else { return }
+        
+        if currentPlaylistType == .m3u { return }
+        // TODO: Add Stalker Portal VOD loading when needed
         
         guard let credentials = cachedCredentials else { return }
         
@@ -485,6 +661,9 @@ class ContentViewModel: ObservableObject {
         }
         // Prevent duplicate loads
         guard !loadingCategoryIds.contains(category.id) else { return }
+        
+        if currentPlaylistType == .m3u { return }
+        // TODO: Add Stalker Portal series loading when needed
         
         guard let credentials = cachedCredentials else { return }
         

@@ -20,13 +20,11 @@
 		A10001001111111100000011 /* M3UParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000011 /* M3UParser.swift */; };
 		A10001001111111100000012 /* StorageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000012 /* StorageService.swift */; };
 		A10001001111111100000013 /* StreamService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000013 /* StreamService.swift */; };
-		A10001001111111100000029 /* XtreamCodesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000029 /* XtreamCodesService.swift */; };
 		A10001001111111100000014 /* ContentViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000014 /* ContentViewModel.swift */; };
 		A10001001111111100000015 /* FavoritesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000015 /* FavoritesViewModel.swift */; };
 		A10001001111111100000016 /* PlayerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000016 /* PlayerViewModel.swift */; };
 		A10001001111111100000017 /* CategoryHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000017 /* CategoryHeader.swift */; };
 		A10001001111111100000018 /* ContentCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000018 /* ContentCard.swift */; };
-		A10001001111111100000030 /* CachedAsyncImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000030 /* CachedAsyncImage.swift */; };
 		A10001001111111100000019 /* FavoritesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000019 /* FavoritesView.swift */; };
 		A10001001111111100000020 /* ChannelRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000020 /* ChannelRowView.swift */; };
 		A10001001111111100000021 /* LiveTVView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000021 /* LiveTVView.swift */; };
@@ -36,15 +34,15 @@
 		A10001001111111100000025 /* PlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000025 /* PlayerView.swift */; };
 		A10001001111111100000026 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000026 /* SettingsView.swift */; };
 		A10001001111111100000027 /* ShowsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000027 /* ShowsView.swift */; };
+		A10001001111111100000029 /* XtreamCodesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000029 /* XtreamCodesService.swift */; };
+		A10001001111111100000030 /* CachedAsyncImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000030 /* CachedAsyncImage.swift */; };
 		A10001001111111100000032 /* PremiumManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000032 /* PremiumManager.swift */; };
 		A10001001111111100000033 /* AdManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000033 /* AdManager.swift */; };
 		A10001001111111100000034 /* UpgradePromptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000034 /* UpgradePromptView.swift */; };
+		A10001001111111100000035 /* StalkerPortalService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000035 /* StalkerPortalService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		A10003001111111100000001 /* EasyIpTv.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EasyIpTv.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		A10002001111111100000031 /* EasyIpTv.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = EasyIpTv.entitlements; sourceTree = "<group>"; };
-		A10002001111111100000028 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A10002001111111100000001 /* EasyIpTvApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EasyIpTvApp.swift; sourceTree = "<group>"; };
 		A10002001111111100000002 /* LocalizationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationManager.swift; sourceTree = "<group>"; };
 		A10002001111111100000003 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
@@ -58,13 +56,11 @@
 		A10002001111111100000011 /* M3UParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = M3UParser.swift; sourceTree = "<group>"; };
 		A10002001111111100000012 /* StorageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageService.swift; sourceTree = "<group>"; };
 		A10002001111111100000013 /* StreamService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamService.swift; sourceTree = "<group>"; };
-		A10002001111111100000029 /* XtreamCodesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XtreamCodesService.swift; sourceTree = "<group>"; };
 		A10002001111111100000014 /* ContentViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentViewModel.swift; sourceTree = "<group>"; };
 		A10002001111111100000015 /* FavoritesViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesViewModel.swift; sourceTree = "<group>"; };
 		A10002001111111100000016 /* PlayerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerViewModel.swift; sourceTree = "<group>"; };
 		A10002001111111100000017 /* CategoryHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryHeader.swift; sourceTree = "<group>"; };
 		A10002001111111100000018 /* ContentCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentCard.swift; sourceTree = "<group>"; };
-		A10002001111111100000030 /* CachedAsyncImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedAsyncImage.swift; sourceTree = "<group>"; };
 		A10002001111111100000019 /* FavoritesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesView.swift; sourceTree = "<group>"; };
 		A10002001111111100000020 /* ChannelRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelRowView.swift; sourceTree = "<group>"; };
 		A10002001111111100000021 /* LiveTVView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveTVView.swift; sourceTree = "<group>"; };
@@ -74,9 +70,16 @@
 		A10002001111111100000025 /* PlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerView.swift; sourceTree = "<group>"; };
 		A10002001111111100000026 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		A10002001111111100000027 /* ShowsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShowsView.swift; sourceTree = "<group>"; };
+		A10002001111111100000028 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A10002001111111100000029 /* XtreamCodesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XtreamCodesService.swift; sourceTree = "<group>"; };
+		A10002001111111100000030 /* CachedAsyncImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedAsyncImage.swift; sourceTree = "<group>"; };
+		A10002001111111100000031 /* EasyIpTv.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = EasyIpTv.entitlements; sourceTree = "<group>"; };
 		A10002001111111100000032 /* PremiumManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumManager.swift; sourceTree = "<group>"; };
 		A10002001111111100000033 /* AdManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdManager.swift; sourceTree = "<group>"; };
 		A10002001111111100000034 /* UpgradePromptView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpgradePromptView.swift; sourceTree = "<group>"; };
+		A10002001111111100000035 /* StalkerPortalService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StalkerPortalService.swift; sourceTree = "<group>"; };
+		A10003001111111100000001 /* EasyIpTv.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EasyIpTv.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E419FFB42F39E55D00502E91 /* Products.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; name = Products.storekit; path = EasyIpTv/Products.storekit; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -93,6 +96,7 @@
 		A10005001111111100000001 = {
 			isa = PBXGroup;
 			children = (
+				E419FFB42F39E55D00502E91 /* Products.storekit */,
 				A10005001111111100000002 /* EasyIpTv */,
 				A10005001111111100000003 /* Products */,
 			);
@@ -166,6 +170,7 @@
 				A10002001111111100000033 /* AdManager.swift */,
 				A10002001111111100000011 /* M3UParser.swift */,
 				A10002001111111100000032 /* PremiumManager.swift */,
+				A10002001111111100000035 /* StalkerPortalService.swift */,
 				A10002001111111100000012 /* StorageService.swift */,
 				A10002001111111100000013 /* StreamService.swift */,
 				A10002001111111100000029 /* XtreamCodesService.swift */,
@@ -360,6 +365,7 @@
 				A10001001111111100000032 /* PremiumManager.swift in Sources */,
 				A10001001111111100000033 /* AdManager.swift in Sources */,
 				A10001001111111100000034 /* UpgradePromptView.swift in Sources */,
+				A10001001111111100000035 /* StalkerPortalService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -418,12 +424,12 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "appletvos appletvsimulator iphoneos iphonesimulator macosx";
 				SUPPORTS_MACCATALYST = NO;
@@ -479,11 +485,11 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "appletvos appletvsimulator iphoneos iphonesimulator macosx";
 				SUPPORTS_MACCATALYST = NO;
