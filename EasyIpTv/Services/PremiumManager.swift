@@ -7,7 +7,7 @@ private typealias StoreTransaction = StoreKit.Transaction
 /// Subscription type for the app
 enum SubscriptionType: String, Codable {
     case free
-    case monthly
+    case yearly
     case lifetime
 }
 
@@ -17,10 +17,10 @@ class PremiumManager: ObservableObject {
     
     // MARK: - Product IDs
     
-    static let monthlyProductId = "com.example.EasyIpTv.premium.monthly"
-    static let lifetimeProductId = "com.example.EasyIpTv.premium.lifetime"
+    static let yearlyProductId = "com.easycompany.EasyIpTv.premium.yearly"
+    static let lifetimeProductId = "com.easycompany.EasyIpTv.premium.lifetime"
     
-    static let allProductIds: Set<String> = [monthlyProductId, lifetimeProductId]
+    static let allProductIds: Set<String> = [yearlyProductId, lifetimeProductId]
     
     // MARK: - Published State
     
@@ -75,8 +75,8 @@ class PremiumManager: ObservableObject {
     }
     
     /// Returns the monthly subscription product
-    var monthlyProduct: Product? {
-        products.first { $0.id == Self.monthlyProductId }
+    var yearlyProduct: Product? {
+        products.first { $0.id == Self.yearlyProductId }
     }
     
     /// Returns the lifetime purchase product
@@ -150,9 +150,9 @@ class PremiumManager: ObservableObject {
                     foundPremium = true
                     foundType = .lifetime
                     break // Lifetime takes precedence
-                } else if transaction.productID == Self.monthlyProductId {
+                } else if transaction.productID == Self.yearlyProductId {
                     foundPremium = true
-                    foundType = .monthly
+                    foundType = .yearly
                 }
             }
         }
@@ -183,11 +183,11 @@ class PremiumManager: ObservableObject {
         } else if transaction.productID == Self.lifetimeProductId {
             isPremium = true
             subscriptionType = .lifetime
-        } else if transaction.productID == Self.monthlyProductId {
+        } else if transaction.productID == Self.yearlyProductId {
             // Check if subscription is still active
             if let expirationDate = transaction.expirationDate, expirationDate > Date() {
                 isPremium = true
-                subscriptionType = .monthly
+                subscriptionType = .yearly
             } else {
                 isPremium = false
                 subscriptionType = .free
@@ -277,13 +277,13 @@ class PremiumManager: ObservableObject {
     // MARK: - Formatted Prices
     
     /// Formatted monthly price string
-    var monthlyPriceString: String {
-        monthlyProduct?.displayPrice ?? "$4.99"
+    var yearlyPriceString: String {
+        yearlyProduct?.displayPrice ?? "$9.99"
     }
     
     /// Formatted lifetime price string
     var lifetimePriceString: String {
-        lifetimeProduct?.displayPrice ?? "$49.99"
+        lifetimeProduct?.displayPrice ?? "$79.99"
     }
     
     // MARK: - Errors

@@ -40,6 +40,7 @@
 		A10001001111111100000033 /* AdManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000033 /* AdManager.swift */; };
 		A10001001111111100000034 /* UpgradePromptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000034 /* UpgradePromptView.swift */; };
 		A10001001111111100000035 /* StalkerPortalService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000035 /* StalkerPortalService.swift */; };
+		A10001001111111100000036 /* LanguagePriority.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000036 /* LanguagePriority.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -78,6 +79,7 @@
 		A10002001111111100000033 /* AdManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdManager.swift; sourceTree = "<group>"; };
 		A10002001111111100000034 /* UpgradePromptView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpgradePromptView.swift; sourceTree = "<group>"; };
 		A10002001111111100000035 /* StalkerPortalService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StalkerPortalService.swift; sourceTree = "<group>"; };
+		A10002001111111100000036 /* LanguagePriority.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguagePriority.swift; sourceTree = "<group>"; };
 		A10003001111111100000001 /* EasyIpTv.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EasyIpTv.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E419FFB42F39E55D00502E91 /* Products.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; name = Products.storekit; path = EasyIpTv/Products.storekit; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -148,6 +150,7 @@
 			children = (
 				A10002001111111100000004 /* Channel.swift */,
 				A10002001111111100000005 /* ContentCategory.swift */,
+				A10002001111111100000036 /* LanguagePriority.swift */,
 				A10002001111111100000006 /* ContentType.swift */,
 				A10002001111111100000007 /* M3UItem.swift */,
 				A10002001111111100000008 /* Movie.swift */,
@@ -366,6 +369,7 @@
 				A10001001111111100000033 /* AdManager.swift in Sources */,
 				A10001001111111100000034 /* UpgradePromptView.swift in Sources */,
 				A10001001111111100000035 /* StalkerPortalService.swift in Sources */,
+				A10001001111111100000036 /* LanguagePriority.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -507,7 +511,7 @@
 				CODE_SIGN_ENTITLEMENTS = EasyIpTv/EasyIpTv.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = E8QKWT4ZU2;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = EasyIpTv/Info.plist;
@@ -520,7 +524,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.EasyIpTv;
+				PRODUCT_BUNDLE_IDENTIFIER = com.easycompany.EasyIpTv;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -536,7 +540,7 @@
 				CODE_SIGN_ENTITLEMENTS = EasyIpTv/EasyIpTv.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = E8QKWT4ZU2;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = EasyIpTv/Info.plist;
@@ -549,7 +553,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.EasyIpTv;
+				PRODUCT_BUNDLE_IDENTIFIER = com.easycompany.EasyIpTv;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;

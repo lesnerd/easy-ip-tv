@@ -74,7 +74,7 @@ struct BannerAdView: View {
                     
                     Spacer()
                     
-                    Text("From \(premiumManager.monthlyPriceString)/mo")
+                    Text("From \(premiumManager.yearlyPriceString)/yr")
                         .font(.caption)
                         .fontWeight(.medium)
                         .padding(.horizontal, 12)
@@ -137,11 +137,11 @@ struct InterstitialAdOverlay: View {
                 // Pricing options
                 HStack(spacing: 20) {
                     VStack(spacing: 8) {
-                        Text(premiumManager.monthlyPriceString)
+                        Text(premiumManager.yearlyPriceString)
                             .font(.title3)
                             .fontWeight(.bold)
                             .foregroundStyle(.white)
-                        Text("per month")
+                        Text("per year")
                             .font(.caption)
                             .foregroundStyle(.white.opacity(0.7))
                     }

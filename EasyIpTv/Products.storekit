@@ -5,7 +5,7 @@
   ],
   "products" : [
     {
-      "displayPrice" : "49.99",
+      "displayPrice" : "79.99",
       "familyShareable" : false,
       "internalID" : "lifetime001",
       "localizations" : [
@@ -15,7 +15,7 @@
           "locale" : "en_US"
         }
       ],
-      "productID" : "com.example.EasyIpTv.premium.lifetime",
+      "productID" : "com.easycompany.EasyIpTv.premium.lifetime",
       "referenceName" : "Premium Lifetime",
       "type" : "NonConsumable"
     }
@@ -45,21 +45,21 @@
           "codeOffers" : [
 
           ],
-          "displayPrice" : "4.99",
+          "displayPrice" : "9.99",
           "familyShareable" : false,
           "groupNumber" : 1,
-          "internalID" : "monthly001",
+          "internalID" : "yearly001",
           "introductoryOffer" : null,
           "localizations" : [
             {
               "description" : "Ad-free experience with unlimited playlists, favorites, HD quality, and subtitle support.",
-              "displayName" : "Easy IPTV Premium (Monthly)",
+              "displayName" : "Easy IPTV Premium (Yearly)",
               "locale" : "en_US"
             }
           ],
-          "productID" : "com.example.EasyIpTv.premium.monthly",
-          "recurringSubscriptionPeriod" : "P1M",
-          "referenceName" : "Premium Monthly",
+          "productID" : "com.easycompany.EasyIpTv.premium.yearly",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Premium Yearly",
           "subscriptionGroupID" : "premium_group",
           "type" : "RecurringSubscription"
         }

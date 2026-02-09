@@ -23,6 +23,7 @@ class StorageService: ObservableObject {
         static let streamQuality = "stream_quality"
         static let subtitleLanguage = "subtitle_language"
         static let autoPlayNextEpisode = "auto_play_next_episode"
+        static let languagePriorityConfig = "language_priority_config"
         static let recentlyWatched = "recently_watched"
         static let continueWatching = "continue_watching"
         static let cachedChannels = "cached_channels"
@@ -432,6 +433,24 @@ class StorageService: ObservableObject {
     /// Gets the preferred subtitle language (nil means Off)
     func getSubtitleLanguage() -> String? {
         defaults.string(forKey: Keys.subtitleLanguage)
+    }
+    
+    // MARK: - Language Priority
+    
+    /// Saves the language priority configuration
+    func saveLanguagePriority(_ config: LanguagePriorityConfig) {
+        if let data = try? encoder.encode(config) {
+            defaults.set(data, forKey: Keys.languagePriorityConfig)
+        }
+    }
+    
+    /// Gets the language priority configuration
+    func getLanguagePriority() -> LanguagePriorityConfig {
+        guard let data = defaults.data(forKey: Keys.languagePriorityConfig),
+              let config = try? decoder.decode(LanguagePriorityConfig.self, from: data) else {
+            return .empty
+        }
+        return config
     }
     
     // MARK: - Auto-Play Settings

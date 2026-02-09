@@ -31,10 +31,12 @@ struct FavoritesView: View {
             Group {
                 if !favoritesViewModel.hasFavorites && continueWatchingItems.isEmpty {
                     emptyView
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     contentView
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .navigationTitle(L10n.Navigation.favorites)
             .onAppear {
                 favoritesViewModel.loadSavedFavorites()

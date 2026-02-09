@@ -1,5 +1,8 @@
 import SwiftUI
 import AVKit
+#if os(macOS)
+import AppKit
+#endif
 
 /// Full-screen video player view
 struct PlayerView: View {
@@ -44,6 +47,17 @@ struct PlayerView: View {
     var body: some View {
         ZStack {
             // Video Player
+            #if os(macOS)
+            // macOS: always show NativePlayerView, update player via binding
+            NativePlayerView(player: playerViewModel.player)
+                .ignoresSafeArea()
+            // Transparent overlay to capture mouse clicks (NSView steals events)
+            Color.clear
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    playerViewModel.showControlsTemporarily()
+                }
+            #else
             if let player = playerViewModel.player {
                 VideoPlayer(player: player)
                     .ignoresSafeArea()
@@ -51,6 +65,7 @@ struct PlayerView: View {
                 Color.black
                     .ignoresSafeArea()
             }
+            #endif
             
             // Buffering indicator
             if playerViewModel.isBuffering {
@@ -105,10 +120,10 @@ struct PlayerView: View {
             }
             
             // Channel navigator overlay
-            if playerViewModel.showChannelNavigator, channel != nil {
+            if playerViewModel.showChannelNavigator, (playerViewModel.currentChannel ?? channel) != nil {
                 ChannelNavigatorOverlay(
                     channels: contentViewModel.channels,
-                    currentChannel: channel!,
+                    currentChannel: playerViewModel.currentChannel ?? channel!,
                     onSelectChannel: { newChannel in
                         playerViewModel.hideNavigator()
                         playChannel(newChannel)
@@ -238,13 +253,13 @@ struct PlayerView: View {
     }
     
     private func nextChannel() {
-        guard let current = channel,
+        guard let current = playerViewModel.currentChannel ?? channel,
               let next = contentViewModel.nextChannel(after: current) else { return }
         playChannel(next)
     }
     
     private func previousChannel() {
-        guard let current = channel,
+        guard let current = playerViewModel.currentChannel ?? channel,
               let previous = contentViewModel.previousChannel(before: current) else { return }
         playChannel(previous)
     }
@@ -591,6 +606,27 @@ struct SubtitlePickerOverlay: View {
         }
     }
 }
+
+// MARK: - Native macOS Player View (bypasses broken _AVKit_SwiftUI)
+
+#if os(macOS)
+struct NativePlayerView: NSViewRepresentable {
+    let player: AVPlayer?
+    
+    func makeNSView(context: Context) -> AVPlayerView {
+        let playerView = AVPlayerView()
+        playerView.player = player
+        playerView.controlsStyle = .none // Use our custom SwiftUI overlays for controls
+        // Don't accept first responder so keyboard events go to SwiftUI
+        return playerView
+    }
+    
+    func updateNSView(_ nsView: AVPlayerView, context: Context) {
+        // Always update to handle channel switches (player object changes)
+        nsView.player = player
+    }
+}
+#endif
 
 // MARK: - Preview
 

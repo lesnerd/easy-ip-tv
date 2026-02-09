@@ -88,7 +88,7 @@ struct MoviesView: View {
                     }
                 }
                 
-                // Category rows - auto-load on appear (macOS/iOS) or tap to load (tvOS)
+                // Category rows
                 ForEach(contentViewModel.vodCategories) { category in
                     MovieCategoryRowView(
                         category: category,

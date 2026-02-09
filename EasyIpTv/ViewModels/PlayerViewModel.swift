@@ -361,10 +361,10 @@ class PlayerViewModel: ObservableObject {
         startControlsTimer()
     }
     
-    /// Stops playback and cleans up
+    /// Stops playback and cleans up completely
     func stop() {
         saveProgress()
-        cleanup()
+        cleanup(destroyPlayer: true)
         currentChannel = nil
         currentMovie = nil
         currentEpisode = nil
@@ -382,7 +382,13 @@ class PlayerViewModel: ObservableObject {
             playerItem.preferredPeakBitRate = quality.preferredBitRate
         }
         
-        player = AVPlayer(playerItem: playerItem)
+        if let existingPlayer = player {
+            // Reuse existing player - just swap the item (avoids NSView recreation on macOS)
+            existingPlayer.replaceCurrentItem(with: playerItem)
+        } else {
+            // First time - create new player
+            player = AVPlayer(playerItem: playerItem)
+        }
         
         setupObservers()
     }
@@ -436,7 +442,7 @@ class PlayerViewModel: ObservableObject {
         }
     }
     
-    private func cleanup() {
+    private func cleanup(destroyPlayer: Bool = false) {
         controlsTimer?.invalidate()
         controlsTimer = nil
         
@@ -451,7 +457,11 @@ class PlayerViewModel: ObservableObject {
         rateObserver = nil
         
         player?.pause()
-        player = nil
+        
+        if destroyPlayer {
+            player?.replaceCurrentItem(with: nil)
+            player = nil
+        }
         
         isPlaying = false
         isBuffering = false

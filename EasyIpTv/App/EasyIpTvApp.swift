@@ -194,11 +194,20 @@ enum PlatformMetrics {
 // MARK: - Platform View Modifiers
 
 extension View {
-    /// Presents content as fullScreenCover on iOS/tvOS, sheet on macOS
+    /// Presents content as fullScreenCover on iOS/tvOS, or a full-window overlay on macOS
+    /// (macOS .sheet() crashes with VideoPlayer due to _AVKit_SwiftUI metadata bug)
     @ViewBuilder
     func platformFullScreen<Content: View>(isPresented: Binding<Bool>, @ViewBuilder content: @escaping () -> Content) -> some View {
         #if os(macOS)
-        self.sheet(isPresented: isPresented, content: content)
+        self.overlay {
+            if isPresented.wrappedValue {
+                content()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.black)
+                    .transition(.opacity)
+                    .zIndex(999)
+            }
+        }
         #else
         self.fullScreenCover(isPresented: isPresented, content: content)
         #endif

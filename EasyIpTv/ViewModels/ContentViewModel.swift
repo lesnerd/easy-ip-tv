@@ -127,50 +127,37 @@ class ContentViewModel: ObservableObject {
         showCache.values.flatMap { $0 }
     }
     
-    /// Hungarian categories (prioritized)
-    var hungarianCategories: [CategoryInfo] {
-        liveCategories.filter { detectCountry(from: $0.name) == "hungary" }
+    /// The current language priority configuration
+    @Published var languagePriorityConfig: LanguagePriorityConfig = .empty
+    
+    /// Categories filtered by a specific language
+    func categories(for languageId: String) -> [CategoryInfo] {
+        liveCategories.filter { IPTVLanguage.detect(from: $0.name)?.id == languageId }
     }
     
-    /// Israeli categories (prioritized)
-    var israeliCategories: [CategoryInfo] {
-        liveCategories.filter { detectCountry(from: $0.name) == "israel" }
+    /// Categories that don't match any known language
+    var uncategorizedLanguageCategories: [CategoryInfo] {
+        liveCategories.filter { IPTVLanguage.detect(from: $0.name) == nil }
     }
     
-    /// Other categories
-    var otherCategories: [CategoryInfo] {
-        liveCategories.filter { detectCountry(from: $0.name) == nil }
+    /// The preferred language IDs that have matching categories
+    var activePreferredLanguages: [String] {
+        languagePriorityConfig.preferred.filter { langId in
+            liveCategories.contains { IPTVLanguage.byId[langId]?.matches($0.name) == true }
+        }
     }
     
-    // MARK: - Country Detection
-    
-    private func detectCountry(from category: String) -> String? {
-        let lowercased = category.lowercased()
-        
-        if lowercased.contains("hungary") || lowercased.contains("hungarian") ||
-           lowercased.contains("magyar") || lowercased.hasPrefix("hu ") ||
-           lowercased.hasSuffix(" hu") || lowercased.contains("| hu") {
-            return "hungary"
-        }
-        
-        if lowercased.contains("israel") || lowercased.contains("israeli") ||
-           lowercased.contains("hebrew") || lowercased.hasPrefix("il ") ||
-           lowercased.hasSuffix(" il") || lowercased.contains("| il") {
-            return "israel"
-        }
-        
-        if lowercased.contains("arabic") || lowercased.contains("arab") ||
-           lowercased.hasPrefix("ar ") || lowercased.hasSuffix(" ar") ||
-           lowercased.contains("| ar") || lowercased.contains("العربية") {
-            return "arabic"
-        }
-        
-        return nil
+    /// Updates language priority and re-sorts all categories
+    func updateLanguagePriority(_ config: LanguagePriorityConfig) {
+        languagePriorityConfig = config
+        storage.saveLanguagePriority(config)
+        resortCategories()
     }
     
     // MARK: - Initialization
     
     init() {
+        languagePriorityConfig = storage.getLanguagePriority()
         setupMemoryWarningObserver()
         Task {
             await loadCategories()
@@ -272,6 +259,14 @@ class ContentViewModel: ObservableObject {
             case .m3u:
                 await loadM3UContent(from: url)
             }
+            
+            // Re-sort after all categories loaded to apply saved language priorities
+            resortCategories()
+            
+            // Load featured content AFTER sorting so it picks from the highest-priority category
+            if currentPlaylistType == .xtreamCodes {
+                await loadFeaturedContent()
+            }
         }
         
         hasLoadedOnce = true
@@ -331,7 +326,6 @@ class ContentViewModel: ObservableObject {
             }
             
             hasContent = !liveCategories.isEmpty || !vodCategories.isEmpty || !seriesCategories.isEmpty
-            await loadFeaturedContent()
             
         } catch {
             self.error = error
@@ -718,15 +712,15 @@ class ContentViewModel: ObservableObject {
     
     /// Gets priority for category sorting (lower = shown first, higher = shown last)
     private func categoryPriority(_ category: String) -> Int {
-        if let country = detectCountry(from: category) {
-            switch country {
-            case "hungary": return 0
-            case "israel": return 1
-            case "arabic": return 99 // Push Arabic to the end
-            default: return 2
-            }
-        }
-        return 2
+        languagePriorityConfig.priority(for: category)
+    }
+    
+    /// Re-sorts all category arrays based on current language priority
+    private func resortCategories() {
+        // Use .sorted() to create new arrays, ensuring @Published fires properly
+        liveCategories = liveCategories.sorted { categoryPriority($0.name) < categoryPriority($1.name) }
+        vodCategories = vodCategories.sorted { categoryPriority($0.name) < categoryPriority($1.name) }
+        seriesCategories = seriesCategories.sorted { categoryPriority($0.name) < categoryPriority($1.name) }
     }
     
     /// Refreshes all content

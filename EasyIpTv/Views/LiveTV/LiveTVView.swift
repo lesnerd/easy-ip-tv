@@ -1,19 +1,26 @@
 import SwiftUI
 
-/// Filter mode for Live TV
-enum ChannelFilterMode: String, CaseIterable {
-    case all = "All"
-    case hungarian = "Hungarian"
-    case israeli = "Israeli"
-    case other = "Other"
+/// Filter mode for Live TV -- dynamically built from user's language priorities
+struct ChannelFilterMode: Equatable, Hashable {
+    let id: String
+    let title: String
+    let icon: String
     
-    var icon: String {
-        switch self {
-        case .all: return "tv"
-        case .hungarian: return "flag"
-        case .israeli: return "flag.fill"
-        case .other: return "globe"
+    static let all = ChannelFilterMode(id: "all", title: "All", icon: "tv")
+    static let other = ChannelFilterMode(id: "other", title: "Other", icon: "globe")
+    
+    /// Builds filter modes from the user's preferred languages
+    static func fromPriorities(_ config: LanguagePriorityConfig) -> [ChannelFilterMode] {
+        var modes: [ChannelFilterMode] = [.all]
+        
+        for langId in config.preferred {
+            if let lang = IPTVLanguage.byId[langId] {
+                modes.append(ChannelFilterMode(id: lang.id, title: lang.displayName, icon: "flag"))
+            }
         }
+        
+        modes.append(.other)
+        return modes
     }
 }
 
@@ -32,6 +39,10 @@ struct LiveTVView: View {
     @State private var filterMode: ChannelFilterMode = .all
     @State private var showSearchResults = false
     
+    private var filterModes: [ChannelFilterMode] {
+        ChannelFilterMode.fromPriorities(contentViewModel.languagePriorityConfig)
+    }
+    
     private var filteredChannels: [Channel] {
         var channels = contentViewModel.channels
         
@@ -44,15 +55,12 @@ struct LiveTVView: View {
     }
     
     private var filteredCategories: [ContentViewModel.CategoryInfo] {
-        switch filterMode {
-        case .all:
+        if filterMode == .all {
             return contentViewModel.liveCategories
-        case .hungarian:
-            return contentViewModel.hungarianCategories
-        case .israeli:
-            return contentViewModel.israeliCategories
-        case .other:
-            return contentViewModel.otherCategories
+        } else if filterMode == .other {
+            return contentViewModel.uncategorizedLanguageCategories
+        } else {
+            return contentViewModel.categories(for: filterMode.id)
         }
     }
     
@@ -114,11 +122,11 @@ struct LiveTVView: View {
     
     private var filterMenu: some View {
         Menu {
-            ForEach(ChannelFilterMode.allCases, id: \.self) { mode in
+            ForEach(filterModes, id: \.id) { mode in
                 Button {
                     filterMode = mode
                 } label: {
-                    Label(mode.rawValue, systemImage: mode.icon)
+                    Label(mode.title, systemImage: mode.icon)
                     if filterMode == mode {
                         Image(systemName: "checkmark")
                     }
@@ -127,7 +135,7 @@ struct LiveTVView: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: filterMode.icon)
-                Text(filterMode.rawValue)
+                Text(filterMode.title)
                 Image(systemName: "chevron.down")
                     .font(.caption)
             }

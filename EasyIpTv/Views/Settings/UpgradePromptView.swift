@@ -45,15 +45,15 @@ struct UpgradePromptView: View {
                 
                 // Pricing cards
                 VStack(spacing: 16) {
-                    // Monthly
+                    // Yearly
                     PricingCard(
-                        title: "Monthly",
-                        price: premiumManager.monthlyPriceString,
-                        subtitle: "per month",
+                        title: "Yearly",
+                        price: premiumManager.yearlyPriceString,
+                        subtitle: "per year",
                         highlight: false
                     ) {
                         Task {
-                            if let product = premiumManager.monthlyProduct {
+                            if let product = premiumManager.yearlyProduct {
                                 let success = await premiumManager.purchase(product)
                                 if success { dismiss() }
                             }

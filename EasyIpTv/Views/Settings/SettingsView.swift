@@ -37,7 +37,7 @@ struct SettingsView: View {
                                 
                                 Spacer()
                                 
-                                Text(premiumManager.monthlyPriceString)
+                                Text(premiumManager.yearlyPriceString)
                                     .font(.callout)
                                     .fontWeight(.semibold)
                                     .foregroundColor(.accentColor)
@@ -53,7 +53,7 @@ struct SettingsView: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Premium")
                                     .font(.headline)
-                                Text(premiumManager.subscriptionType == .lifetime ? "Lifetime" : "Monthly subscription")
+                                Text(premiumManager.subscriptionType == .lifetime ? "Lifetime" : "Yearly subscription")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -76,6 +76,54 @@ struct SettingsView: View {
                     }
                 } header: {
                     Label(L10n.Settings.language, systemImage: "globe")
+                }
+                
+                // Content Priority Section (Premium)
+                Section {
+                    if premiumManager.isPremium {
+                        NavigationLink {
+                            LanguagePriorityEditorView()
+                                .environmentObject(contentViewModel)
+                                .environmentObject(premiumManager)
+                        } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Content Priority")
+                                        .font(.body)
+                                    let config = contentViewModel.languagePriorityConfig
+                                    if config.isEmpty {
+                                        Text("Not configured")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    } else {
+                                        let names = config.preferred.compactMap { IPTVLanguage.byId[$0]?.displayName }
+                                        Text(names.isEmpty ? "Not configured" : names.joined(separator: ", "))
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                Spacer()
+                            }
+                        }
+                    } else {
+                        Button {
+                            showUpgrade = true
+                        } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Content Priority")
+                                        .font(.body)
+                                    Text("Choose which languages appear first or last")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                PremiumLockBadge()
+                            }
+                        }
+                    }
+                } header: {
+                    Label("Content Priority", systemImage: "arrow.up.arrow.down")
                 }
                 
                 // Playlists Section
@@ -705,6 +753,182 @@ private func formButtons(canSave: Bool, onCancel: @escaping () -> Void, onSave: 
         .disabled(!canSave)
     }
     .padding(.top, 8)
+}
+
+// MARK: - Language Priority Editor
+
+struct LanguagePriorityEditorView: View {
+    @EnvironmentObject var contentViewModel: ContentViewModel
+    @EnvironmentObject var premiumManager: PremiumManager
+    
+    @State private var config: LanguagePriorityConfig = .empty
+    
+    var body: some View {
+        List {
+            // Show First (Top 5)
+            Section {
+                if config.preferred.isEmpty {
+                    Text("No preferred languages set")
+                        .foregroundStyle(.secondary)
+                        .font(.callout)
+                }
+                
+                ForEach(Array(config.preferred.enumerated()), id: \.element) { index, langId in
+                    if let lang = IPTVLanguage.byId[langId] {
+                        HStack {
+                            Text("\(index + 1).")
+                                .font(.headline)
+                                .foregroundStyle(.secondary)
+                                .frame(width: 30)
+                            
+                            Text(lang.flag)
+                                .font(.title3)
+                            
+                            Text(lang.displayName)
+                                .font(.body)
+                            
+                            Spacer()
+                            
+                            // Move buttons
+                            if index > 0 {
+                                Button {
+                                    config.movePreferredUp(langId)
+                                    save()
+                                } label: {
+                                    Image(systemName: "chevron.up")
+                                        .font(.caption)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            
+                            if index < config.preferred.count - 1 {
+                                Button {
+                                    config.movePreferredDown(langId)
+                                    save()
+                                } label: {
+                                    Image(systemName: "chevron.down")
+                                        .font(.caption)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            
+                            Button {
+                                config.remove(langId)
+                                save()
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                
+                if config.preferred.count < LanguagePriorityConfig.maxPreferred {
+                    Menu {
+                        ForEach(availableLanguages(excluding: config.preferred + config.deprioritized)) { lang in
+                            Button {
+                                config.addPreferred(lang.id)
+                                save()
+                            } label: {
+                                Text("\(lang.flag) \(lang.displayName)")
+                            }
+                        }
+                    } label: {
+                        Label("Add Language", systemImage: "plus.circle.fill")
+                    }
+                }
+            } header: {
+                HStack {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .foregroundStyle(.green)
+                    Text("Show First (up to 5)")
+                }
+            } footer: {
+                Text("These languages will appear at the top of all category lists.")
+            }
+            
+            // Show Last (Bottom 3)
+            Section {
+                if config.deprioritized.isEmpty {
+                    Text("No deprioritized languages set")
+                        .foregroundStyle(.secondary)
+                        .font(.callout)
+                }
+                
+                ForEach(Array(config.deprioritized.enumerated()), id: \.element) { index, langId in
+                    if let lang = IPTVLanguage.byId[langId] {
+                        HStack {
+                            Text(lang.flag)
+                                .font(.title3)
+                            
+                            Text(lang.displayName)
+                                .font(.body)
+                            
+                            Spacer()
+                            
+                            Button {
+                                config.remove(langId)
+                                save()
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                
+                if config.deprioritized.count < LanguagePriorityConfig.maxDeprioritized {
+                    Menu {
+                        ForEach(availableLanguages(excluding: config.preferred + config.deprioritized)) { lang in
+                            Button {
+                                config.addDeprioritized(lang.id)
+                                save()
+                            } label: {
+                                Text("\(lang.flag) \(lang.displayName)")
+                            }
+                        }
+                    } label: {
+                        Label("Add Language", systemImage: "plus.circle.fill")
+                    }
+                }
+            } header: {
+                HStack {
+                    Image(systemName: "arrow.down.circle.fill")
+                        .foregroundStyle(.red)
+                    Text("Show Last (up to 3)")
+                }
+            } footer: {
+                Text("These languages will be pushed to the bottom of all category lists.")
+            }
+            
+            // Reset
+            if !config.isEmpty {
+                Section {
+                    Button(role: .destructive) {
+                        config = .empty
+                        save()
+                    } label: {
+                        Label("Reset All Priorities", systemImage: "arrow.counterclockwise")
+                    }
+                }
+            }
+        }
+        .navigationTitle("Content Priority")
+        .onAppear {
+            config = contentViewModel.languagePriorityConfig
+        }
+    }
+    
+    private func availableLanguages(excluding ids: [String]) -> [IPTVLanguage] {
+        let excludeSet = Set(ids)
+        return IPTVLanguage.allLanguages.filter { !excludeSet.contains($0.id) }
+    }
+    
+    private func save() {
+        contentViewModel.updateLanguagePriority(config)
+    }
 }
 
 // MARK: - Bundle Extension
