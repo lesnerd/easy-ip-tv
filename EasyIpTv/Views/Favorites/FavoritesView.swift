@@ -37,7 +37,9 @@ struct FavoritesView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            #if !os(tvOS)
             .navigationTitle(L10n.Navigation.favorites)
+            #endif
             .onAppear {
                 favoritesViewModel.loadSavedFavorites()
             }

@@ -26,7 +26,9 @@ struct MoviesView: View {
                     categoryListView
                 }
             }
+            #if !os(tvOS)
             .navigationTitle(L10n.Navigation.movies)
+            #endif
             .safeAreaInset(edge: .bottom) {
                 BannerAdView { showUpgrade = true }
                     .environmentObject(premiumManager)

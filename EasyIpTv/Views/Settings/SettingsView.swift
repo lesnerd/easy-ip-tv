@@ -221,7 +221,9 @@ struct SettingsView: View {
                 }
                 #endif
             }
+            #if !os(tvOS)
             .navigationTitle(L10n.Navigation.settings)
+            #endif
             #if os(macOS)
             .listStyle(.inset)
             #endif
@@ -401,6 +403,31 @@ struct AddSourceView: View {
     
     var body: some View {
         NavigationStack {
+            #if os(tvOS)
+            List {
+                // Source type picker - full width on tvOS
+                Section {
+                    Picker("Source Type", selection: $selectedType) {
+                        ForEach(SourceInputType.allCases, id: \.self) { type in
+                            Text(type.rawValue).tag(type)
+                        }
+                    }
+                }
+                
+                // Input form based on selected type
+                Section {
+                    switch selectedType {
+                    case .m3u:
+                        M3UInputForm(onAdd: onAdd, onCancel: onCancel)
+                    case .xtreamCodes:
+                        XtreamCodesInputForm(onAdd: onAdd, onCancel: onCancel)
+                    case .stalkerPortal:
+                        StalkerPortalInputForm(onAdd: onAdd, onCancel: onCancel)
+                    }
+                }
+            }
+            .navigationTitle(L10n.Settings.addPlaylist)
+            #else
             VStack(spacing: 20) {
                 // Source type picker
                 Picker("Source Type", selection: $selectedType) {
@@ -427,6 +454,7 @@ struct AddSourceView: View {
             .navigationTitle(L10n.Settings.addPlaylist)
             #if os(macOS)
             .frame(minWidth: 480, minHeight: 350)
+            #endif
             #endif
         }
     }

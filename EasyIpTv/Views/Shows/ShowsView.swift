@@ -32,7 +32,9 @@ struct ShowsView: View {
                     categoryListView
                 }
             }
+            #if !os(tvOS)
             .navigationTitle(L10n.Navigation.shows)
+            #endif
             .safeAreaInset(edge: .bottom) {
                 BannerAdView { showUpgrade = true }
                     .environmentObject(premiumManager)

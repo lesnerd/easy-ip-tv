@@ -79,7 +79,9 @@ struct LiveTVView: View {
                     categoryListView
                 }
             }
+            #if !os(tvOS)
             .navigationTitle(L10n.Navigation.liveTV)
+            #endif
             .searchable(text: $searchText, prompt: L10n.Actions.search)
             .onChange(of: searchText) { _, newValue in
                 showSearchResults = !newValue.isEmpty
