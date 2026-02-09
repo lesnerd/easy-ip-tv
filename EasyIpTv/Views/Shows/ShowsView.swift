@@ -4,6 +4,7 @@ import SwiftUI
 struct ShowsView: View {
     @EnvironmentObject var contentViewModel: ContentViewModel
     @EnvironmentObject var favoritesViewModel: FavoritesViewModel
+    @EnvironmentObject var premiumManager: PremiumManager
     
     @State private var selectedCategory: ContentViewModel.CategoryInfo?
     @State private var selectedShow: Show?
@@ -11,6 +12,8 @@ struct ShowsView: View {
     @State private var selectedEpisode: Episode?
     @State private var selectedSeasonNumber: Int?
     @State private var showPlayer = false
+    @State private var showUpgrade = false
+    @State private var showInterstitial = false
     
     private var continueWatchingItems: [StorageService.ContinueWatchingItem] {
         StorageService.shared.getContinueWatching().filter { $0.contentType == "show" }
@@ -30,6 +33,10 @@ struct ShowsView: View {
                 }
             }
             .navigationTitle(L10n.Navigation.shows)
+            .safeAreaInset(edge: .bottom) {
+                BannerAdView { showUpgrade = true }
+                    .environmentObject(premiumManager)
+            }
         }
         .sheet(isPresented: $showDetail) {
             if let show = selectedShow {
@@ -37,7 +44,12 @@ struct ShowsView: View {
                     selectedEpisode = episode
                     selectedSeasonNumber = seasonNumber
                     showDetail = false
-                    showPlayer = true
+                    AdManager.shared.recordPlay()
+                    if AdManager.shared.showInterstitialIfNeeded(premiumManager: premiumManager) {
+                        showInterstitial = true
+                    } else {
+                        showPlayer = true
+                    }
                 } onToggleFavorite: {
                     toggleFavorite(show)
                 }
@@ -47,6 +59,17 @@ struct ShowsView: View {
             if let episode = selectedEpisode {
                 PlayerView(episode: episode, showContext: selectedShow, seasonNumber: selectedSeasonNumber)
             }
+        }
+        .platformFullScreen(isPresented: $showInterstitial) {
+            InterstitialAdOverlay(
+                onDismiss: { showInterstitial = false; showPlayer = true },
+                onUpgrade: { showInterstitial = false; showUpgrade = true }
+            )
+            .environmentObject(premiumManager)
+        }
+        .sheet(isPresented: $showUpgrade) {
+            UpgradePromptView()
+                .environmentObject(premiumManager)
         }
     }
     

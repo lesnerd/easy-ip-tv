@@ -4,6 +4,7 @@ import SwiftUI
 struct FavoritesView: View {
     @EnvironmentObject var contentViewModel: ContentViewModel
     @EnvironmentObject var favoritesViewModel: FavoritesViewModel
+    @EnvironmentObject var premiumManager: PremiumManager
     
     @State private var selectedChannel: Channel?
     @State private var selectedMovie: Movie?
@@ -15,6 +16,7 @@ struct FavoritesView: View {
     @State private var selectedEpisode: Episode?
     @State private var selectedSeasonNumber: Int?
     @State private var showEpisodePlayer = false
+    @State private var showUpgradeSheet = false
     
     private var continueWatchingItems: [StorageService.ContinueWatchingItem] {
         StorageService.shared.getContinueWatching()
@@ -37,6 +39,14 @@ struct FavoritesView: View {
             .onAppear {
                 favoritesViewModel.loadSavedFavorites()
             }
+            .safeAreaInset(edge: .bottom) {
+                BannerAdView { showUpgradeSheet = true }
+                    .environmentObject(premiumManager)
+            }
+        }
+        .sheet(isPresented: $showUpgradeSheet) {
+            UpgradePromptView()
+                .environmentObject(premiumManager)
         }
         .platformFullScreen(isPresented: $showChannelPlayer) {
             if let channel = selectedChannel {

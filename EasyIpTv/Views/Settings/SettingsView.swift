@@ -4,16 +4,66 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject var contentViewModel: ContentViewModel
     @EnvironmentObject var localizationManager: LocalizationManager
+    @EnvironmentObject var premiumManager: PremiumManager
     @ObservedObject var streamService = StreamService.shared
     
     @State private var showAddPlaylist = false
     @State private var showClearDataAlert = false
+    @State private var showUpgrade = false
     @State private var playlistURL = ""
     @State private var selectedQuality: StreamService.StreamQuality = StreamService.shared.streamQuality
     
     var body: some View {
         NavigationStack {
             List {
+                // Premium Section (shown for free users)
+                if !premiumManager.isPremium {
+                    Section {
+                        Button {
+                            showUpgrade = true
+                        } label: {
+                            HStack(spacing: 14) {
+                                Image(systemName: "crown.fill")
+                                    .font(.title2)
+                                    .foregroundStyle(.yellow)
+                                
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Upgrade to Premium")
+                                        .font(.headline)
+                                    Text("Ad-free, unlimited playlists & more")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                
+                                Spacer()
+                                
+                                Text(premiumManager.monthlyPriceString)
+                                    .font(.callout)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.accentColor)
+                            }
+                        }
+                    }
+                } else {
+                    Section {
+                        HStack(spacing: 14) {
+                            Image(systemName: "crown.fill")
+                                .font(.title2)
+                                .foregroundStyle(.yellow)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Premium")
+                                    .font(.headline)
+                                Text(premiumManager.subscriptionType == .lifetime ? "Lifetime" : "Monthly subscription")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "checkmark.seal.fill")
+                                .foregroundStyle(.green)
+                        }
+                    }
+                }
+                
                 // Language Section
                 Section {
                     ForEach(AppLanguage.allCases) { language in
@@ -37,9 +87,20 @@ struct SettingsView: View {
                     }
                     
                     Button {
-                        showAddPlaylist = true
+                        let currentCount = StorageService.shared.playlistURLs.count
+                        if premiumManager.canAddPlaylist(currentCount: currentCount) {
+                            showAddPlaylist = true
+                        } else {
+                            showUpgrade = true
+                        }
                     } label: {
-                        Label(L10n.Settings.addPlaylist, systemImage: "plus.circle.fill")
+                        HStack {
+                            Label(L10n.Settings.addPlaylist, systemImage: "plus.circle.fill")
+                            if !premiumManager.isPremium && StorageService.shared.playlistURLs.count >= PremiumManager.freeMaxPlaylists {
+                                Spacer()
+                                PremiumLockBadge()
+                            }
+                        }
                     }
                 } header: {
                     Label(L10n.Settings.playlists, systemImage: "list.bullet")
@@ -48,11 +109,17 @@ struct SettingsView: View {
                 // Stream Quality Section
                 Section {
                     ForEach(StreamService.StreamQuality.allCases, id: \.rawValue) { quality in
+                        let isLocked = quality != .auto && !premiumManager.canSelectQuality
                         QualityRow(
                             quality: quality,
-                            isSelected: streamService.streamQuality == quality
+                            isSelected: streamService.streamQuality == quality,
+                            isLocked: isLocked
                         ) {
-                            streamService.setQuality(quality)
+                            if isLocked {
+                                showUpgrade = true
+                            } else {
+                                streamService.setQuality(quality)
+                            }
                         }
                     }
                 } header: {
@@ -102,6 +169,10 @@ struct SettingsView: View {
             } onCancel: {
                 showAddPlaylist = false
             }
+        }
+        .sheet(isPresented: $showUpgrade) {
+            UpgradePromptView()
+                .environmentObject(premiumManager)
         }
         .alert(L10n.Settings.clearData, isPresented: $showClearDataAlert) {
             Button(L10n.Actions.cancel, role: .cancel) {}
@@ -221,6 +292,7 @@ struct PlaylistRow: View {
 struct QualityRow: View {
     let quality: StreamService.StreamQuality
     let isSelected: Bool
+    var isLocked: Bool = false
     var onSelect: () -> Void = {}
     
     var body: some View {
@@ -230,10 +302,15 @@ struct QualityRow: View {
             HStack {
                 Text(quality.displayName)
                     .font(.body)
+                    .foregroundStyle(isLocked ? .secondary : .primary)
+                
+                if isLocked {
+                    PremiumLockBadge()
+                }
                 
                 Spacer()
                 
-                if isSelected {
+                if isSelected && !isLocked {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundColor(.accentColor)
                 }

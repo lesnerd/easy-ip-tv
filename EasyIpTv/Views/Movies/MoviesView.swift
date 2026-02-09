@@ -4,11 +4,14 @@ import SwiftUI
 struct MoviesView: View {
     @EnvironmentObject var contentViewModel: ContentViewModel
     @EnvironmentObject var favoritesViewModel: FavoritesViewModel
+    @EnvironmentObject var premiumManager: PremiumManager
     
     @State private var selectedCategory: ContentViewModel.CategoryInfo?
     @State private var selectedMovie: Movie?
     @State private var showDetail = false
     @State private var showPlayer = false
+    @State private var showUpgrade = false
+    @State private var showInterstitial = false
     
     var body: some View {
         NavigationStack {
@@ -24,12 +27,21 @@ struct MoviesView: View {
                 }
             }
             .navigationTitle(L10n.Navigation.movies)
+            .safeAreaInset(edge: .bottom) {
+                BannerAdView { showUpgrade = true }
+                    .environmentObject(premiumManager)
+            }
         }
         .sheet(isPresented: $showDetail) {
             if let movie = selectedMovie {
                 MovieDetailView(movie: movie) {
                     showDetail = false
-                    showPlayer = true
+                    AdManager.shared.recordPlay()
+                    if AdManager.shared.showInterstitialIfNeeded(premiumManager: premiumManager) {
+                        showInterstitial = true
+                    } else {
+                        showPlayer = true
+                    }
                 } onToggleFavorite: {
                     toggleFavorite(movie)
                 }
@@ -39,6 +51,17 @@ struct MoviesView: View {
             if let movie = selectedMovie {
                 PlayerView(movie: movie)
             }
+        }
+        .platformFullScreen(isPresented: $showInterstitial) {
+            InterstitialAdOverlay(
+                onDismiss: { showInterstitial = false; showPlayer = true },
+                onUpgrade: { showInterstitial = false; showUpgrade = true }
+            )
+            .environmentObject(premiumManager)
+        }
+        .sheet(isPresented: $showUpgrade) {
+            UpgradePromptView()
+                .environmentObject(premiumManager)
         }
     }
     

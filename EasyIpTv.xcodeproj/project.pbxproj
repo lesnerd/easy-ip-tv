@@ -36,6 +36,9 @@
 		A10001001111111100000025 /* PlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000025 /* PlayerView.swift */; };
 		A10001001111111100000026 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000026 /* SettingsView.swift */; };
 		A10001001111111100000027 /* ShowsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000027 /* ShowsView.swift */; };
+		A10001001111111100000032 /* PremiumManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000032 /* PremiumManager.swift */; };
+		A10001001111111100000033 /* AdManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000033 /* AdManager.swift */; };
+		A10001001111111100000034 /* UpgradePromptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000034 /* UpgradePromptView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -71,6 +74,9 @@
 		A10002001111111100000025 /* PlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerView.swift; sourceTree = "<group>"; };
 		A10002001111111100000026 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		A10002001111111100000027 /* ShowsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShowsView.swift; sourceTree = "<group>"; };
+		A10002001111111100000032 /* PremiumManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumManager.swift; sourceTree = "<group>"; };
+		A10002001111111100000033 /* AdManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdManager.swift; sourceTree = "<group>"; };
+		A10002001111111100000034 /* UpgradePromptView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpgradePromptView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -157,7 +163,9 @@
 		A10005001111111100000008 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				A10002001111111100000033 /* AdManager.swift */,
 				A10002001111111100000011 /* M3UParser.swift */,
+				A10002001111111100000032 /* PremiumManager.swift */,
 				A10002001111111100000012 /* StorageService.swift */,
 				A10002001111111100000013 /* StreamService.swift */,
 				A10002001111111100000029 /* XtreamCodesService.swift */,
@@ -238,6 +246,7 @@
 			isa = PBXGroup;
 			children = (
 				A10002001111111100000026 /* SettingsView.swift */,
+				A10002001111111100000034 /* UpgradePromptView.swift */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -348,6 +357,9 @@
 				A10001001111111100000025 /* PlayerView.swift in Sources */,
 				A10001001111111100000026 /* SettingsView.swift in Sources */,
 				A10001001111111100000027 /* ShowsView.swift in Sources */,
+				A10001001111111100000032 /* PremiumManager.swift in Sources */,
+				A10001001111111100000033 /* AdManager.swift in Sources */,
+				A10001001111111100000034 /* UpgradePromptView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

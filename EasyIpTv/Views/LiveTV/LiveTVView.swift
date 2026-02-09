@@ -21,10 +21,13 @@ enum ChannelFilterMode: String, CaseIterable {
 struct LiveTVView: View {
     @EnvironmentObject var contentViewModel: ContentViewModel
     @EnvironmentObject var favoritesViewModel: FavoritesViewModel
+    @EnvironmentObject var premiumManager: PremiumManager
     
     @State private var selectedCategory: ContentViewModel.CategoryInfo?
     @State private var selectedChannel: Channel?
     @State private var showPlayer = false
+    @State private var showUpgrade = false
+    @State private var showInterstitial = false
     @State private var searchText = ""
     @State private var filterMode: ChannelFilterMode = .all
     @State private var showSearchResults = false
@@ -78,11 +81,32 @@ struct LiveTVView: View {
                     filterMenu
                 }
             }
+            .safeAreaInset(edge: .bottom) {
+                BannerAdView { showUpgrade = true }
+                    .environmentObject(premiumManager)
+            }
         }
         .platformFullScreen(isPresented: $showPlayer) {
             if let channel = selectedChannel {
                 PlayerView(channel: channel)
             }
+        }
+        .platformFullScreen(isPresented: $showInterstitial) {
+            InterstitialAdOverlay(
+                onDismiss: {
+                    showInterstitial = false
+                    showPlayer = true
+                },
+                onUpgrade: {
+                    showInterstitial = false
+                    showUpgrade = true
+                }
+            )
+            .environmentObject(premiumManager)
+        }
+        .sheet(isPresented: $showUpgrade) {
+            UpgradePromptView()
+                .environmentObject(premiumManager)
         }
     }
     
@@ -285,7 +309,12 @@ struct LiveTVView: View {
     
     private func playChannel(_ channel: Channel) {
         selectedChannel = channel
-        showPlayer = true
+        AdManager.shared.recordPlay()
+        if AdManager.shared.showInterstitialIfNeeded(premiumManager: premiumManager) {
+            showInterstitial = true
+        } else {
+            showPlayer = true
+        }
     }
     
     private func toggleFavorite(_ channel: Channel) {
