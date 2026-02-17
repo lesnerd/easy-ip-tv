@@ -143,8 +143,15 @@ jobs:
           if [ -n "$PROFILE_BASE64" ]; then
             PROFILE_PATH=$RUNNER_TEMP/profile.mobileprovision
             echo "$PROFILE_BASE64" | base64 --decode > "$PROFILE_PATH"
+
+            # Extract profile details
             PP_UUID=$(/usr/libexec/PlistBuddy -c "Print :UUID" /dev/stdin <<< $(security cms -D -i "$PROFILE_PATH"))
+            TEAM_ID=$(/usr/libexec/PlistBuddy -c "Print :TeamIdentifier:0" /dev/stdin <<< $(security cms -D -i "$PROFILE_PATH"))
+
             cp "$PROFILE_PATH" "$PP_DIR/$PP_UUID.mobileprovision"
+
+            # Export team ID for later use
+            echo "TEAM_ID=$TEAM_ID" >> $GITHUB_ENV
           fi
 
       - name: Set platform destination
@@ -185,7 +192,7 @@ jobs:
               <key>method</key>
               <string>app-store</string>
               <key>teamID</key>
-              <string>\$TEAM_ID</string>
+              <string>$TEAM_ID</string>
               <key>uploadBitcode</key>
               <false/>
               <key>uploadSymbols</key>
