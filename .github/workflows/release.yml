@@ -18,15 +18,12 @@ jobs:
           - platform: macOS
             destination: "platform=macOS"
             artifact_name: EasyIpTv-macOS
-            provisioning_profile_secret: PROVISIONING_PROFILE_MACOS_BASE64
           - platform: iOS
             destination: "generic/platform=iOS Simulator"
             artifact_name: EasyIpTv-iOS
-            provisioning_profile_secret: PROVISIONING_PROFILE_IOS_BASE64
           - platform: tvOS
             destination: "generic/platform=tvOS Simulator"
             artifact_name: EasyIpTv-tvOS
-            provisioning_profile_secret: PROVISIONING_PROFILE_TVOS_BASE64
     steps:
       - uses: actions/checkout@v4
 
@@ -84,22 +81,39 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
 
       - name: Install provisioning profile
-        if: ${{ secrets[matrix.provisioning_profile_secret] != '' }}
         env:
-          PROVISIONING_PROFILE_BASE64: ${{ secrets[matrix.provisioning_profile_secret] }}
+          PROVISIONING_PROFILE_IOS_BASE64: ${{ secrets.PROVISIONING_PROFILE_IOS_BASE64 }}
+          PROVISIONING_PROFILE_MACOS_BASE64: ${{ secrets.PROVISIONING_PROFILE_MACOS_BASE64 }}
+          PROVISIONING_PROFILE_TVOS_BASE64: ${{ secrets.PROVISIONING_PROFILE_TVOS_BASE64 }}
+          PLATFORM: ${{ matrix.platform }}
         run: |
-          PROFILE_PATH=$RUNNER_TEMP/profile.mobileprovision
           PP_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
-
-          # Create provisioning profiles directory
           mkdir -p "$PP_DIR"
 
-          # Decode and install provisioning profile
-          echo "$PROVISIONING_PROFILE_BASE64" | base64 --decode > "$PROFILE_PATH"
+          # Select the appropriate provisioning profile based on platform
+          case "$PLATFORM" in
+            iOS)
+              PROFILE_BASE64="$PROVISIONING_PROFILE_IOS_BASE64"
+              ;;
+            macOS)
+              PROFILE_BASE64="$PROVISIONING_PROFILE_MACOS_BASE64"
+              ;;
+            tvOS)
+              PROFILE_BASE64="$PROVISIONING_PROFILE_TVOS_BASE64"
+              ;;
+          esac
 
-          # Extract UUID and copy to proper location
-          PP_UUID=$(/usr/libexec/PlistBuddy -c "Print :UUID" /dev/stdin <<< $(security cms -D -i "$PROFILE_PATH"))
-          cp "$PROFILE_PATH" "$PP_DIR/$PP_UUID.mobileprovision"
+          # Install provisioning profile if available
+          if [ -n "$PROFILE_BASE64" ]; then
+            PROFILE_PATH=$RUNNER_TEMP/profile.mobileprovision
+
+            # Decode and install provisioning profile
+            echo "$PROFILE_BASE64" | base64 --decode > "$PROFILE_PATH"
+
+            # Extract UUID and copy to proper location
+            PP_UUID=$(/usr/libexec/PlistBuddy -c "Print :UUID" /dev/stdin <<< $(security cms -D -i "$PROFILE_PATH"))
+            cp "$PROFILE_PATH" "$PP_DIR/$PP_UUID.mobileprovision"
+          fi
 
       - name: Build ${{ matrix.platform }}
         run: |
