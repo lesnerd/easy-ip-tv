@@ -9,6 +9,8 @@
 	</dict>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.entertainment</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
 	<key>GADApplicationIdentifier</key>
 	<string>ca-app-pub-4908202278459911~9068400560</string>
 	<key>SKAdNetworkItems</key>

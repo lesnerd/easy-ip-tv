@@ -17,6 +17,7 @@
 		A10001001111111100000008 /* Movie.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000008 /* Movie.swift */; };
 		A10001001111111100000009 /* Show.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000009 /* Show.swift */; };
 		A10001001111111100000010 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000010 /* Assets.xcassets */; };
+		A10001001111111100000037 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000037 /* AppIcon.icns */; };
 		A10001001111111100000011 /* M3UParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000011 /* M3UParser.swift */; };
 		A10001001111111100000012 /* StorageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000012 /* StorageService.swift */; };
 		A10001001111111100000013 /* StreamService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000013 /* StreamService.swift */; };
@@ -54,6 +55,7 @@
 		A10002001111111100000008 /* Movie.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Movie.swift; sourceTree = "<group>"; };
 		A10002001111111100000009 /* Show.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Show.swift; sourceTree = "<group>"; };
 		A10002001111111100000010 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A10002001111111100000037 /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = AppIcon.icns; sourceTree = "<group>"; };
 		A10002001111111100000011 /* M3UParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = M3UParser.swift; sourceTree = "<group>"; };
 		A10002001111111100000012 /* StorageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageService.swift; sourceTree = "<group>"; };
 		A10002001111111100000013 /* StreamService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamService.swift; sourceTree = "<group>"; };
@@ -162,6 +164,7 @@
 		A10005001111111100000007 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				A10002001111111100000037 /* AppIcon.icns */,
 				A10002001111111100000010 /* Assets.xcassets */,
 			);
 			path = Resources;
@@ -329,6 +332,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10001001111111100000010 /* Assets.xcassets in Resources */,
+				A10001001111111100000037 /* AppIcon.icns in Resources */,
 				A10001001111111100000003 /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
