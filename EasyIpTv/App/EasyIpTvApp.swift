@@ -18,6 +18,9 @@ struct EasyIpTvApp: App {
                 // Force full view rebuild when language changes so sidebar flips, titles update, etc.
                 .id("root-\(localizationManager.currentLanguage.rawValue)")
                 .task {
+                    // Initialize ads SDK
+                    AdManager.shared.initialize()
+                    
                     await contentViewModel.loadContentIfNeeded()
                     favoritesViewModel.syncFavorites(
                         channels: contentViewModel.allLoadedChannels,

@@ -312,6 +312,8 @@
 				he,
 			);
 			mainGroup = A10005001111111100000001;
+			packageReferences = (
+			);
 			productRefGroup = A10005001111111100000003 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";

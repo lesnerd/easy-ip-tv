@@ -1,5 +1,8 @@
 import Foundation
 import SwiftUI
+#if canImport(GoogleMobileAds) && os(iOS)
+import GoogleMobileAds
+#endif
 
 /// Manages ad display state and play counting for interstitial ads
 @MainActor
@@ -10,9 +13,6 @@ class AdManager: ObservableObject {
     @Published var isBannerReady: Bool = true
     @Published var isInterstitialReady: Bool = false
     @Published private(set) var playCount: Int = 0
-    
-    /// Whether to show real AdMob ads (iOS only - SDK not available on macOS/tvOS)
-    static let useRealAds = false // Set to true after Google Mobile Ads SDK is added
     
     /// AdMob ad unit IDs per platform
     static var bannerAdUnitId: String {
@@ -35,7 +35,6 @@ class AdManager: ObservableObject {
         #endif
     }
     
-    /// AdMob App IDs (configured in Info.plist as GADApplicationIdentifier)
     static var appId: String {
         #if os(iOS)
         return "ca-app-pub-4908202278459911~9068400560"
@@ -48,6 +47,15 @@ class AdManager: ObservableObject {
     
     private init() {}
     
+    /// Initialize the ads SDK (call on app launch)
+    func initialize() {
+        #if canImport(GoogleMobileAds) && os(iOS)
+        MobileAds.shared.start { status in
+            print("[AdMob] SDK initialized: \(status.adapterStatusesByClassName)")
+        }
+        #endif
+    }
+    
     /// Call this each time content is played
     func recordPlay() {
         playCount += 1
@@ -59,73 +67,97 @@ class AdManager: ObservableObject {
     }
     
     /// Attempts to show an interstitial ad
-    /// Returns true if an ad was shown (caller should wait before proceeding)
+    /// Returns true if an ad should be shown (caller should show the InterstitialAdOverlay)
     func showInterstitialIfNeeded(premiumManager: PremiumManager) -> Bool {
         guard premiumManager.shouldShowInterstitial(playCount: playCount) else {
             return false
         }
-        
-        // TODO: When AdMob SDK is integrated, show real interstitial here
-        // For now, this is a placeholder that returns true to indicate
-        // the caller should show the InterstitialAdOverlay
         return true
     }
 }
 
-// MARK: - Banner Ad View (Placeholder)
+// MARK: - Banner Ad View
 
-/// A banner ad view that shows a subtle upgrade prompt for free users
-/// Replace with real AdMob GADBannerView when SDK is integrated
+/// Shows real AdMob banner on iOS, placeholder upgrade prompt on macOS/tvOS
 struct BannerAdView: View {
     @EnvironmentObject var premiumManager: PremiumManager
     var onUpgrade: () -> Void = {}
     
     var body: some View {
         if !premiumManager.isPremium {
-            Button {
-                onUpgrade()
-            } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: "star.circle.fill")
-                        .font(.title3)
-                        .foregroundStyle(.yellow)
-                    
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Upgrade to Premium")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                        Text("Ad-free experience, unlimited features")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                    
-                    Spacer()
-                    
-                    Text("From \(premiumManager.yearlyPriceString)/yr")
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Color.accentColor)
-                        .foregroundStyle(.white)
-                        .cornerRadius(12)
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .background(.ultraThinMaterial)
-                .cornerRadius(12)
-            }
-            .buttonStyle(.plain)
-            .padding(.horizontal)
-            .padding(.bottom, 4)
+            #if canImport(GoogleMobileAds) && os(iOS)
+            AdMobBannerView()
+                .frame(height: 50)
+                .padding(.horizontal)
+                .padding(.bottom, 4)
+            #else
+            placeholderBanner
+            #endif
         }
+    }
+    
+    private var placeholderBanner: some View {
+        Button {
+            onUpgrade()
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "star.circle.fill")
+                    .font(.title3)
+                    .foregroundStyle(.yellow)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Upgrade to Premium")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                    Text("Ad-free experience, unlimited features")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                
+                Spacer()
+                
+                Text("From \(PremiumManager().yearlyPriceString)/yr")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color.accentColor)
+                    .foregroundStyle(.white)
+                    .cornerRadius(12)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(.ultraThinMaterial)
+            .cornerRadius(12)
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal)
+        .padding(.bottom, 4)
     }
 }
 
-// MARK: - Interstitial Ad Overlay (Placeholder)
+// MARK: - AdMob Banner (iOS only)
+
+#if canImport(GoogleMobileAds) && os(iOS)
+struct AdMobBannerView: UIViewRepresentable {
+    func makeUIView(context: Context) -> BannerView {
+        let banner = BannerView(adSize: AdSizeBanner)
+        banner.adUnitID = AdManager.bannerAdUnitId
+        banner.rootViewController = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap { $0.windows }
+            .first { $0.isKeyWindow }?.rootViewController
+        banner.load(Request())
+        return banner
+    }
+    
+    func updateUIView(_ uiView: BannerView, context: Context) {}
+}
+#endif
+
+// MARK: - Interstitial Ad Overlay
 
 /// Full-screen overlay shown between content plays for free users
-/// Replace with real AdMob interstitial when SDK is integrated
 struct InterstitialAdOverlay: View {
     @EnvironmentObject var premiumManager: PremiumManager
     var onDismiss: () -> Void = {}
@@ -143,7 +175,7 @@ struct InterstitialAdOverlay: View {
             VStack(spacing: 30) {
                 Spacer()
                 
-                // Ad placeholder content
+                // Ad content
                 VStack(spacing: 16) {
                     Image(systemName: "sparkles")
                         .font(.system(size: 50))
@@ -232,7 +264,7 @@ struct InterstitialAdOverlay: View {
 
 // MARK: - Premium Lock Overlay
 
-/// Small overlay shown on locked features (quality selector, etc.)
+/// Small overlay shown on locked features
 struct PremiumLockBadge: View {
     var body: some View {
         Image(systemName: "lock.fill")
