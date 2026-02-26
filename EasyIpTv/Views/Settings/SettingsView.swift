@@ -53,7 +53,7 @@ struct SettingsView: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Premium")
                                     .font(.headline)
-                                Text(premiumManager.subscriptionType == .lifetime ? "Lifetime" : "Yearly subscription")
+                                Text("Yearly subscription")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }

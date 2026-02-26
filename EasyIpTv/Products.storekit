@@ -4,21 +4,7 @@
 
   ],
   "products" : [
-    {
-      "displayPrice" : "79.99",
-      "familyShareable" : false,
-      "internalID" : "lifetime001",
-      "localizations" : [
-        {
-          "description" : "Unlock all premium features forever. No ads, unlimited playlists, favorites, and more.",
-          "displayName" : "Easy IPTV Premium (Lifetime)",
-          "locale" : "en_US"
-        }
-      ],
-      "productID" : "com.easycompany.EasyIpTv.premium.lifetime",
-      "referenceName" : "Premium Lifetime",
-      "type" : "NonConsumable"
-    }
+
   ],
   "settings" : {
     "_failTransactionsEnabled" : false,
@@ -45,7 +31,7 @@
           "codeOffers" : [
 
           ],
-          "displayPrice" : "9.99",
+          "displayPrice" : "11.90",
           "familyShareable" : false,
           "groupNumber" : 1,
           "internalID" : "yearly001",
@@ -53,7 +39,7 @@
           "localizations" : [
             {
               "description" : "Ad-free experience with unlimited playlists, favorites, HD quality, and subtitle support.",
-              "displayName" : "Easy IPTV Premium (Yearly)",
+              "displayName" : "Easy IPTV Premium",
               "locale" : "en_US"
             }
           ],

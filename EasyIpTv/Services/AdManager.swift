@@ -11,13 +11,40 @@ class AdManager: ObservableObject {
     @Published var isInterstitialReady: Bool = false
     @Published private(set) var playCount: Int = 0
     
-    /// Whether to show real ads (set to true once AdMob SDK is integrated)
-    /// For now, uses placeholder banner ads
-    static let useRealAds = false
+    /// Whether to show real AdMob ads (iOS only - SDK not available on macOS/tvOS)
+    static let useRealAds = false // Set to true after Google Mobile Ads SDK is added
     
-    /// AdMob test ad unit IDs (replace with real ones for production)
-    static let bannerAdUnitId = "ca-app-pub-3940256099942544/2934735716" // Test banner
-    static let interstitialAdUnitId = "ca-app-pub-3940256099942544/4411468910" // Test interstitial
+    /// AdMob ad unit IDs per platform
+    static var bannerAdUnitId: String {
+        #if os(iOS)
+        return "ca-app-pub-4908202278459911/9679463016"
+        #elseif os(macOS)
+        return "ca-app-pub-4908202278459911/9328109224"
+        #else // tvOS
+        return "ca-app-pub-4908202278459911/1800972996"
+        #endif
+    }
+    
+    static var interstitialAdUnitId: String {
+        #if os(iOS)
+        return "ca-app-pub-4908202278459911/2937601905"
+        #elseif os(macOS)
+        return "ca-app-pub-4908202278459911/3114054662"
+        #else // tvOS
+        return "ca-app-pub-4908202278459911/4075782540"
+        #endif
+    }
+    
+    /// AdMob App IDs (configured in Info.plist as GADApplicationIdentifier)
+    static var appId: String {
+        #if os(iOS)
+        return "ca-app-pub-4908202278459911~9068400560"
+        #elseif os(macOS)
+        return "ca-app-pub-4908202278459911~4434875198"
+        #else // tvOS
+        return "ca-app-pub-4908202278459911~9862607487"
+        #endif
+    }
     
     private init() {}
     
@@ -134,34 +161,19 @@ struct InterstitialAdOverlay: View {
                         .frame(maxWidth: 400)
                 }
                 
-                // Pricing options
-                HStack(spacing: 20) {
-                    VStack(spacing: 8) {
-                        Text(premiumManager.yearlyPriceString)
-                            .font(.title3)
-                            .fontWeight(.bold)
-                            .foregroundStyle(.white)
-                        Text("per year")
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.7))
-                    }
-                    .frame(width: 140, height: 80)
-                    .background(Color.accentColor.opacity(0.3))
-                    .cornerRadius(12)
-                    
-                    VStack(spacing: 8) {
-                        Text(premiumManager.lifetimePriceString)
-                            .font(.title3)
-                            .fontWeight(.bold)
-                            .foregroundStyle(.white)
-                        Text("lifetime")
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.7))
-                    }
-                    .frame(width: 140, height: 80)
-                    .background(Color.orange.opacity(0.3))
-                    .cornerRadius(12)
+                // Pricing
+                VStack(spacing: 8) {
+                    Text(premiumManager.yearlyPriceString)
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.white)
+                    Text("per year")
+                        .font(.callout)
+                        .foregroundStyle(.white.opacity(0.7))
                 }
+                .frame(width: 200, height: 80)
+                .background(Color.accentColor.opacity(0.3))
+                .cornerRadius(16)
                 
                 // Upgrade button
                 Button {

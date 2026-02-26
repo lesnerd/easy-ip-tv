@@ -43,36 +43,17 @@ struct UpgradePromptView: View {
                 }
                 .padding(.horizontal, 24)
                 
-                // Pricing cards
-                VStack(spacing: 16) {
-                    // Yearly
-                    PricingCard(
-                        title: "Yearly",
-                        price: premiumManager.yearlyPriceString,
-                        subtitle: "per year",
-                        highlight: false
-                    ) {
-                        Task {
-                            if let product = premiumManager.yearlyProduct {
-                                let success = await premiumManager.purchase(product)
-                                if success { dismiss() }
-                            }
-                        }
-                    }
-                    
-                    // Lifetime (highlighted)
-                    PricingCard(
-                        title: "Lifetime",
-                        price: premiumManager.lifetimePriceString,
-                        subtitle: "one-time payment",
-                        highlight: true,
-                        badge: "Best Value"
-                    ) {
-                        Task {
-                            if let product = premiumManager.lifetimeProduct {
-                                let success = await premiumManager.purchase(product)
-                                if success { dismiss() }
-                            }
+                // Pricing
+                PricingCard(
+                    title: "Premium",
+                    price: premiumManager.yearlyPriceString,
+                    subtitle: "per year",
+                    highlight: true
+                ) {
+                    Task {
+                        if let product = premiumManager.yearlyProduct {
+                            let success = await premiumManager.purchase(product)
+                            if success { dismiss() }
                         }
                     }
                 }
