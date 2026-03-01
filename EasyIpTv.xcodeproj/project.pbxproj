@@ -17,7 +17,6 @@
 		A10001001111111100000008 /* Movie.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000008 /* Movie.swift */; };
 		A10001001111111100000009 /* Show.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000009 /* Show.swift */; };
 		A10001001111111100000010 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000010 /* Assets.xcassets */; };
-		A10001001111111100000037 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000037 /* AppIcon.icns */; };
 		A10001001111111100000011 /* M3UParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000011 /* M3UParser.swift */; };
 		A10001001111111100000012 /* StorageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000012 /* StorageService.swift */; };
 		A10001001111111100000013 /* StreamService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000013 /* StreamService.swift */; };
@@ -42,6 +41,7 @@
 		A10001001111111100000034 /* UpgradePromptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000034 /* UpgradePromptView.swift */; };
 		A10001001111111100000035 /* StalkerPortalService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000035 /* StalkerPortalService.swift */; };
 		A10001001111111100000036 /* LanguagePriority.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000036 /* LanguagePriority.swift */; };
+		A10001001111111100000037 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000037 /* AppIcon.icns */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -55,7 +55,6 @@
 		A10002001111111100000008 /* Movie.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Movie.swift; sourceTree = "<group>"; };
 		A10002001111111100000009 /* Show.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Show.swift; sourceTree = "<group>"; };
 		A10002001111111100000010 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		A10002001111111100000037 /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = AppIcon.icns; sourceTree = "<group>"; };
 		A10002001111111100000011 /* M3UParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = M3UParser.swift; sourceTree = "<group>"; };
 		A10002001111111100000012 /* StorageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageService.swift; sourceTree = "<group>"; };
 		A10002001111111100000013 /* StreamService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamService.swift; sourceTree = "<group>"; };
@@ -82,6 +81,7 @@
 		A10002001111111100000034 /* UpgradePromptView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpgradePromptView.swift; sourceTree = "<group>"; };
 		A10002001111111100000035 /* StalkerPortalService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StalkerPortalService.swift; sourceTree = "<group>"; };
 		A10002001111111100000036 /* LanguagePriority.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguagePriority.swift; sourceTree = "<group>"; };
+		A10002001111111100000037 /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = AppIcon.icns; sourceTree = "<group>"; };
 		A10003001111111100000001 /* EasyIpTv.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EasyIpTv.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E419FFB42F39E55D00502E91 /* Products.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; name = Products.storekit; path = EasyIpTv/Products.storekit; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -531,9 +531,9 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.easycompany.EasyIpTv;
-				"PRODUCT_BUNDLE_IDENTIFIER[sdk=macosx*]" = com.easycompany.EasyIpTv.mac;
 				"PRODUCT_BUNDLE_IDENTIFIER[sdk=appletvos*]" = com.easycompany.EasyIpTv.tv;
 				"PRODUCT_BUNDLE_IDENTIFIER[sdk=appletvsimulator*]" = com.easycompany.EasyIpTv.tv;
+				"PRODUCT_BUNDLE_IDENTIFIER[sdk=macosx*]" = com.easycompany.EasyIpTv.mac;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -563,9 +563,9 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.easycompany.EasyIpTv;
-				"PRODUCT_BUNDLE_IDENTIFIER[sdk=macosx*]" = com.easycompany.EasyIpTv.mac;
 				"PRODUCT_BUNDLE_IDENTIFIER[sdk=appletvos*]" = com.easycompany.EasyIpTv.tv;
 				"PRODUCT_BUNDLE_IDENTIFIER[sdk=appletvsimulator*]" = com.easycompany.EasyIpTv.tv;
+				"PRODUCT_BUNDLE_IDENTIFIER[sdk=macosx*]" = com.easycompany.EasyIpTv.mac;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
