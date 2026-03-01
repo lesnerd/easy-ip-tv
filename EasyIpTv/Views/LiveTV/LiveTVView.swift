@@ -44,7 +44,7 @@ struct LiveTVView: View {
     
     @State private var selectedCategory: ContentViewModel.CategoryInfo?
     @State private var selectedChannel: Channel?
-    @State private var showPlayer = false
+    @State private var playingChannel: Channel?
     @State private var showUpgrade = false
     @State private var showInterstitial = false
     @State private var searchText = ""
@@ -111,23 +111,28 @@ struct LiveTVView: View {
                     .environmentObject(premiumManager)
             }
         }
-        .platformFullScreen(isPresented: $showPlayer) {
-            if let channel = selectedChannel {
-                PlayerView(channel: channel)
-            }
+        .platformFullScreen(item: $playingChannel) { channel in
+            PlayerView(channel: channel, onClose: { playingChannel = nil })
+                .environmentObject(contentViewModel)
         }
-        .platformFullScreen(isPresented: $showInterstitial) {
-            InterstitialAdOverlay(
-                onDismiss: {
-                    showInterstitial = false
-                    showPlayer = true
-                },
-                onUpgrade: {
-                    showInterstitial = false
-                    showUpgrade = true
-                }
-            )
-            .environmentObject(premiumManager)
+        .overlay {
+            if showInterstitial {
+                InterstitialAdOverlay(
+                    onDismiss: {
+                        showInterstitial = false
+                        playingChannel = selectedChannel
+                    },
+                    onUpgrade: {
+                        showInterstitial = false
+                        showUpgrade = true
+                    }
+                )
+                .environmentObject(premiumManager)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.black.opacity(0.85))
+                .transition(.opacity)
+                .zIndex(998)
+            }
         }
         .sheet(isPresented: $showUpgrade) {
             UpgradePromptView()
@@ -338,7 +343,7 @@ struct LiveTVView: View {
         if AdManager.shared.showInterstitialIfNeeded(premiumManager: premiumManager) {
             showInterstitial = true
         } else {
-            showPlayer = true
+            playingChannel = channel
         }
     }
     

@@ -216,6 +216,25 @@ extension View {
         #endif
     }
     
+    /// Item-based variant: presents when item is non-nil, passes unwrapped item to content.
+    /// Avoids the dual-fullScreenCover bug on iOS where `if let` inside the closure evaluates to nil.
+    @ViewBuilder
+    func platformFullScreen<Item: Identifiable, Content: View>(item: Binding<Item?>, @ViewBuilder content: @escaping (Item) -> Content) -> some View {
+        #if os(macOS)
+        self.overlay {
+            if let value = item.wrappedValue {
+                content(value)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.black)
+                    .transition(.opacity)
+                    .zIndex(999)
+            }
+        }
+        #else
+        self.fullScreenCover(item: item, content: content)
+        #endif
+    }
+    
     /// Applies focus section only on tvOS
     @ViewBuilder
     func platformFocusSection() -> some View {

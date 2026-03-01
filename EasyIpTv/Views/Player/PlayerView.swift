@@ -6,7 +6,7 @@ import AppKit
 
 /// Full-screen video player view
 struct PlayerView: View {
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.dismiss) private var envDismiss
     @EnvironmentObject var contentViewModel: ContentViewModel
     
     @StateObject private var playerViewModel = PlayerViewModel()
@@ -20,28 +20,42 @@ struct PlayerView: View {
     let showContext: Show?
     let seasonNumber: Int?
     
-    init(channel: Channel) {
+    /// Explicit close action provided by the parent (needed for macOS overlay dismissal)
+    private var onClose: (() -> Void)?
+    
+    init(channel: Channel, onClose: (() -> Void)? = nil) {
         self.channel = channel
         self.movie = nil
         self.episode = nil
         self.showContext = nil
         self.seasonNumber = nil
+        self.onClose = onClose
     }
     
-    init(movie: Movie) {
+    init(movie: Movie, onClose: (() -> Void)? = nil) {
         self.channel = nil
         self.movie = movie
         self.episode = nil
         self.showContext = nil
         self.seasonNumber = nil
+        self.onClose = onClose
     }
     
-    init(episode: Episode, showContext: Show? = nil, seasonNumber: Int? = nil) {
+    init(episode: Episode, showContext: Show? = nil, seasonNumber: Int? = nil, onClose: (() -> Void)? = nil) {
         self.channel = nil
         self.movie = nil
         self.episode = episode
         self.showContext = showContext
         self.seasonNumber = seasonNumber
+        self.onClose = onClose
+    }
+    
+    private func dismiss() {
+        if let onClose {
+            onClose()
+        } else {
+            envDismiss()
+        }
     }
     
     @State private var bufferingTooLong = false
@@ -81,7 +95,6 @@ struct PlayerView: View {
                     
                     if bufferingTooLong {
                         Button {
-                            playerViewModel.stop()
                             dismiss()
                         } label: {
                             Label("Go Back", systemImage: "arrow.left")
@@ -99,7 +112,6 @@ struct PlayerView: View {
             VStack {
                 HStack {
                     Button {
-                        playerViewModel.stop()
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
@@ -116,6 +128,34 @@ struct PlayerView: View {
             #endif
             
             // Controls overlay
+            #if os(iOS)
+            // iOS: compact channel bar for live TV (native VideoPlayer handles play/pause/seek)
+            if playerViewModel.isLiveContent && channel != nil {
+                VStack {
+                    Spacer()
+                    HStack(spacing: 32) {
+                        Button { previousChannel() } label: {
+                            Image(systemName: "chevron.down.circle.fill")
+                                .font(.title2)
+                        }
+                        Button { playerViewModel.showNavigator() } label: {
+                            Image(systemName: "list.bullet")
+                                .font(.title2)
+                        }
+                        Button { nextChannel() } label: {
+                            Image(systemName: "chevron.up.circle.fill")
+                                .font(.title2)
+                        }
+                    }
+                    .foregroundStyle(.white.opacity(0.9))
+                    .padding(.vertical, 12)
+                    .padding(.horizontal, 24)
+                    .background(.ultraThinMaterial.opacity(0.8), in: Capsule())
+                    .padding(.bottom, 16)
+                }
+            }
+            #else
+            // macOS/tvOS: full custom controls overlay
             if playerViewModel.showControls {
                 PlayerControlsOverlay(
                     title: playerViewModel.currentTitle,
@@ -150,11 +190,11 @@ struct PlayerView: View {
                         playerViewModel.showSubtitles()
                     },
                     onDismiss: {
-                        playerViewModel.stop()
                         dismiss()
                     }
                 )
             }
+            #endif
             
             // Channel navigator overlay
             if playerViewModel.showChannelNavigator, (playerViewModel.currentChannel ?? channel) != nil {
@@ -215,7 +255,6 @@ struct PlayerView: View {
             if playerViewModel.showChannelNavigator {
                 playerViewModel.hideNavigator()
             } else if playerViewModel.showControls {
-                playerViewModel.stop()
                 dismiss()
             } else {
                 playerViewModel.showControlsTemporarily()
@@ -231,7 +270,6 @@ struct PlayerView: View {
             if playerViewModel.showChannelNavigator {
                 playerViewModel.hideNavigator()
             } else if playerViewModel.showControls {
-                playerViewModel.stop()
                 dismiss()
             } else {
                 playerViewModel.showControlsTemporarily()
@@ -266,19 +304,6 @@ struct PlayerView: View {
         }
         #endif
         #if os(iOS)
-        .onTapGesture {
-            playerViewModel.showControlsTemporarily()
-        }
-        .gesture(
-            DragGesture(minimumDistance: 100)
-                .onEnded { value in
-                    // Swipe down to dismiss
-                    if value.translation.height > 150 {
-                        playerViewModel.stop()
-                        dismiss()
-                    }
-                }
-        )
         .statusBarHidden(true)
         #endif
         .onChange(of: playerViewModel.isBuffering) { _, isBuffering in

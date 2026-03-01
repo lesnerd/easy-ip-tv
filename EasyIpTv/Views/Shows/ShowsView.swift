@@ -11,7 +11,7 @@ struct ShowsView: View {
     @State private var showDetail = false
     @State private var selectedEpisode: Episode?
     @State private var selectedSeasonNumber: Int?
-    @State private var showPlayer = false
+    @State private var playingEpisode: Episode?
     @State private var showUpgrade = false
     @State private var showInterstitial = false
     
@@ -50,24 +50,29 @@ struct ShowsView: View {
                     if AdManager.shared.showInterstitialIfNeeded(premiumManager: premiumManager) {
                         showInterstitial = true
                     } else {
-                        showPlayer = true
+                        playingEpisode = episode
                     }
                 } onToggleFavorite: {
                     toggleFavorite(show)
                 }
             }
         }
-        .platformFullScreen(isPresented: $showPlayer) {
-            if let episode = selectedEpisode {
-                PlayerView(episode: episode, showContext: selectedShow, seasonNumber: selectedSeasonNumber)
-            }
+        .platformFullScreen(item: $playingEpisode) { episode in
+            PlayerView(episode: episode, showContext: selectedShow, seasonNumber: selectedSeasonNumber, onClose: { playingEpisode = nil })
+                .environmentObject(contentViewModel)
         }
-        .platformFullScreen(isPresented: $showInterstitial) {
-            InterstitialAdOverlay(
-                onDismiss: { showInterstitial = false; showPlayer = true },
-                onUpgrade: { showInterstitial = false; showUpgrade = true }
-            )
-            .environmentObject(premiumManager)
+        .overlay {
+            if showInterstitial {
+                InterstitialAdOverlay(
+                    onDismiss: { showInterstitial = false; playingEpisode = selectedEpisode },
+                    onUpgrade: { showInterstitial = false; showUpgrade = true }
+                )
+                .environmentObject(premiumManager)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.black.opacity(0.85))
+                .transition(.opacity)
+                .zIndex(998)
+            }
         }
         .sheet(isPresented: $showUpgrade) {
             UpgradePromptView()
@@ -94,7 +99,7 @@ struct ShowsView: View {
                                     watchProgress: item.progress
                                 )
                                 selectedEpisode = episode
-                                showPlayer = true
+                                playingEpisode = episode
                             }
                         }
                     )

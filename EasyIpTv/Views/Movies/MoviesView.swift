@@ -9,7 +9,7 @@ struct MoviesView: View {
     @State private var selectedCategory: ContentViewModel.CategoryInfo?
     @State private var selectedMovie: Movie?
     @State private var showDetail = false
-    @State private var showPlayer = false
+    @State private var playingMovie: Movie?
     @State private var showUpgrade = false
     @State private var showInterstitial = false
     
@@ -42,24 +42,29 @@ struct MoviesView: View {
                     if AdManager.shared.showInterstitialIfNeeded(premiumManager: premiumManager) {
                         showInterstitial = true
                     } else {
-                        showPlayer = true
+                        playingMovie = movie
                     }
                 } onToggleFavorite: {
                     toggleFavorite(movie)
                 }
             }
         }
-        .platformFullScreen(isPresented: $showPlayer) {
-            if let movie = selectedMovie {
-                PlayerView(movie: movie)
-            }
+        .platformFullScreen(item: $playingMovie) { movie in
+            PlayerView(movie: movie, onClose: { playingMovie = nil })
+                .environmentObject(contentViewModel)
         }
-        .platformFullScreen(isPresented: $showInterstitial) {
-            InterstitialAdOverlay(
-                onDismiss: { showInterstitial = false; showPlayer = true },
-                onUpgrade: { showInterstitial = false; showUpgrade = true }
-            )
-            .environmentObject(premiumManager)
+        .overlay {
+            if showInterstitial {
+                InterstitialAdOverlay(
+                    onDismiss: { showInterstitial = false; playingMovie = selectedMovie },
+                    onUpgrade: { showInterstitial = false; showUpgrade = true }
+                )
+                .environmentObject(premiumManager)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.black.opacity(0.85))
+                .transition(.opacity)
+                .zIndex(998)
+            }
         }
         .sheet(isPresented: $showUpgrade) {
             UpgradePromptView()
