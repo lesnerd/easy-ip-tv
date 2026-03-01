@@ -531,6 +531,9 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.easycompany.EasyIpTv;
+				"PRODUCT_BUNDLE_IDENTIFIER[sdk=macosx*]" = com.easycompany.EasyIpTv.mac;
+				"PRODUCT_BUNDLE_IDENTIFIER[sdk=appletvos*]" = com.easycompany.EasyIpTv.tv;
+				"PRODUCT_BUNDLE_IDENTIFIER[sdk=appletvsimulator*]" = com.easycompany.EasyIpTv.tv;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -560,6 +563,9 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.easycompany.EasyIpTv;
+				"PRODUCT_BUNDLE_IDENTIFIER[sdk=macosx*]" = com.easycompany.EasyIpTv.mac;
+				"PRODUCT_BUNDLE_IDENTIFIER[sdk=appletvos*]" = com.easycompany.EasyIpTv.tv;
+				"PRODUCT_BUNDLE_IDENTIFIER[sdk=appletvsimulator*]" = com.easycompany.EasyIpTv.tv;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;

@@ -67,13 +67,13 @@
       "size" : "512x512"
     },
     {
-      "filename" : "AppIcon.png",
+      "filename" : "AppIcon-tv.png",
       "idiom" : "tv",
       "platform" : "tvos",
       "size" : "1280x768"
     },
     {
-      "filename" : "AppIcon.png",
+      "filename" : "AppIcon-tv-small.png",
       "idiom" : "tv",
       "platform" : "tvos",
       "size" : "400x240"
