@@ -319,6 +319,7 @@ private struct MovieCategoryRowView: View {
     var onSeeAll: () -> Void
     
     @EnvironmentObject var contentViewModel: ContentViewModel
+    @State private var hasRequestedLoad = false
     
     var body: some View {
         let movies = contentViewModel.movies(in: category.name)
@@ -334,6 +335,8 @@ private struct MovieCategoryRowView: View {
                 }
                 .onAppear {
                     #if !os(tvOS)
+                    guard !hasRequestedLoad else { return }
+                    hasRequestedLoad = true
                     Task { await contentViewModel.loadMoviesForCategory(category) }
                     #endif
                 }

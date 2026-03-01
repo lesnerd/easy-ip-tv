@@ -10,12 +10,24 @@ struct ChannelFilterMode: Equatable, Hashable {
     static let other = ChannelFilterMode(id: "other", title: "Other", icon: "globe")
     
     /// Builds filter modes from the user's preferred languages
-    static func fromPriorities(_ config: LanguagePriorityConfig) -> [ChannelFilterMode] {
+    static func fromPriorities(_ config: LanguagePriorityConfig, categories: [ContentViewModel.CategoryInfo] = []) -> [ChannelFilterMode] {
         var modes: [ChannelFilterMode] = [.all]
         
-        for langId in config.preferred {
-            if let lang = IPTVLanguage.byId[langId] {
-                modes.append(ChannelFilterMode(id: lang.id, title: lang.displayName, icon: "flag"))
+        if !config.preferred.isEmpty {
+            // Use configured priorities
+            for langId in config.preferred {
+                if let lang = IPTVLanguage.byId[langId] {
+                    modes.append(ChannelFilterMode(id: lang.id, title: lang.displayName, icon: "flag"))
+                }
+            }
+        } else if !categories.isEmpty {
+            // No priorities configured: auto-detect languages from loaded categories
+            var seen = Set<String>()
+            for cat in categories {
+                if let lang = IPTVLanguage.detect(from: cat.name), !seen.contains(lang.id) {
+                    seen.insert(lang.id)
+                    modes.append(ChannelFilterMode(id: lang.id, title: lang.displayName, icon: "flag"))
+                }
             }
         }
         
@@ -40,7 +52,10 @@ struct LiveTVView: View {
     @State private var showSearchResults = false
     
     private var filterModes: [ChannelFilterMode] {
-        ChannelFilterMode.fromPriorities(contentViewModel.languagePriorityConfig)
+        ChannelFilterMode.fromPriorities(
+            contentViewModel.languagePriorityConfig,
+            categories: contentViewModel.liveCategories
+        )
     }
     
     private var filteredChannels: [Channel] {
@@ -344,6 +359,7 @@ private struct LiveCategoryRowView: View {
     
     @EnvironmentObject var contentViewModel: ContentViewModel
     @EnvironmentObject var favoritesViewModel: FavoritesViewModel
+    @State private var hasRequestedLoad = false
     
     var body: some View {
         let channels = contentViewModel.channels(in: category.name)
@@ -375,7 +391,8 @@ private struct LiveCategoryRowView: View {
                 }
                 .onAppear {
                     #if !os(tvOS)
-                    // Auto-load when visible on macOS/iOS
+                    guard !hasRequestedLoad else { return }
+                    hasRequestedLoad = true
                     Task { await contentViewModel.loadChannelsForCategory(category) }
                     #endif
                 }

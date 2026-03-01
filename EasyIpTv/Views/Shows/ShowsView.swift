@@ -602,6 +602,7 @@ private struct ShowCategoryRowView: View {
     var onSeeAll: () -> Void
     
     @EnvironmentObject var contentViewModel: ContentViewModel
+    @State private var hasRequestedLoad = false
     
     var body: some View {
         let shows = contentViewModel.shows(in: category.name)
@@ -617,6 +618,8 @@ private struct ShowCategoryRowView: View {
                 }
                 .onAppear {
                     #if !os(tvOS)
+                    guard !hasRequestedLoad else { return }
+                    hasRequestedLoad = true
                     Task { await contentViewModel.loadShowsForCategory(category) }
                     #endif
                 }

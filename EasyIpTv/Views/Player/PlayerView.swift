@@ -44,14 +44,19 @@ struct PlayerView: View {
         self.seasonNumber = seasonNumber
     }
     
+    @State private var bufferingTooLong = false
+    @State private var bufferingTimer: Timer?
+    @GestureState private var dragOffset: CGFloat = 0
+    
     var body: some View {
         ZStack {
+            // Background always black
+            Color.black.ignoresSafeArea()
+            
             // Video Player
             #if os(macOS)
-            // macOS: always show NativePlayerView, update player via binding
             NativePlayerView(player: playerViewModel.player)
                 .ignoresSafeArea()
-            // Transparent overlay to capture mouse clicks (NSView steals events)
             Color.clear
                 .contentShape(Rectangle())
                 .onTapGesture {
@@ -61,9 +66,6 @@ struct PlayerView: View {
             if let player = playerViewModel.player {
                 VideoPlayer(player: player)
                     .ignoresSafeArea()
-            } else {
-                Color.black
-                    .ignoresSafeArea()
             }
             #endif
             
@@ -72,11 +74,46 @@ struct PlayerView: View {
                 VStack(spacing: 16) {
                     ProgressView()
                         .scaleEffect(2)
+                        .tint(.white)
                     Text(L10n.Player.buffering)
                         .font(.headline)
                         .foregroundColor(.white)
+                    
+                    if bufferingTooLong {
+                        Button {
+                            playerViewModel.stop()
+                            dismiss()
+                        } label: {
+                            Label("Go Back", systemImage: "arrow.left")
+                                .font(.callout)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(.white)
+                        .padding(.top, 8)
+                    }
                 }
             }
+            
+            // iOS: Always-visible close button (not tied to controls overlay)
+            #if os(iOS)
+            VStack {
+                HStack {
+                    Button {
+                        playerViewModel.stop()
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title)
+                            .foregroundStyle(.white.opacity(0.8))
+                            .shadow(radius: 4)
+                    }
+                    .padding(.leading, 16)
+                    .padding(.top, 8)
+                    Spacer()
+                }
+                Spacer()
+            }
+            #endif
             
             // Controls overlay
             if playerViewModel.showControls {
@@ -232,8 +269,31 @@ struct PlayerView: View {
         .onTapGesture {
             playerViewModel.showControlsTemporarily()
         }
+        .gesture(
+            DragGesture(minimumDistance: 100)
+                .onEnded { value in
+                    // Swipe down to dismiss
+                    if value.translation.height > 150 {
+                        playerViewModel.stop()
+                        dismiss()
+                    }
+                }
+        )
         .statusBarHidden(true)
         #endif
+        .onChange(of: playerViewModel.isBuffering) { _, isBuffering in
+            bufferingTimer?.invalidate()
+            if isBuffering {
+                bufferingTooLong = false
+                bufferingTimer = Timer.scheduledTimer(withTimeInterval: 15.0, repeats: false) { _ in
+                    Task { @MainActor in
+                        bufferingTooLong = true
+                    }
+                }
+            } else {
+                bufferingTooLong = false
+            }
+        }
     }
     
     // MARK: - Playback Control
