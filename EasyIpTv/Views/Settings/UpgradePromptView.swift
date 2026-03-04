@@ -73,6 +73,22 @@ struct UpgradePromptView: View {
                         .padding()
                 }
                 
+                // Auto-renewal terms (required by Apple)
+                VStack(spacing: 8) {
+                    Text("Subscription automatically renews unless auto-renew is turned off at least 24 hours before the end of the current period. Your Apple ID account will be charged for renewal within 24 hours prior to the end of the current period. You can manage and cancel your subscriptions in your Account Settings on the App Store after purchase.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                    
+                    HStack(spacing: 16) {
+                        Link("Terms of Use", destination: URL(string: "https://lesnerd.github.io/easy-ip-tv/terms.html")!)
+                            .font(.caption2)
+                        Link("Privacy Policy", destination: URL(string: "https://lesnerd.github.io/easy-ip-tv/privacy.html")!)
+                            .font(.caption2)
+                    }
+                }
+                .padding(.horizontal, 24)
+                
                 // Restore purchases
                 Button {
                     Task { await premiumManager.restorePurchases() }

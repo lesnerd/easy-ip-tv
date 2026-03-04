@@ -474,7 +474,9 @@ struct SkeletonPageView: View {
             itemCount: 42,
             showSeeAll: true
         ) {
+            #if DEBUG
             print("See all tapped")
+            #endif
         }
         
         CategoryHeader(

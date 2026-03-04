@@ -51,7 +51,9 @@ class AdManager: ObservableObject {
     func initialize() {
         #if canImport(GoogleMobileAds) && os(iOS)
         MobileAds.shared.start { status in
+            #if DEBUG
             print("[AdMob] SDK initialized: \(status.adapterStatusesByClassName)")
+            #endif
         }
         #endif
     }

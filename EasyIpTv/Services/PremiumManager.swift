@@ -69,7 +69,9 @@ class PremiumManager: ObservableObject {
             let storeProducts = try await Product.products(for: Self.allProductIds)
             products = storeProducts.sorted { $0.price < $1.price }
         } catch {
+            #if DEBUG
             print("[Premium] Failed to load products: \(error)")
+            #endif
         }
     }
     

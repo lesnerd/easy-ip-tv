@@ -112,15 +112,9 @@ struct FavoritesView: View {
                             }
                         },
                         onPlayEpisode: { item in
-                            if let episodeId = item.episodeId {
-                                let episode = Episode(
-                                    id: episodeId,
-                                    episodeNumber: item.episodeNumber ?? 1,
-                                    title: item.episodeTitle ?? item.title,
-                                    streamURL: URL(string: "placeholder")!,
-                                    watchProgress: item.progress
-                                )
-                                selectedEpisode = episode
+                            if let episodeId = item.episodeId,
+                               let resolvedEpisode = contentViewModel.findEpisode(byId: episodeId) {
+                                selectedEpisode = resolvedEpisode
                                 showEpisodePlayer = true
                             }
                         }

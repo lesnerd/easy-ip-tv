@@ -90,16 +90,10 @@ struct ShowsView: View {
                     ContinueWatchingRow(
                         items: continueWatchingItems,
                         onPlayItem: { item in
-                            if let episodeId = item.episodeId {
-                                let episode = Episode(
-                                    id: episodeId,
-                                    episodeNumber: item.episodeNumber ?? 1,
-                                    title: item.episodeTitle ?? item.title,
-                                    streamURL: URL(string: "placeholder")!,
-                                    watchProgress: item.progress
-                                )
-                                selectedEpisode = episode
-                                playingEpisode = episode
+                            if let episodeId = item.episodeId,
+                               let resolvedEpisode = contentViewModel.findEpisode(byId: episodeId) {
+                                selectedEpisode = resolvedEpisode
+                                playingEpisode = resolvedEpisode
                             }
                         }
                     )

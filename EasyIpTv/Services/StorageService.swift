@@ -171,7 +171,9 @@ class StorageService: ObservableObject {
             favoriteChannel.isFavorite = true
             channels.append(favoriteChannel)
             saveFavoriteChannels(channels)
+            #if DEBUG
             print("[Storage] Saved channel to favorites: \(channel.name), total: \(channels.count)")
+            #endif
         }
     }
     
@@ -185,14 +187,20 @@ class StorageService: ObservableObject {
     /// Gets all saved favorite channels
     func getFavoriteChannels() -> [Channel] {
         guard let data = defaults.data(forKey: Keys.favoriteChannels) else {
+            #if DEBUG
             print("[Storage] No favorite channels data found")
+            #endif
             return []
         }
         guard let channels = try? decoder.decode([Channel].self, from: data) else {
+            #if DEBUG
             print("[Storage] Failed to decode favorite channels")
+            #endif
             return []
         }
+        #if DEBUG
         print("[Storage] Loaded \(channels.count) favorite channels")
+        #endif
         return channels
     }
     
@@ -201,9 +209,13 @@ class StorageService: ObservableObject {
             let data = try encoder.encode(channels)
             defaults.set(data, forKey: Keys.favoriteChannels)
             defaults.synchronize()
+            #if DEBUG
             print("[Storage] Successfully saved \(channels.count) favorite channels")
+            #endif
         } catch {
+            #if DEBUG
             print("[Storage] ERROR saving favorite channels: \(error)")
+            #endif
         }
     }
     
@@ -239,9 +251,13 @@ class StorageService: ObservableObject {
             let data = try encoder.encode(movies)
             defaults.set(data, forKey: Keys.favoriteMovies)
             defaults.synchronize()
+            #if DEBUG
             print("[Storage] Successfully saved \(movies.count) favorite movies")
+            #endif
         } catch {
+            #if DEBUG
             print("[Storage] ERROR saving favorite movies: \(error)")
+            #endif
         }
     }
     
@@ -277,9 +293,13 @@ class StorageService: ObservableObject {
             let data = try encoder.encode(shows)
             defaults.set(data, forKey: Keys.favoriteShows)
             defaults.synchronize()
+            #if DEBUG
             print("[Storage] Successfully saved \(shows.count) favorite shows")
+            #endif
         } catch {
+            #if DEBUG
             print("[Storage] ERROR saving favorite shows: \(error)")
+            #endif
         }
     }
     

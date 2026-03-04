@@ -127,6 +127,18 @@ class ContentViewModel: ObservableObject {
         showCache.values.flatMap { $0 }
     }
     
+    /// Finds an episode by ID across all loaded shows
+    func findEpisode(byId episodeId: String) -> Episode? {
+        for show in allLoadedShows {
+            for season in show.seasons {
+                if let episode = season.episodes.first(where: { $0.id == episodeId }) {
+                    return episode
+                }
+            }
+        }
+        return nil
+    }
+    
     /// The current language priority configuration
     @Published var languagePriorityConfig: LanguagePriorityConfig = .empty
     
@@ -191,7 +203,9 @@ class ContentViewModel: ObservableObject {
         // Also trim image cache
         ImageCacheManager.shared.trimMemoryCache()
         
+        #if DEBUG
         print("[Memory] Warning received - evicted caches, kept \(keepCount) per type")
+        #endif
     }
     
     /// Evicts the oldest channel cache entries, keeping the most recent `keepCount`
@@ -525,7 +539,9 @@ class ContentViewModel: ObservableObject {
             self.channels = processedChannels
             
         } catch {
+            #if DEBUG
             print("Failed to load channels for category \(category.name): \(error)")
+            #endif
         }
         
         loadingCategoryIds.remove(category.id)
@@ -569,7 +585,9 @@ class ContentViewModel: ObservableObject {
             evictChannelCache(keepCount: Self.maxCachedCategories)
             self.channels = processed
         } catch {
+            #if DEBUG
             print("Failed to load Stalker channels for \(category.name): \(error)")
+            #endif
         }
         
         loadingCategoryIds.remove(category.id)
@@ -639,7 +657,9 @@ class ContentViewModel: ObservableObject {
             self.movies = processedMovies
             
         } catch {
+            #if DEBUG
             print("Failed to load movies for category \(category.name): \(error)")
+            #endif
         }
         
         loadingCategoryIds.remove(category.id)
@@ -703,7 +723,9 @@ class ContentViewModel: ObservableObject {
             self.shows = processedShows
             
         } catch {
+            #if DEBUG
             print("Failed to load shows for category \(category.name): \(error)")
+            #endif
         }
         
         loadingCategoryIds.remove(category.id)

@@ -27,7 +27,9 @@ class FavoritesViewModel: ObservableObject {
         let movies = storage.getFavoriteMovies()
         let shows = storage.getFavoriteShows()
         
+        #if DEBUG
         print("[FavoritesVM] Loading saved favorites: \(channels.count) channels, \(movies.count) movies, \(shows.count) shows")
+        #endif
         
         // Use saved full data if available
         if !channels.isEmpty {
@@ -60,7 +62,9 @@ class FavoritesViewModel: ObservableObject {
                 }
                 // Save the full data for next time
                 storage.saveFavoriteChannels(channels: favoriteChannels)
+                #if DEBUG
                 print("[FavoritesVM] Synced \(favoriteChannels.count) channels from content")
+                #endif
             }
         }
         
@@ -76,7 +80,9 @@ class FavoritesViewModel: ObservableObject {
                 for movie in favoriteMovies {
                     storage.saveFavoriteMovie(movie)
                 }
+                #if DEBUG
                 print("[FavoritesVM] Synced \(favoriteMovies.count) movies from content")
+                #endif
             }
         }
         
@@ -92,7 +98,9 @@ class FavoritesViewModel: ObservableObject {
                 for show in favoriteShows {
                     storage.saveFavoriteShow(show)
                 }
+                #if DEBUG
                 print("[FavoritesVM] Synced \(favoriteShows.count) shows from content")
+                #endif
             }
         }
     }
@@ -178,7 +186,9 @@ class FavoritesViewModel: ObservableObject {
     func toggleFavorite(channel: Channel) {
         // Check new state (already toggled by contentViewModel)
         let isNowFavorite = isFavorite(channel: channel)
+        #if DEBUG
         print("[FavoritesVM] toggleFavorite channel: \(channel.name), isNowFavorite: \(isNowFavorite)")
+        #endif
         
         if isNowFavorite {
             // Add to favorites
@@ -186,14 +196,18 @@ class FavoritesViewModel: ObservableObject {
                 var updatedChannel = channel
                 updatedChannel.isFavorite = true
                 favoriteChannels.append(updatedChannel)
+                #if DEBUG
                 print("[FavoritesVM] Added to array, count: \(favoriteChannels.count)")
+                #endif
             }
             storage.saveFavoriteChannel(channel)
         } else {
             // Remove from favorites
             favoriteChannels.removeAll { $0.id == channel.id }
             storage.removeFavoriteChannel(id: channel.id)
+            #if DEBUG
             print("[FavoritesVM] Removed from favorites")
+            #endif
         }
     }
     
