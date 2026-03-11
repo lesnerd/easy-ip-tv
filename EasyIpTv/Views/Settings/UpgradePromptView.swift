@@ -54,6 +54,9 @@ struct UpgradePromptView: View {
                         if let product = premiumManager.yearlyProduct {
                             let success = await premiumManager.purchase(product)
                             if success { dismiss() }
+                        } else {
+                            premiumManager.purchaseError = "Unable to load subscription. Please check your internet connection and try again."
+                            await premiumManager.loadProducts()
                         }
                     }
                 }
