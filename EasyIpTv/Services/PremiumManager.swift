@@ -47,6 +47,13 @@ class PremiumManager: ObservableObject {
         // Load cached state immediately (so UI is correct before StoreKit responds)
         loadCachedState()
         
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["SCREENSHOT_MODE"] == "1" {
+            isPremium = true
+            subscriptionType = .yearly
+        }
+        #endif
+        
         // Start listening for transaction updates
         transactionListener = listenForTransactions()
         
@@ -137,6 +144,9 @@ class PremiumManager: ObservableObject {
     
     /// Checks all current entitlements to determine premium status
     private func verifyEntitlements() async {
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["SCREENSHOT_MODE"] == "1" { return }
+        #endif
         var foundPremium = false
         var foundType: SubscriptionType = .free
         

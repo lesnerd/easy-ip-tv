@@ -42,11 +42,13 @@ struct ContentCard: View {
                     CachedAsyncImage(url: imageURL) { image in
                         image
                             .resizable()
-                            .aspectRatio(contentMode: .fill)
+                            .aspectRatio(contentMode: aspectRatio == 16/9 ? .fit : .fill)
                     } placeholder: {
                         placeholderImage
                     }
+                    .frame(maxWidth: .infinity)
                     .aspectRatio(aspectRatio, contentMode: .fit)
+                    .background(Color.gray.opacity(0.15))
                     .clipped()
                     .cornerRadius(10)
                     #if !os(tvOS)
