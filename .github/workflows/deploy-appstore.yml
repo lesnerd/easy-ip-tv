@@ -91,6 +91,7 @@ jobs:
             -project EasyIpTv.xcodeproj \
             -scheme EasyIpTv \
             -destination "${{ matrix.destination }}" \
+            -sdk ${{ matrix.sdk }} \
             -configuration Release \
             -archivePath "$RUNNER_TEMP/EasyIpTv-${{ matrix.platform }}.xcarchive" \
             -allowProvisioningUpdates \
