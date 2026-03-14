@@ -12,6 +12,15 @@ struct MoviesView: View {
     @State private var playingMovie: Movie?
     @State private var showUpgrade = false
     @State private var showInterstitial = false
+    @State private var searchText = ""
+    @State private var showSearchResults = false
+    
+    private var filteredMovies: [Movie] {
+        guard !searchText.isEmpty else { return [] }
+        return contentViewModel.allLoadedMovies.filter {
+            $0.title.localizedCaseInsensitiveContains(searchText)
+        }
+    }
     
     var body: some View {
         NavigationStack {
@@ -20,6 +29,8 @@ struct MoviesView: View {
                     LoadingView()
                 } else if !contentViewModel.hasContent {
                     noContentView
+                } else if showSearchResults && !searchText.isEmpty {
+                    movieSearchResultsView
                 } else if let category = selectedCategory {
                     categoryDetailView(category: category)
                 } else {
@@ -29,6 +40,10 @@ struct MoviesView: View {
             #if !os(tvOS)
             .navigationTitle(L10n.Navigation.movies)
             #endif
+            .searchable(text: $searchText, prompt: L10n.Actions.search)
+            .onChange(of: searchText) { _, newValue in
+                showSearchResults = !newValue.isEmpty
+            }
             .safeAreaInset(edge: .bottom) {
                 BannerAdView { showUpgrade = true }
                     .environmentObject(premiumManager)
@@ -69,6 +84,50 @@ struct MoviesView: View {
         .sheet(isPresented: $showUpgrade) {
             UpgradePromptView()
                 .environmentObject(premiumManager)
+        }
+    }
+    
+    // MARK: - Search Results View
+    
+    private var movieSearchResultsView: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                Button {
+                    searchText = ""
+                    showSearchResults = false
+                } label: {
+                    HStack {
+                        Image(systemName: "chevron.left")
+                        Text(L10n.Content.categories)
+                    }
+                    .font(.callout)
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal)
+                
+                CategoryHeader(
+                    title: "\(L10n.Actions.search): \"\(searchText)\"",
+                    icon: "magnifyingglass",
+                    itemCount: filteredMovies.count
+                )
+                
+                if filteredMovies.isEmpty {
+                    EmptyStateView(
+                        icon: "magnifyingglass",
+                        title: "No Results",
+                        message: "No movies found matching \"\(searchText)\""
+                    )
+                } else {
+                    CategoryGrid(items: filteredMovies, columns: PlatformMetrics.posterGridColumns) { movie in
+                        MovieCard(movie: movie) {
+                            selectMovie(movie)
+                        } onLongPress: {
+                            toggleFavorite(movie)
+                        }
+                    }
+                }
+            }
+            .padding(.vertical, PlatformMetrics.contentPadding)
         }
     }
     

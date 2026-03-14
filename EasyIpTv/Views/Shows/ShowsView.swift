@@ -14,9 +14,18 @@ struct ShowsView: View {
     @State private var playingEpisode: Episode?
     @State private var showUpgrade = false
     @State private var showInterstitial = false
+    @State private var searchText = ""
+    @State private var showSearchResults = false
     
     private var continueWatchingItems: [StorageService.ContinueWatchingItem] {
         StorageService.shared.getContinueWatching().filter { $0.contentType == "show" }
+    }
+    
+    private var filteredShows: [Show] {
+        guard !searchText.isEmpty else { return [] }
+        return contentViewModel.allLoadedShows.filter {
+            $0.title.localizedCaseInsensitiveContains(searchText)
+        }
     }
     
     var body: some View {
@@ -26,6 +35,8 @@ struct ShowsView: View {
                     LoadingView()
                 } else if !contentViewModel.hasContent {
                     noContentView
+                } else if showSearchResults && !searchText.isEmpty {
+                    showSearchResultsView
                 } else if let category = selectedCategory {
                     categoryDetailView(category: category)
                 } else {
@@ -35,6 +46,10 @@ struct ShowsView: View {
             #if !os(tvOS)
             .navigationTitle(L10n.Navigation.shows)
             #endif
+            .searchable(text: $searchText, prompt: L10n.Actions.search)
+            .onChange(of: searchText) { _, newValue in
+                showSearchResults = !newValue.isEmpty
+            }
             .safeAreaInset(edge: .bottom) {
                 BannerAdView { showUpgrade = true }
                     .environmentObject(premiumManager)
@@ -77,6 +92,50 @@ struct ShowsView: View {
         .sheet(isPresented: $showUpgrade) {
             UpgradePromptView()
                 .environmentObject(premiumManager)
+        }
+    }
+    
+    // MARK: - Search Results View
+    
+    private var showSearchResultsView: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                Button {
+                    searchText = ""
+                    showSearchResults = false
+                } label: {
+                    HStack {
+                        Image(systemName: "chevron.left")
+                        Text(L10n.Content.categories)
+                    }
+                    .font(.callout)
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal)
+                
+                CategoryHeader(
+                    title: "\(L10n.Actions.search): \"\(searchText)\"",
+                    icon: "magnifyingglass",
+                    itemCount: filteredShows.count
+                )
+                
+                if filteredShows.isEmpty {
+                    EmptyStateView(
+                        icon: "magnifyingglass",
+                        title: "No Results",
+                        message: "No shows found matching \"\(searchText)\""
+                    )
+                } else {
+                    CategoryGrid(items: filteredShows, columns: PlatformMetrics.posterGridColumns) { show in
+                        ShowCard(show: show) {
+                            selectShow(show)
+                        } onLongPress: {
+                            toggleFavorite(show)
+                        }
+                    }
+                }
+            }
+            .padding(.vertical, PlatformMetrics.contentPadding)
         }
     }
     

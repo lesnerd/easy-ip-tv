@@ -17,6 +17,7 @@ struct FavoritesView: View {
     @State private var selectedSeasonNumber: Int?
     @State private var showEpisodePlayer = false
     @State private var showUpgradeSheet = false
+    @State private var searchText = ""
     
     private var continueWatchingItems: [StorageService.ContinueWatchingItem] {
         StorageService.shared.getContinueWatching()
@@ -26,10 +27,33 @@ struct FavoritesView: View {
         StorageService.shared.getRecentlyWatched()
     }
     
+    private var searchedChannels: [Channel] {
+        guard !searchText.isEmpty else { return [] }
+        return favoritesViewModel.favoriteChannels.filter {
+            $0.name.localizedCaseInsensitiveContains(searchText)
+        }
+    }
+    
+    private var searchedMovies: [Movie] {
+        guard !searchText.isEmpty else { return [] }
+        return favoritesViewModel.favoriteMovies.filter {
+            $0.title.localizedCaseInsensitiveContains(searchText)
+        }
+    }
+    
+    private var searchedShows: [Show] {
+        guard !searchText.isEmpty else { return [] }
+        return favoritesViewModel.favoriteShows.filter {
+            $0.title.localizedCaseInsensitiveContains(searchText)
+        }
+    }
+    
     var body: some View {
         NavigationStack {
             Group {
-                if !favoritesViewModel.hasFavorites && continueWatchingItems.isEmpty {
+                if !searchText.isEmpty {
+                    favoritesSearchResultsView
+                } else if !favoritesViewModel.hasFavorites && continueWatchingItems.isEmpty {
                     emptyView
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
@@ -40,6 +64,7 @@ struct FavoritesView: View {
             #if !os(tvOS)
             .navigationTitle(L10n.Navigation.favorites)
             #endif
+            .searchable(text: $searchText, prompt: L10n.Actions.search)
             .onAppear {
                 favoritesViewModel.loadSavedFavorites()
             }
@@ -193,6 +218,67 @@ struct FavoritesView: View {
                             showShowDetail = true
                         }
                     )
+                }
+            }
+            .padding(.vertical, PlatformMetrics.contentPadding)
+        }
+    }
+    
+    // MARK: - Search Results View
+    
+    private var favoritesSearchResultsView: some View {
+        let totalResults = searchedChannels.count + searchedMovies.count + searchedShows.count
+        
+        return ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                CategoryHeader(
+                    title: "\(L10n.Actions.search): \"\(searchText)\"",
+                    icon: "magnifyingglass",
+                    itemCount: totalResults
+                )
+                
+                if totalResults == 0 {
+                    EmptyStateView(
+                        icon: "magnifyingglass",
+                        title: "No Results",
+                        message: "No favorites found matching \"\(searchText)\""
+                    )
+                } else {
+                    if !searchedChannels.isEmpty {
+                        CategoryRow(title: L10n.Navigation.liveTV, icon: "tv.fill", itemCount: searchedChannels.count) {
+                            ForEach(searchedChannels) { channel in
+                                ChannelCard(channel: channel) {
+                                    selectedChannel = channel
+                                    showChannelPlayer = true
+                                }
+                                .frame(width: PlatformMetrics.channelCardWidth)
+                            }
+                        }
+                    }
+                    
+                    if !searchedMovies.isEmpty {
+                        CategoryRow(title: L10n.Navigation.movies, icon: "film.fill", itemCount: searchedMovies.count) {
+                            ForEach(searchedMovies) { movie in
+                                MovieCard(movie: movie) {
+                                    selectedMovie = movie
+                                    showMovieDetail = true
+                                }
+                                .frame(width: PlatformMetrics.posterCardWidth)
+                            }
+                        }
+                    }
+                    
+                    if !searchedShows.isEmpty {
+                        CategoryRow(title: L10n.Navigation.shows, icon: "play.rectangle.on.rectangle.fill", itemCount: searchedShows.count) {
+                            ForEach(searchedShows) { show in
+                                ShowCard(show: show) {
+                                    selectedShow = show
+                                    showShowDetail = true
+                                }
+                                .frame(width: PlatformMetrics.posterCardWidth)
+                            }
+                        }
+                    }
                 }
             }
             .padding(.vertical, PlatformMetrics.contentPadding)
