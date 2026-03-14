@@ -39,8 +39,10 @@ jobs:
         run: |
           sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
           xcodebuild -runFirstLaunch
-          # Install iOS simulator runtime to fix asset catalog compilation
-          xcodebuild -downloadPlatform iOS
+
+      - name: Install iOS simulator runtime
+        if: matrix.platform == 'iOS'
+        run: xcodebuild -downloadPlatform iOS || true
 
       - name: Determine build number
         id: build_number
