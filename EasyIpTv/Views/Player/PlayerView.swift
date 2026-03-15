@@ -129,9 +129,12 @@ struct PlayerView: View {
                     isBuffering: $vlcIsBuffering
                 )
                 .ignoresSafeArea()
-                .onTapGesture {
-                    showVLCControlsTemporarily()
-                }
+                Color.clear
+                    .contentShape(Rectangle())
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        showVLCControlsTemporarily()
+                    }
                 #endif
             } else if let player = playerViewModel.player {
                 VideoPlayer(player: player)
@@ -162,26 +165,6 @@ struct PlayerView: View {
                     }
                 }
             }
-            
-            // iOS: Always-visible close button (not tied to controls overlay)
-            #if os(iOS)
-            VStack {
-                HStack {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.title)
-                            .foregroundStyle(.white.opacity(0.8))
-                            .shadow(radius: 4)
-                    }
-                    .padding(.leading, 16)
-                    .padding(.top, 8)
-                    Spacer()
-                }
-                Spacer()
-            }
-            #endif
             
             // Controls overlay
             #if os(iOS)
@@ -215,6 +198,28 @@ struct PlayerView: View {
                 vlcControlsOverlay
                     .transition(.opacity)
                     .animation(.easeInOut(duration: 0.25), value: showVLCControls)
+            }
+            
+            // iOS: Close button — rendered on top of controls overlay so it's always tappable
+            if useVLCPlayer ? showVLCControls : true {
+                VStack {
+                    HStack {
+                        Button {
+                            dismiss()
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.title)
+                                .foregroundStyle(.white.opacity(0.8))
+                                .shadow(radius: 4)
+                        }
+                        .padding(.leading, 16)
+                        .padding(.top, 8)
+                        Spacer()
+                    }
+                    Spacer()
+                }
+                .transition(.opacity)
+                .animation(.easeInOut(duration: 0.25), value: showVLCControls)
             }
             #else
             // macOS/tvOS: full custom controls overlay
