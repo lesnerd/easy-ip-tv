@@ -18,7 +18,7 @@ struct PlayerView: View {
     @State private var vlcHasStartedPlaying = false
     @State private var showVLCControls = false
     @State private var vlcControlsTimer: Timer?
-    #if canImport(VLCKitSPM) && !os(macOS)
+    #if canImport(VLCKitSPM)
     @StateObject private var vlcController = VLCPlayerController()
     #endif
     
@@ -91,13 +91,32 @@ struct PlayerView: View {
             
             // Video Player
             #if os(macOS)
-            NativePlayerView(player: playerViewModel.player)
+            if useVLCPlayer {
+                #if canImport(VLCKitSPM)
+                VLCPlayerNSView(
+                    url: streamURL!,
+                    controller: vlcController,
+                    isPlaying: $vlcIsPlaying,
+                    currentTime: $vlcCurrentTime,
+                    duration: $vlcDuration,
+                    isBuffering: $vlcIsBuffering
+                )
                 .ignoresSafeArea()
-            Color.clear
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    playerViewModel.showControlsTemporarily()
-                }
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        showVLCControlsTemporarily()
+                    }
+                #endif
+            } else {
+                NativePlayerView(player: playerViewModel.player)
+                    .ignoresSafeArea()
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        playerViewModel.showControlsTemporarily()
+                    }
+            }
             #else
             if useVLCPlayer {
                 #if canImport(VLCKitSPM)
@@ -209,25 +228,25 @@ struct PlayerView: View {
                     progress: useVLCPlayer ? (vlcDuration > 0 ? vlcCurrentTime / vlcDuration : 0) : playerViewModel.progress,
                     hasSubtitles: useVLCPlayer ? false : playerViewModel.availableSubtitles.count > 1,
                     onPlayPause: {
-                        #if canImport(VLCKitSPM) && !os(macOS)
+                        #if canImport(VLCKitSPM)
                         if useVLCPlayer { vlcController.togglePlayback(); return }
                         #endif
                         playerViewModel.togglePlayback()
                     },
                     onSeek: { position in
-                        #if canImport(VLCKitSPM) && !os(macOS)
+                        #if canImport(VLCKitSPM)
                         if useVLCPlayer { vlcController.seek(to: Float(position)); return }
                         #endif
                         playerViewModel.seek(to: position)
                     },
                     onSeekForward: {
-                        #if canImport(VLCKitSPM) && !os(macOS)
+                        #if canImport(VLCKitSPM)
                         if useVLCPlayer { vlcController.seekForward(seconds: 15); return }
                         #endif
                         playerViewModel.seekForward()
                     },
                     onSeekBackward: {
-                        #if canImport(VLCKitSPM) && !os(macOS)
+                        #if canImport(VLCKitSPM)
                         if useVLCPlayer { vlcController.seekBackward(seconds: 15); return }
                         #endif
                         playerViewModel.seekBackward()
@@ -331,6 +350,9 @@ struct PlayerView: View {
         #endif
         #if os(macOS)
         .onKeyPress(.space) {
+            #if canImport(VLCKitSPM)
+            if useVLCPlayer { vlcController.togglePlayback(); return .handled }
+            #endif
             playerViewModel.togglePlayback()
             return .handled
         }
@@ -346,12 +368,18 @@ struct PlayerView: View {
         }
         .onKeyPress(.leftArrow) {
             if !playerViewModel.isLiveContent {
+                #if canImport(VLCKitSPM)
+                if useVLCPlayer { vlcController.seekBackward(seconds: 15); return .handled }
+                #endif
                 playerViewModel.seekBackward()
             }
             return .handled
         }
         .onKeyPress(.rightArrow) {
             if !playerViewModel.isLiveContent {
+                #if canImport(VLCKitSPM)
+                if useVLCPlayer { vlcController.seekForward(seconds: 15); return .handled }
+                #endif
                 playerViewModel.seekForward()
             }
             return .handled
@@ -398,14 +426,14 @@ struct PlayerView: View {
     // MARK: - Playback Control
     
     private func startPlayback() {
-        #if !os(macOS)
         if needsVLCPlayer {
             NSLog("[PlayerView] Using VLC player for url=%@", streamURL?.absoluteString ?? "nil")
             useVLCPlayer = true
+            #if !os(macOS)
             showVLCControlsTemporarily()
+            #endif
             return
         }
-        #endif
         NSLog("[PlayerView] Using AVPlayer for url=%@", streamURL?.absoluteString ?? "nil")
         if let channel = channel {
             playerViewModel.play(channel: channel)
