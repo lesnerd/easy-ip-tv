@@ -199,25 +199,37 @@ struct PlayerView: View {
             }
             #else
             // macOS/tvOS: full custom controls overlay
-            if playerViewModel.showControls {
+            if playerViewModel.showControls || (useVLCPlayer && showVLCControls) {
                 PlayerControlsOverlay(
-                    title: playerViewModel.currentTitle,
-                    isPlaying: playerViewModel.isPlaying,
+                    title: useVLCPlayer ? vlcContentTitle : playerViewModel.currentTitle,
+                    isPlaying: useVLCPlayer ? vlcIsPlaying : playerViewModel.isPlaying,
                     isLive: playerViewModel.isLiveContent,
-                    currentTime: playerViewModel.formattedCurrentTime,
-                    duration: playerViewModel.formattedDuration,
-                    progress: playerViewModel.progress,
-                    hasSubtitles: playerViewModel.availableSubtitles.count > 1,
+                    currentTime: useVLCPlayer ? vlcFormattedTime(vlcCurrentTime) : playerViewModel.formattedCurrentTime,
+                    duration: useVLCPlayer ? vlcFormattedTime(vlcDuration) : playerViewModel.formattedDuration,
+                    progress: useVLCPlayer ? (vlcDuration > 0 ? vlcCurrentTime / vlcDuration : 0) : playerViewModel.progress,
+                    hasSubtitles: useVLCPlayer ? false : playerViewModel.availableSubtitles.count > 1,
                     onPlayPause: {
+                        #if canImport(VLCKitSPM) && !os(macOS)
+                        if useVLCPlayer { vlcController.togglePlayback(); return }
+                        #endif
                         playerViewModel.togglePlayback()
                     },
                     onSeek: { position in
+                        #if canImport(VLCKitSPM) && !os(macOS)
+                        if useVLCPlayer { vlcController.seek(to: Float(position)); return }
+                        #endif
                         playerViewModel.seek(to: position)
                     },
                     onSeekForward: {
+                        #if canImport(VLCKitSPM) && !os(macOS)
+                        if useVLCPlayer { vlcController.seekForward(seconds: 15); return }
+                        #endif
                         playerViewModel.seekForward()
                     },
                     onSeekBackward: {
+                        #if canImport(VLCKitSPM) && !os(macOS)
+                        if useVLCPlayer { vlcController.seekBackward(seconds: 15); return }
+                        #endif
                         playerViewModel.seekBackward()
                     },
                     onChannelUp: {
@@ -292,7 +304,15 @@ struct PlayerView: View {
         }
         #if os(tvOS)
         .onPlayPauseCommand {
+            #if canImport(VLCKitSPM)
+            if useVLCPlayer {
+                vlcController.togglePlayback()
+            } else {
+                playerViewModel.togglePlayback()
+            }
+            #else
             playerViewModel.togglePlayback()
+            #endif
         }
         .onMoveCommand { direction in
             handleMoveCommand(direction)
@@ -300,8 +320,10 @@ struct PlayerView: View {
         .onExitCommand {
             if playerViewModel.showChannelNavigator {
                 playerViewModel.hideNavigator()
-            } else if playerViewModel.showControls {
+            } else if playerViewModel.showControls || showVLCControls {
                 dismiss()
+            } else if useVLCPlayer {
+                showVLCControlsTemporarily()
             } else {
                 playerViewModel.showControlsTemporarily()
             }
@@ -575,11 +597,27 @@ struct PlayerView: View {
             }
         case .left:
             if !playerViewModel.isLiveContent {
+                #if canImport(VLCKitSPM)
+                if useVLCPlayer {
+                    vlcController.seekBackward(seconds: 15)
+                } else {
+                    playerViewModel.seekBackward()
+                }
+                #else
                 playerViewModel.seekBackward()
+                #endif
             }
         case .right:
             if !playerViewModel.isLiveContent {
+                #if canImport(VLCKitSPM)
+                if useVLCPlayer {
+                    vlcController.seekForward(seconds: 15)
+                } else {
+                    playerViewModel.seekForward()
+                }
+                #else
                 playerViewModel.seekForward()
+                #endif
             }
         @unknown default:
             break
