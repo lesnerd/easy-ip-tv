@@ -235,8 +235,24 @@ actor XtreamCodesService {
         let name: String?
         
         enum CodingKeys: String, CodingKey {
-            case plot, duration, rating, name
+            case plot, duration, name
             case movieImage = "movie_image"
+            case rating
+        }
+        
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            movieImage = try container.decodeIfPresent(String.self, forKey: .movieImage)
+            plot = try container.decodeIfPresent(String.self, forKey: .plot)
+            duration = try container.decodeIfPresent(String.self, forKey: .duration)
+            name = try container.decodeIfPresent(String.self, forKey: .name)
+            if let d = try? container.decodeIfPresent(Double.self, forKey: .rating) {
+                rating = d
+            } else if let s = try? container.decodeIfPresent(String.self, forKey: .rating) {
+                rating = Double(s)
+            } else {
+                rating = nil
+            }
         }
     }
     

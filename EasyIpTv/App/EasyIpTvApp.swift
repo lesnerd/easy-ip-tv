@@ -197,8 +197,8 @@ enum PlatformMetrics {
 // MARK: - Platform View Modifiers
 
 extension View {
-    /// Presents content as fullScreenCover on iOS/tvOS, or a full-window overlay on macOS
-    /// (macOS .sheet() crashes with VideoPlayer due to _AVKit_SwiftUI metadata bug)
+    /// Presents content as fullScreenCover on iOS/tvOS, or a full-window overlay on macOS.
+    /// macOS uses overlay because .sheet() crashes with VideoPlayer.
     @ViewBuilder
     func platformFullScreen<Content: View>(isPresented: Binding<Bool>, @ViewBuilder content: @escaping () -> Content) -> some View {
         #if os(macOS)
@@ -217,7 +217,6 @@ extension View {
     }
     
     /// Item-based variant: presents when item is non-nil, passes unwrapped item to content.
-    /// Avoids the dual-fullScreenCover bug on iOS where `if let` inside the closure evaluates to nil.
     @ViewBuilder
     func platformFullScreen<Item: Identifiable, Content: View>(item: Binding<Item?>, @ViewBuilder content: @escaping (Item) -> Content) -> some View {
         #if os(macOS)

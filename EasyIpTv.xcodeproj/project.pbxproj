@@ -32,6 +32,7 @@
 		A10001001111111100000023 /* MoviesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000023 /* MoviesView.swift */; };
 		A10001001111111100000024 /* ChannelNavigatorOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000024 /* ChannelNavigatorOverlay.swift */; };
 		A10001001111111100000025 /* PlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000025 /* PlayerView.swift */; };
+		E4VLC00400000001 /* VLCPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4VLC00500000001 /* VLCPlayerView.swift */; };
 		A10001001111111100000026 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000026 /* SettingsView.swift */; };
 		A10001001111111100000027 /* ShowsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000027 /* ShowsView.swift */; };
 		A10001001111111100000029 /* XtreamCodesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000029 /* XtreamCodesService.swift */; };
@@ -70,6 +71,7 @@
 		A10002001111111100000023 /* MoviesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoviesView.swift; sourceTree = "<group>"; };
 		A10002001111111100000024 /* ChannelNavigatorOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelNavigatorOverlay.swift; sourceTree = "<group>"; };
 		A10002001111111100000025 /* PlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerView.swift; sourceTree = "<group>"; };
+		E4VLC00500000001 /* VLCPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VLCPlayerView.swift; sourceTree = "<group>"; };
 		A10002001111111100000026 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		A10002001111111100000027 /* ShowsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShowsView.swift; sourceTree = "<group>"; };
 		A10002001111111100000028 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -86,11 +88,16 @@
 		E419FFB42F39E55D00502E91 /* Products.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; name = Products.storekit; path = EasyIpTv/Products.storekit; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXBuildFile (SPM) section */
+		E4VLC00100000001 /* VLCKitSPM in Frameworks */ = {isa = PBXBuildFile; productRef = E4VLC00200000001 /* VLCKitSPM */; };
+/* End PBXBuildFile (SPM) section */
+
 /* Begin PBXFrameworksBuildPhase section */
 		A10004001111111100000001 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E4VLC00100000001 /* VLCKitSPM in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -249,6 +256,7 @@
 			children = (
 				A10002001111111100000024 /* ChannelNavigatorOverlay.swift */,
 				A10002001111111100000025 /* PlayerView.swift */,
+				E4VLC00500000001 /* VLCPlayerView.swift */,
 			);
 			path = Player;
 			sourceTree = "<group>";
@@ -286,6 +294,9 @@
 			dependencies = (
 			);
 			name = EasyIpTv;
+			packageProductDependencies = (
+				E4VLC00200000001 /* VLCKitSPM */,
+			);
 			productName = EasyIpTv;
 			productReference = A10003001111111100000001 /* EasyIpTv.app */;
 			productType = "com.apple.product-type.application";
@@ -316,6 +327,7 @@
 			);
 			mainGroup = A10005001111111100000001;
 			packageReferences = (
+				E4VLC00300000001 /* XCRemoteSwiftPackageReference "vlckit-spm" */,
 			);
 			productRefGroup = A10005001111111100000003 /* Products */;
 			projectDirPath = "";
@@ -369,6 +381,7 @@
 				A10001001111111100000023 /* MoviesView.swift in Sources */,
 				A10001001111111100000024 /* ChannelNavigatorOverlay.swift in Sources */,
 				A10001001111111100000025 /* PlayerView.swift in Sources */,
+				E4VLC00400000001 /* VLCPlayerView.swift in Sources */,
 				A10001001111111100000026 /* SettingsView.swift in Sources */,
 				A10001001111111100000027 /* ShowsView.swift in Sources */,
 				A10001001111111100000032 /* PremiumManager.swift in Sources */,
@@ -589,6 +602,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		E4VLC00300000001 /* XCRemoteSwiftPackageReference "vlckit-spm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/tylerjonesio/vlckit-spm.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.6.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		E4VLC00200000001 /* VLCKitSPM */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E4VLC00300000001 /* XCRemoteSwiftPackageReference "vlckit-spm" */;
+			productName = VLCKitSPM;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A10009001111111100000001 /* Project object */;
 }

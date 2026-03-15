@@ -10,6 +10,17 @@ struct PlayerView: View {
     @EnvironmentObject var contentViewModel: ContentViewModel
     
     @StateObject private var playerViewModel = PlayerViewModel()
+    @State private var useVLCPlayer = false
+    @State private var vlcIsPlaying = false
+    @State private var vlcCurrentTime: Double = 0
+    @State private var vlcDuration: Double = 0
+    @State private var vlcIsBuffering = false
+    @State private var vlcHasStartedPlaying = false
+    @State private var showVLCControls = false
+    @State private var vlcControlsTimer: Timer?
+    #if canImport(VLCKitSPM) && !os(macOS)
+    @StateObject private var vlcController = VLCPlayerController()
+    #endif
     
     // Content to play
     let channel: Channel?
@@ -58,6 +69,17 @@ struct PlayerView: View {
         }
     }
     
+    private var streamURL: URL? {
+        channel?.streamURL ?? movie?.streamURL ?? episode?.streamURL
+    }
+    
+    /// Use VLC for all VOD content (movies/shows) since AVPlayer struggles with many Xtream Codes streams.
+    /// Live TV channels still use AVPlayer (they typically serve HLS/TS which AVPlayer handles well).
+    private var needsVLCPlayer: Bool {
+        guard streamURL != nil else { return false }
+        return movie != nil || episode != nil
+    }
+    
     @State private var bufferingTooLong = false
     @State private var bufferingTimer: Timer?
     @GestureState private var dragOffset: CGFloat = 0
@@ -77,14 +99,29 @@ struct PlayerView: View {
                     playerViewModel.showControlsTemporarily()
                 }
             #else
-            if let player = playerViewModel.player {
+            if useVLCPlayer {
+                #if canImport(VLCKitSPM)
+                VLCPlayerUIView(
+                    url: streamURL!,
+                    controller: vlcController,
+                    isPlaying: $vlcIsPlaying,
+                    currentTime: $vlcCurrentTime,
+                    duration: $vlcDuration,
+                    isBuffering: $vlcIsBuffering
+                )
+                .ignoresSafeArea()
+                .onTapGesture {
+                    showVLCControlsTemporarily()
+                }
+                #endif
+            } else if let player = playerViewModel.player {
                 VideoPlayer(player: player)
                     .ignoresSafeArea()
             }
             #endif
             
-            // Buffering indicator
-            if playerViewModel.isBuffering {
+            // Buffering indicator - for VLC, hide once playback has started (VLC fires many buffering events)
+            if useVLCPlayer ? (vlcIsBuffering && !vlcHasStartedPlaying) : playerViewModel.isBuffering {
                 VStack(spacing: 16) {
                     ProgressView()
                         .scaleEffect(2)
@@ -153,6 +190,12 @@ struct PlayerView: View {
                     .background(.ultraThinMaterial.opacity(0.8), in: Capsule())
                     .padding(.bottom, 16)
                 }
+            }
+            // iOS: VLC VOD controls for movies/shows
+            if useVLCPlayer && showVLCControls {
+                vlcControlsOverlay
+                    .transition(.opacity)
+                    .animation(.easeInOut(duration: 0.25), value: showVLCControls)
             }
             #else
             // macOS/tvOS: full custom controls overlay
@@ -239,10 +282,13 @@ struct PlayerView: View {
             }
         }
         .onAppear {
+            NSLog("[PlayerView] onAppear channel=%@ movie=%@ episode=%@ url=%@ needsVLC=%d", channel?.name ?? "nil", movie?.title ?? "nil", episode?.title ?? "nil", streamURL?.absoluteString ?? "nil", needsVLCPlayer ? 1 : 0)
             startPlayback()
         }
         .onDisappear {
+            NSLog("[PlayerView] onDisappear")
             playerViewModel.stop()
+            vlcControlsTimer?.invalidate()
         }
         #if os(tvOS)
         .onPlayPauseCommand {
@@ -305,7 +351,13 @@ struct PlayerView: View {
         #endif
         #if os(iOS)
         .statusBarHidden(true)
+        .interactiveDismissDisabled(true)
         #endif
+        .onChange(of: vlcIsPlaying) { _, isPlaying in
+            if isPlaying {
+                vlcHasStartedPlaying = true
+            }
+        }
         .onChange(of: playerViewModel.isBuffering) { _, isBuffering in
             bufferingTimer?.invalidate()
             if isBuffering {
@@ -324,6 +376,15 @@ struct PlayerView: View {
     // MARK: - Playback Control
     
     private func startPlayback() {
+        #if !os(macOS)
+        if needsVLCPlayer {
+            NSLog("[PlayerView] Using VLC player for url=%@", streamURL?.absoluteString ?? "nil")
+            useVLCPlayer = true
+            showVLCControlsTemporarily()
+            return
+        }
+        #endif
+        NSLog("[PlayerView] Using AVPlayer for url=%@", streamURL?.absoluteString ?? "nil")
         if let channel = channel {
             playerViewModel.play(channel: channel)
         } else if let movie = movie {
@@ -348,6 +409,156 @@ struct PlayerView: View {
               let previous = contentViewModel.previousChannel(before: current) else { return }
         playChannel(previous)
     }
+    
+    // MARK: - VLC Controls
+    
+    private func showVLCControlsTemporarily() {
+        showVLCControls = true
+        vlcControlsTimer?.invalidate()
+        vlcControlsTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { _ in
+            Task { @MainActor in
+                withAnimation { showVLCControls = false }
+            }
+        }
+    }
+    
+    private var vlcContentTitle: String {
+        movie?.title ?? episode?.title ?? "Playing"
+    }
+    
+    private func vlcFormattedTime(_ seconds: Double) -> String {
+        guard seconds.isFinite && seconds >= 0 else { return "0:00" }
+        let totalSeconds = Int(seconds)
+        let h = totalSeconds / 3600
+        let m = (totalSeconds % 3600) / 60
+        let s = totalSeconds % 60
+        if h > 0 {
+            return String(format: "%d:%02d:%02d", h, m, s)
+        }
+        return String(format: "%d:%02d", m, s)
+    }
+    
+    #if os(iOS)
+    @ViewBuilder
+    private var vlcControlsOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.4)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    withAnimation { showVLCControls = false }
+                }
+            
+            VStack(spacing: 0) {
+                // Title bar
+                HStack {
+                    Text(vlcContentTitle)
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                    Spacer()
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 50)
+                
+                Spacer()
+                
+                // Center playback controls
+                HStack(spacing: 48) {
+                    Button {
+                        #if canImport(VLCKitSPM)
+                        vlcController.seekBackward(seconds: 15)
+                        #endif
+                        showVLCControlsTemporarily()
+                    } label: {
+                        Image(systemName: "gobackward.15")
+                            .font(.system(size: 36))
+                            .foregroundColor(.white)
+                    }
+                    
+                    Button {
+                        #if canImport(VLCKitSPM)
+                        vlcController.togglePlayback()
+                        #endif
+                        showVLCControlsTemporarily()
+                    } label: {
+                        Image(systemName: vlcIsPlaying ? "pause.circle.fill" : "play.circle.fill")
+                            .font(.system(size: 64))
+                            .foregroundColor(.white)
+                    }
+                    
+                    Button {
+                        #if canImport(VLCKitSPM)
+                        vlcController.seekForward(seconds: 15)
+                        #endif
+                        showVLCControlsTemporarily()
+                    } label: {
+                        Image(systemName: "goforward.15")
+                            .font(.system(size: 36))
+                            .foregroundColor(.white)
+                    }
+                }
+                
+                Spacer()
+                
+                // Bottom progress bar
+                VStack(spacing: 8) {
+                    vlcProgressBar
+                    
+                    HStack {
+                        Text(vlcFormattedTime(vlcCurrentTime))
+                            .font(.caption)
+                            .foregroundColor(.white.opacity(0.8))
+                            .monospacedDigit()
+                        Spacer()
+                        Text(vlcFormattedTime(vlcDuration))
+                            .font(.caption)
+                            .foregroundColor(.white.opacity(0.8))
+                            .monospacedDigit()
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 40)
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var vlcProgressBar: some View {
+        GeometryReader { geo in
+            let progress = vlcDuration > 0 ? CGFloat(vlcCurrentTime / vlcDuration) : 0
+            
+            ZStack(alignment: .leading) {
+                // Track background
+                Capsule()
+                    .fill(Color.white.opacity(0.3))
+                    .frame(height: 4)
+                
+                // Progress fill
+                Capsule()
+                    .fill(Color.white)
+                    .frame(width: max(0, geo.size.width * progress), height: 4)
+                
+                // Scrubber handle
+                Circle()
+                    .fill(Color.white)
+                    .frame(width: 14, height: 14)
+                    .offset(x: max(0, geo.size.width * progress - 7))
+            }
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        let fraction = Float(max(0, min(1, value.location.x / geo.size.width)))
+                        #if canImport(VLCKitSPM)
+                        vlcController.seek(to: fraction)
+                        #endif
+                        showVLCControlsTemporarily()
+                    }
+            )
+        }
+        .frame(height: 14)
+    }
+    #endif
     
     #if os(tvOS)
     private func handleMoveCommand(_ direction: MoveCommandDirection) {

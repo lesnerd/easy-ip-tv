@@ -732,6 +732,91 @@ class ContentViewModel: ObservableObject {
         isLoadingCategory = !loadingCategoryIds.isEmpty
     }
     
+    /// Loads full series info (seasons & episodes) for a specific show.
+    /// Returns an updated Show with populated seasons, or nil on failure.
+    func loadSeriesInfo(for show: Show) async -> Show? {
+        guard currentPlaylistType != .m3u,
+              let credentials = cachedCredentials,
+              let seriesId = Int(show.id) else { return nil }
+        
+        do {
+            let seriesInfo = try await xtreamService.getSeriesInfo(
+                baseURL: credentials.baseURL,
+                username: credentials.username,
+                password: credentials.password,
+                seriesId: seriesId
+            )
+            
+            var seasons: [Season] = []
+            if let episodesDict = seriesInfo.episodes {
+                for (seasonKey, episodeInfos) in episodesDict.sorted(by: { (Int($0.key) ?? 0) < (Int($1.key) ?? 0) }) {
+                    let seasonNum = Int(seasonKey) ?? 0
+                    let seasonInfo = seriesInfo.seasons?.first(where: { $0.seasonNumber == seasonNum })
+                    
+                    let episodes: [Episode] = episodeInfos.compactMap { epInfo in
+                        guard let epId = epInfo.id,
+                              let ext = epInfo.containerExtension,
+                              let streamURL = xtreamService.buildSeriesStreamURL(
+                                baseURL: credentials.baseURL,
+                                username: credentials.username,
+                                password: credentials.password,
+                                episodeId: epId,
+                                extension: ext
+                              ) else { return nil }
+                        
+                        let thumbURL = epInfo.info?.movieImage.flatMap { URL(string: $0) }
+                        let durationMinutes = epInfo.info?.duration.flatMap { durationStr -> Int? in
+                            let parts = durationStr.split(separator: ":")
+                            if parts.count >= 2, let h = Int(parts[0]), let m = Int(parts[1]) {
+                                return h * 60 + m
+                            }
+                            return Int(durationStr)
+                        }
+                        
+                        var episode = Episode(
+                            id: epId,
+                            episodeNumber: epInfo.episodeNum ?? 0,
+                            title: epInfo.title ?? "Episode \(epInfo.episodeNum ?? 0)",
+                            thumbnailURL: thumbURL,
+                            streamURL: streamURL,
+                            duration: durationMinutes,
+                            description: epInfo.info?.plot
+                        )
+                        episode.watchProgress = storage.getWatchProgress(for: epId)
+                        return episode
+                    }
+                    
+                    let season = Season(
+                        id: "\(show.id)_s\(seasonNum)",
+                        seasonNumber: seasonNum,
+                        title: seasonInfo?.name,
+                        posterURL: seasonInfo?.cover.flatMap { URL(string: $0) },
+                        episodes: episodes
+                    )
+                    seasons.append(season)
+                }
+            }
+            
+            var updatedShow = show
+            updatedShow.seasons = seasons
+            
+            // Update the cache so the show persists across navigations
+            for (categoryName, var cachedShows) in showCache {
+                if let index = cachedShows.firstIndex(where: { $0.id == show.id }) {
+                    cachedShows[index].seasons = seasons
+                    showCache[categoryName] = cachedShows
+                }
+            }
+            
+            return updatedShow
+        } catch {
+            #if DEBUG
+            print("Failed to load series info for \(show.title): \(error)")
+            #endif
+            return nil
+        }
+    }
+    
     /// Gets priority for category sorting (lower = shown first, higher = shown last)
     private func categoryPriority(_ category: String) -> Int {
         languagePriorityConfig.priority(for: category)

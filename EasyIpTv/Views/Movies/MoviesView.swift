@@ -8,8 +8,8 @@ struct MoviesView: View {
     
     @State private var selectedCategory: ContentViewModel.CategoryInfo?
     @State private var selectedMovie: Movie?
-    @State private var showDetail = false
     @State private var playingMovie: Movie?
+    @State private var pendingPlayMovie: Movie?
     @State private var showUpgrade = false
     @State private var showInterstitial = false
     @State private var searchText = ""
@@ -49,19 +49,22 @@ struct MoviesView: View {
                     .environmentObject(premiumManager)
             }
         }
-        .sheet(isPresented: $showDetail) {
-            if let movie = selectedMovie {
-                MovieDetailView(movie: movie) {
-                    showDetail = false
-                    AdManager.shared.recordPlay()
-                    if AdManager.shared.showInterstitialIfNeeded(premiumManager: premiumManager) {
-                        showInterstitial = true
-                    } else {
-                        playingMovie = movie
-                    }
-                } onToggleFavorite: {
-                    toggleFavorite(movie)
+        .sheet(item: $selectedMovie, onDismiss: {
+            if let movie = pendingPlayMovie {
+                pendingPlayMovie = nil
+                AdManager.shared.recordPlay()
+                if AdManager.shared.showInterstitialIfNeeded(premiumManager: premiumManager) {
+                    showInterstitial = true
+                } else {
+                    playingMovie = movie
                 }
+            }
+        }) { movie in
+            MovieDetailView(movie: movie) {
+                pendingPlayMovie = movie
+                selectedMovie = nil
+            } onToggleFavorite: {
+                toggleFavorite(movie)
             }
         }
         .platformFullScreen(item: $playingMovie) { movie in
@@ -71,7 +74,7 @@ struct MoviesView: View {
         .overlay {
             if showInterstitial {
                 InterstitialAdOverlay(
-                    onDismiss: { showInterstitial = false; playingMovie = selectedMovie },
+                    onDismiss: { showInterstitial = false; if let m = pendingPlayMovie { pendingPlayMovie = nil; playingMovie = m } },
                     onUpgrade: { showInterstitial = false; showUpgrade = true }
                 )
                 .environmentObject(premiumManager)
@@ -235,7 +238,6 @@ struct MoviesView: View {
     
     private func selectMovie(_ movie: Movie) {
         selectedMovie = movie
-        showDetail = true
     }
     
     private func toggleFavorite(_ movie: Movie) {

@@ -8,10 +8,11 @@ struct ShowsView: View {
     
     @State private var selectedCategory: ContentViewModel.CategoryInfo?
     @State private var selectedShow: Show?
-    @State private var showDetail = false
     @State private var selectedEpisode: Episode?
     @State private var selectedSeasonNumber: Int?
     @State private var playingEpisode: Episode?
+    @State private var pendingPlayEpisode: Episode?
+    @State private var pendingSeasonNumber: Int?
     @State private var showUpgrade = false
     @State private var showInterstitial = false
     @State private var searchText = ""
@@ -55,22 +56,30 @@ struct ShowsView: View {
                     .environmentObject(premiumManager)
             }
         }
-        .sheet(isPresented: $showDetail) {
-            if let show = selectedShow {
-                ShowDetailView(show: show) { episode, seasonNumber in
-                    selectedEpisode = episode
-                    selectedSeasonNumber = seasonNumber
-                    showDetail = false
-                    AdManager.shared.recordPlay()
-                    if AdManager.shared.showInterstitialIfNeeded(premiumManager: premiumManager) {
-                        showInterstitial = true
-                    } else {
-                        playingEpisode = episode
-                    }
-                } onToggleFavorite: {
-                    toggleFavorite(show)
+        .sheet(item: $selectedShow, onDismiss: {
+            NSLog("[ShowsView] sheet onDismiss, pendingPlayEpisode=%@", pendingPlayEpisode?.title ?? "nil")
+            if let episode = pendingPlayEpisode {
+                pendingPlayEpisode = nil
+                selectedSeasonNumber = pendingSeasonNumber
+                AdManager.shared.recordPlay()
+                if AdManager.shared.showInterstitialIfNeeded(premiumManager: premiumManager) {
+                    showInterstitial = true
+                } else {
+                    NSLog("[ShowsView] Setting playingEpisode=%@ url=%@", episode.title, episode.streamURL.absoluteString)
+                    playingEpisode = episode
                 }
             }
+        }) { show in
+            ShowDetailView(show: show) { episode, seasonNumber in
+                NSLog("[ShowsView] Episode play tapped: %@ url=%@", episode.title, episode.streamURL.absoluteString)
+                selectedEpisode = episode
+                pendingPlayEpisode = episode
+                pendingSeasonNumber = seasonNumber
+                selectedShow = nil
+            } onToggleFavorite: {
+                toggleFavorite(show)
+            }
+            .environmentObject(contentViewModel)
         }
         .platformFullScreen(item: $playingEpisode) { episode in
             PlayerView(episode: episode, showContext: selectedShow, seasonNumber: selectedSeasonNumber, onClose: { playingEpisode = nil })
@@ -79,7 +88,7 @@ struct ShowsView: View {
         .overlay {
             if showInterstitial {
                 InterstitialAdOverlay(
-                    onDismiss: { showInterstitial = false; playingEpisode = selectedEpisode },
+                    onDismiss: { showInterstitial = false; if let ep = pendingPlayEpisode { pendingPlayEpisode = nil; playingEpisode = ep } },
                     onUpgrade: { showInterstitial = false; showUpgrade = true }
                 )
                 .environmentObject(premiumManager)
@@ -257,7 +266,6 @@ struct ShowsView: View {
     
     private func selectShow(_ show: Show) {
         selectedShow = show
-        showDetail = true
     }
     
     private func toggleFavorite(_ show: Show) {
@@ -269,12 +277,20 @@ struct ShowsView: View {
 // MARK: - Show Detail View
 
 struct ShowDetailView: View {
-    let show: Show
+    @State private var show: Show
     var onPlayEpisode: (Episode, Int?) -> Void = { _, _ in }
     var onToggleFavorite: () -> Void = {}
     
+    @EnvironmentObject var contentViewModel: ContentViewModel
     @State private var selectedSeason: Season?
+    @State private var isLoadingEpisodes = false
     @Environment(\.dismiss) private var dismiss
+    
+    init(show: Show, onPlayEpisode: @escaping (Episode, Int?) -> Void = { _, _ in }, onToggleFavorite: @escaping () -> Void = {}) {
+        self._show = State(initialValue: show)
+        self.onPlayEpisode = onPlayEpisode
+        self.onToggleFavorite = onToggleFavorite
+    }
     
     var body: some View {
         #if os(tvOS)
@@ -289,11 +305,19 @@ struct ShowDetailView: View {
         HStack(alignment: .top, spacing: 60) {
             posterView
                 .frame(height: PlatformMetrics.showDetailPosterHeight)
-            detailContent
+            if isLoadingEpisodes {
+                VStack {
+                    ProgressView("Loading episodes...")
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity)
+            } else {
+                detailContent
+            }
         }
         .padding(PlatformMetrics.detailPadding)
-        .onAppear {
-            selectedSeason = show.seasons.first
+        .task {
+            await loadEpisodesIfNeeded()
         }
     }
     #endif
@@ -314,12 +338,18 @@ struct ShowDetailView: View {
                 
                 Divider()
                 
-                seasonsAndEpisodes
+                if isLoadingEpisodes {
+                    ProgressView("Loading episodes...")
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.top, 40)
+                } else {
+                    seasonsAndEpisodes
+                }
             }
             .padding(PlatformMetrics.detailPadding)
         }
-        .onAppear {
-            selectedSeason = show.seasons.first
+        .task {
+            await loadEpisodesIfNeeded()
         }
     }
     #endif
@@ -391,6 +421,19 @@ struct ShowDetailView: View {
         .buttonStyle(.bordered)
     }
     
+    private func loadEpisodesIfNeeded() async {
+        guard show.seasons.isEmpty else {
+            selectedSeason = show.seasons.first
+            return
+        }
+        isLoadingEpisodes = true
+        if let updatedShow = await contentViewModel.loadSeriesInfo(for: show) {
+            show = updatedShow
+            selectedSeason = updatedShow.seasons.first
+        }
+        isLoadingEpisodes = false
+    }
+    
     private var seasonsAndEpisodes: some View {
         VStack(alignment: .leading, spacing: 16) {
             if !show.seasons.isEmpty {
@@ -416,16 +459,13 @@ struct ShowDetailView: View {
                 
                 // Episodes list
                 if let season = selectedSeason ?? show.seasons.first {
-                    ScrollView {
-                        LazyVStack(spacing: 8) {
-                            ForEach(season.episodes) { episode in
-                                EpisodeRowView(episode: episode) {
-                                    onPlayEpisode(episode, season.seasonNumber)
-                                }
+                    LazyVStack(spacing: 8) {
+                        ForEach(season.episodes) { episode in
+                            EpisodeRowView(episode: episode) {
+                                onPlayEpisode(episode, season.seasonNumber)
                             }
                         }
                     }
-                    .frame(maxHeight: 300)
                 }
             }
         }
