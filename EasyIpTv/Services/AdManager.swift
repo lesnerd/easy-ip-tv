@@ -50,7 +50,7 @@ class AdManager: ObservableObject {
     /// Initialize the ads SDK (call on app launch)
     func initialize() {
         #if canImport(GoogleMobileAds) && os(iOS)
-        MobileAds.shared.start { status in
+        GADMobileAds.sharedInstance().start { status in
             #if DEBUG
             print("[AdMob] SDK initialized: \(status.adapterStatusesByClassName)")
             #endif
@@ -142,18 +142,18 @@ struct BannerAdView: View {
 
 #if canImport(GoogleMobileAds) && os(iOS)
 struct AdMobBannerView: UIViewRepresentable {
-    func makeUIView(context: Context) -> BannerView {
-        let banner = BannerView(adSize: AdSizeBanner)
+    func makeUIView(context: Context) -> GADBannerView {
+        let banner = GADBannerView(adSize: GADAdSizeBanner)
         banner.adUnitID = AdManager.bannerAdUnitId
         banner.rootViewController = UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
             .flatMap { $0.windows }
             .first { $0.isKeyWindow }?.rootViewController
-        banner.load(Request())
+        banner.load(GADRequest())
         return banner
     }
     
-    func updateUIView(_ uiView: BannerView, context: Context) {}
+    func updateUIView(_ uiView: GADBannerView, context: Context) {}
 }
 #endif
 

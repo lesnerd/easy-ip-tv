@@ -90,6 +90,7 @@
 
 /* Begin PBXBuildFile (SPM) section */
 		E4VLC00100000001 /* VLCKitSPM in Frameworks */ = {isa = PBXBuildFile; productRef = E4VLC00200000001 /* VLCKitSPM */; };
+		E4GAD00100000001 /* GoogleMobileAds in Frameworks */ = {isa = PBXBuildFile; platformFilters = (ios, ); productRef = E4GAD00200000001 /* GoogleMobileAds */; };
 /* End PBXBuildFile (SPM) section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -98,6 +99,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				E4VLC00100000001 /* VLCKitSPM in Frameworks */,
+				E4GAD00100000001 /* GoogleMobileAds in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -296,6 +298,7 @@
 			name = EasyIpTv;
 			packageProductDependencies = (
 				E4VLC00200000001 /* VLCKitSPM */,
+				E4GAD00200000001 /* GoogleMobileAds */,
 			);
 			productName = EasyIpTv;
 			productReference = A10003001111111100000001 /* EasyIpTv.app */;
@@ -328,6 +331,7 @@
 			mainGroup = A10005001111111100000001;
 			packageReferences = (
 				E4VLC00300000001 /* XCRemoteSwiftPackageReference "vlckit-spm" */,
+				E4GAD00300000001 /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */,
 			);
 			productRefGroup = A10005001111111100000003 /* Products */;
 			projectDirPath = "";
@@ -612,6 +616,14 @@
 				minimumVersion = 3.6.0;
 			};
 		};
+		E4GAD00300000001 /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/googleads/swift-package-manager-google-mobile-ads.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 11.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -619,6 +631,14 @@
 			isa = XCSwiftPackageProductDependency;
 			package = E4VLC00300000001 /* XCRemoteSwiftPackageReference "vlckit-spm" */;
 			productName = VLCKitSPM;
+		};
+		E4GAD00200000001 /* GoogleMobileAds */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E4GAD00300000001 /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */;
+			platformFilters = (
+				ios,
+			);
+			productName = GoogleMobileAds;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
