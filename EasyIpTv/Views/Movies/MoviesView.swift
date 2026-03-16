@@ -728,7 +728,11 @@ struct MetadataPill: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
+        #if os(macOS)
+        .background(Color.gray.opacity(0.2))
+        #else
         .background(Color(.secondarySystemBackground))
+        #endif
         .cornerRadius(8)
     }
 }
