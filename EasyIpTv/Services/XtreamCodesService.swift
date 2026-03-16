@@ -421,6 +421,88 @@ actor XtreamCodesService {
         }
     }
     
+    // MARK: - VOD Info
+    
+    struct VodInfo: Codable {
+        let info: VodDetails?
+        let movieData: VodMovieData?
+        
+        enum CodingKeys: String, CodingKey {
+            case info
+            case movieData = "movie_data"
+        }
+    }
+    
+    struct VodDetails: Codable {
+        let movieImage: String?
+        let plot: String?
+        let cast: String?
+        let director: String?
+        let genre: String?
+        let releaseDate: String?
+        let duration: String?
+        let rating: String?
+        let name: String?
+        let backdrop: String?
+        let tmdbId: String?
+        
+        enum CodingKeys: String, CodingKey {
+            case plot, cast, director, genre, duration, rating, name, backdrop
+            case movieImage = "movie_image"
+            case releaseDate = "releasedate"
+            case tmdbId = "tmdb_id"
+        }
+        
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            movieImage = try container.decodeIfPresent(String.self, forKey: .movieImage)
+            plot = try container.decodeIfPresent(String.self, forKey: .plot)
+            cast = try container.decodeIfPresent(String.self, forKey: .cast)
+            director = try container.decodeIfPresent(String.self, forKey: .director)
+            genre = try container.decodeIfPresent(String.self, forKey: .genre)
+            releaseDate = try container.decodeIfPresent(String.self, forKey: .releaseDate)
+            duration = try container.decodeIfPresent(String.self, forKey: .duration)
+            name = try container.decodeIfPresent(String.self, forKey: .name)
+            backdrop = try container.decodeIfPresent(String.self, forKey: .backdrop)
+            tmdbId = try container.decodeIfPresent(String.self, forKey: .tmdbId)
+            if let ratingStr = try? container.decodeIfPresent(String.self, forKey: .rating) {
+                rating = ratingStr
+            } else if let ratingNum = try? container.decodeIfPresent(Double.self, forKey: .rating) {
+                rating = String(ratingNum)
+            } else {
+                rating = nil
+            }
+        }
+    }
+    
+    struct VodMovieData: Codable {
+        let streamId: Int?
+        let name: String?
+        let containerExtension: String?
+        
+        enum CodingKeys: String, CodingKey {
+            case name
+            case streamId = "stream_id"
+            case containerExtension = "container_extension"
+        }
+    }
+    
+    /// Gets detailed VOD (movie) info
+    func getVodInfo(baseURL: String, username: String, password: String, vodId: Int) async throws -> VodInfo {
+        let urlString = "\(baseURL)/player_api.php?username=\(username)&password=\(password)&action=get_vod_info&vod_id=\(vodId)"
+        guard let url = URL(string: urlString) else {
+            throw XtreamError.invalidURL
+        }
+        
+        let data = try await fetchData(from: url)
+        
+        do {
+            return try decoder.decode(VodInfo.self, from: data)
+        } catch {
+            throw XtreamError.decodingError(error)
+        }
+    }
+    
     /// Gets detailed series info including episodes
     func getSeriesInfo(baseURL: String, username: String, password: String, seriesId: Int) async throws -> SeriesInfo {
         let urlString = "\(baseURL)/player_api.php?username=\(username)&password=\(password)&action=get_series_info&series_id=\(seriesId)"

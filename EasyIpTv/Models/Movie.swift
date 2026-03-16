@@ -11,12 +11,22 @@ struct Movie: Identifiable, Codable, Hashable {
     let duration: Int? // in minutes
     let description: String?
     let rating: Double?
+    let director: String?
+    let cast: String?
+    let genre: String?
+    let backdropURL: URL?
+    
+    /// The stream ID for fetching VOD info from Xtream Codes
+    let streamId: Int?
     
     /// Whether this movie is marked as a favorite
     var isFavorite: Bool = false
     
     /// Watch progress (0.0 to 1.0)
     var watchProgress: Double = 0.0
+    
+    /// Whether detailed info has been loaded
+    var isDetailLoaded: Bool = false
     
     init(
         id: String = UUID().uuidString,
@@ -28,8 +38,14 @@ struct Movie: Identifiable, Codable, Hashable {
         duration: Int? = nil,
         description: String? = nil,
         rating: Double? = nil,
+        director: String? = nil,
+        cast: String? = nil,
+        genre: String? = nil,
+        backdropURL: URL? = nil,
+        streamId: Int? = nil,
         isFavorite: Bool = false,
-        watchProgress: Double = 0.0
+        watchProgress: Double = 0.0,
+        isDetailLoaded: Bool = false
     ) {
         self.id = id
         self.title = title
@@ -40,8 +56,14 @@ struct Movie: Identifiable, Codable, Hashable {
         self.duration = duration
         self.description = description
         self.rating = rating
+        self.director = director
+        self.cast = cast
+        self.genre = genre
+        self.backdropURL = backdropURL
+        self.streamId = streamId
         self.isFavorite = isFavorite
         self.watchProgress = watchProgress
+        self.isDetailLoaded = isDetailLoaded
     }
     
     /// Creates a Movie from an M3UItem

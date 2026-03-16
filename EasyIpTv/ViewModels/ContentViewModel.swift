@@ -639,7 +639,8 @@ class ContentViewModel: ObservableObject {
                     title: name,
                     posterURL: posterURL,
                     streamURL: streamURL,
-                    category: category.name
+                    category: category.name,
+                    streamId: streamId
                 )
             }
             
@@ -813,6 +814,84 @@ class ContentViewModel: ObservableObject {
             #if DEBUG
             print("Failed to load series info for \(show.title): \(error)")
             #endif
+            return nil
+        }
+    }
+    
+    /// Loads detailed movie info (plot, cast, director, genre) from Xtream Codes API.
+    /// Returns an updated Movie with populated fields, or nil on failure.
+    func loadMovieInfo(for movie: Movie) async -> Movie? {
+        guard currentPlaylistType != .m3u,
+              let credentials = cachedCredentials,
+              let vodId = movie.streamId else { return nil }
+        
+        do {
+            let vodInfo = try await xtreamService.getVodInfo(
+                baseURL: credentials.baseURL,
+                username: credentials.username,
+                password: credentials.password,
+                vodId: vodId
+            )
+            
+            guard let info = vodInfo.info else { return nil }
+            
+            var durationMinutes: Int? = movie.duration
+            if durationMinutes == nil, let durStr = info.duration {
+                let parts = durStr.split(separator: ":")
+                if parts.count >= 2, let h = Int(parts[0]), let m = Int(parts[1]) {
+                    durationMinutes = h * 60 + m
+                } else if let mins = Int(durStr) {
+                    durationMinutes = mins
+                }
+            }
+            
+            var rating: Double? = movie.rating
+            if rating == nil, let ratingStr = info.rating, let r = Double(ratingStr) {
+                rating = r
+            }
+            
+            var year: Int? = movie.year
+            if year == nil, let releaseDate = info.releaseDate {
+                let parts = releaseDate.split(separator: "-")
+                if let first = parts.first, let y = Int(first) {
+                    year = y
+                }
+            }
+            
+            let backdropURL = info.backdrop.flatMap { URL(string: $0) }
+            let posterURL = info.movieImage.flatMap { URL(string: $0) } ?? movie.posterURL
+            
+            let updatedMovie = Movie(
+                id: movie.id,
+                title: movie.title,
+                posterURL: posterURL,
+                streamURL: movie.streamURL,
+                category: movie.category,
+                year: year,
+                duration: durationMinutes,
+                description: info.plot ?? movie.description,
+                rating: rating,
+                director: info.director,
+                cast: info.cast,
+                genre: info.genre,
+                backdropURL: backdropURL,
+                streamId: movie.streamId,
+                isFavorite: movie.isFavorite,
+                watchProgress: movie.watchProgress,
+                isDetailLoaded: true
+            )
+            
+            // Update cache
+            for (categoryName, var cachedMovies) in movieCache {
+                if let index = cachedMovies.firstIndex(where: { $0.id == movie.id }) {
+                    cachedMovies[index] = updatedMovie
+                    movieCache[categoryName] = cachedMovies
+                }
+            }
+            
+            return updatedMovie
+        } catch {
+            NSLog("[ContentViewModel] Failed to load VOD info for %@: %@", movie.title, error.localizedDescription)
             return nil
         }
     }

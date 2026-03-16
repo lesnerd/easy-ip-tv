@@ -90,6 +90,7 @@ struct FavoritesView: View {
                 } onToggleFavorite: {
                     toggleFavorite(movie: movie)
                 }
+                .environmentObject(contentViewModel)
             }
         }
         .platformFullScreen(isPresented: $showMoviePlayer) {

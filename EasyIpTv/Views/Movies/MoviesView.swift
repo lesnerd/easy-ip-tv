@@ -66,6 +66,7 @@ struct MoviesView: View {
             } onToggleFavorite: {
                 toggleFavorite(movie)
             }
+            .environmentObject(contentViewModel)
         }
         .platformFullScreen(item: $playingMovie) { movie in
             PlayerView(movie: movie, onClose: { playingMovie = nil })
@@ -254,6 +255,14 @@ struct MovieDetailView: View {
     var onToggleFavorite: () -> Void = {}
     
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var contentViewModel: ContentViewModel
+    @State private var detailedMovie: Movie?
+    @State private var isLoadingInfo = false
+    @State private var isDescriptionExpanded = false
+    
+    private var displayMovie: Movie {
+        detailedMovie ?? movie
+    }
     
     var body: some View {
         #if os(tvOS)
@@ -269,7 +278,55 @@ struct MovieDetailView: View {
             posterView
                 .frame(height: PlatformMetrics.detailPosterHeight)
             
-            detailContent
+            VStack(alignment: .leading, spacing: 24) {
+                Text(displayMovie.title)
+                    .font(.title)
+                    .fontWeight(.bold)
+                
+                HStack(spacing: 16) {
+                    if let year = displayMovie.year {
+                        Text(String(year)).foregroundStyle(.secondary)
+                    }
+                    if let duration = displayMovie.duration {
+                        Text(formatDuration(duration)).foregroundStyle(.secondary)
+                    }
+                    if let rating = displayMovie.rating, rating > 0 {
+                        HStack(spacing: 4) {
+                            Image(systemName: "star.fill").foregroundColor(.yellow)
+                            Text(String(format: "%.1f", rating))
+                        }
+                    }
+                    Text(displayMovie.category).foregroundStyle(.secondary)
+                }
+                .font(.callout)
+                
+                if let description = displayMovie.description, !description.isEmpty {
+                    Text(description).font(.body).foregroundStyle(.secondary)
+                }
+                
+                if let cast = displayMovie.cast, !cast.isEmpty {
+                    Text("Starring: \(cast)").font(.callout).foregroundStyle(.secondary)
+                }
+                if let director = displayMovie.director, !director.isEmpty {
+                    Text("Directed by: \(director)").font(.callout).foregroundStyle(.secondary)
+                }
+                
+                HStack(spacing: 24) {
+                    Button { onPlay() } label: {
+                        Label(L10n.Player.play, systemImage: "play.fill")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    
+                    Button { onToggleFavorite() } label: {
+                        Label(
+                            displayMovie.isFavorite ? L10n.Favorites.removeFromFavorites : L10n.Favorites.addToFavorites,
+                            systemImage: displayMovie.isFavorite ? "heart.fill" : "heart"
+                        )
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
             Spacer()
         }
         .padding(PlatformMetrics.detailPadding)
@@ -279,18 +336,196 @@ struct MovieDetailView: View {
     #if !os(tvOS)
     private var adaptiveDetailLayout: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: 0) {
+                #if os(iOS)
+                // iPhone/iPad: poster as a top banner with gradient overlay
+                ZStack(alignment: .bottomLeading) {
+                    CachedAsyncImage(url: displayMovie.posterURL) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.2))
+                            .overlay {
+                                Image(systemName: "film")
+                                    .font(.system(size: 60))
+                                    .foregroundStyle(.secondary)
+                            }
+                    }
+                    .frame(height: 400)
+                    .frame(maxWidth: .infinity)
+                    .clipped()
+                    
+                    LinearGradient(
+                        colors: [.clear, .clear, Color(.systemBackground).opacity(0.6), Color(.systemBackground)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    
+                    // Title + metadata overlaid on poster
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(displayMovie.title)
+                            .font(.title2)
+                            .fontWeight(.bold)
+                        
+                        HStack(spacing: 12) {
+                            if let rating = displayMovie.rating, rating > 0 {
+                                HStack(spacing: 3) {
+                                    Image(systemName: "star.fill")
+                                        .foregroundColor(.yellow)
+                                        .font(.caption)
+                                    Text(String(format: "%.0f%%", rating * 10))
+                                        .fontWeight(.semibold)
+                                }
+                            }
+                            if let year = displayMovie.year {
+                                Text(String(year))
+                            }
+                            if let duration = displayMovie.duration {
+                                Text(formatDuration(duration))
+                            }
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 16)
+                }
+                .frame(maxWidth: .infinity)
+                
+                VStack(alignment: .leading, spacing: 20) {
+                    // Description
+                    if let description = displayMovie.description, !description.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(description)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(isDescriptionExpanded ? nil : 3)
+                            
+                            if description.count > 120 {
+                                Button(isDescriptionExpanded ? "Less" : "...More") {
+                                    withAnimation { isDescriptionExpanded.toggle() }
+                                }
+                                .font(.subheadline)
+                                .foregroundColor(.accentColor)
+                            }
+                        }
+                    }
+                    
+                    // Watch button
+                    Button {
+                        onPlay()
+                    } label: {
+                        HStack {
+                            Image(systemName: "play.fill")
+                            Text("WATCH")
+                                .fontWeight(.semibold)
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    
+                    // Loading indicator for detail info
+                    if isLoadingInfo {
+                        HStack {
+                            Spacer()
+                            ProgressView()
+                            Spacer()
+                        }
+                    }
+                    
+                    // Cast & Crew info
+                    if let cast = displayMovie.cast, !cast.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Starring")
+                                .font(.subheadline)
+                                .fontWeight(.bold)
+                            Text(cast)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    
+                    if let director = displayMovie.director, !director.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Directed by")
+                                .font(.subheadline)
+                                .fontWeight(.bold)
+                            Text(director)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    
+                    if let genre = displayMovie.genre, !genre.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Genre")
+                                .font(.subheadline)
+                                .fontWeight(.bold)
+                            HStack(spacing: 6) {
+                                ForEach(genre.components(separatedBy: ", ").prefix(4), id: \.self) { g in
+                                    Text(g)
+                                        .font(.caption)
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 5)
+                                        .background(Color(.secondarySystemBackground))
+                                        .cornerRadius(8)
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Favorite button
+                    Button {
+                        onToggleFavorite()
+                    } label: {
+                        Label(
+                            displayMovie.isFavorite ? L10n.Favorites.removeFromFavorites : L10n.Favorites.addToFavorites,
+                            systemImage: displayMovie.isFavorite ? "heart.fill" : "heart"
+                        )
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                    .tint(displayMovie.isFavorite ? .red : nil)
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 32)
+                #else
+                // macOS: horizontal layout
                 HStack(alignment: .top, spacing: 24) {
                     posterView
                         .frame(height: PlatformMetrics.detailPosterHeight)
-                    
-                    detailContent
+                    macDetailContent
                 }
+                .padding(PlatformMetrics.detailPadding)
+                #endif
             }
-            .padding(PlatformMetrics.detailPadding)
+        }
+        #if os(iOS)
+        .ignoresSafeArea(edges: .top)
+        #endif
+        .task {
+            guard !movie.isDetailLoaded, !isLoadingInfo else { return }
+            isLoadingInfo = true
+            if let updated = await contentViewModel.loadMovieInfo(for: movie) {
+                detailedMovie = updated
+            }
+            isLoadingInfo = false
         }
     }
     #endif
+    
+    private func formatDuration(_ minutes: Int) -> String {
+        let h = minutes / 60
+        let m = minutes % 60
+        if h > 0 {
+            return "\(h)H \(m)M"
+        }
+        return "\(m)M"
+    }
     
     private var posterView: some View {
         CachedAsyncImage(url: movie.posterURL) { image in
@@ -310,70 +545,85 @@ struct MovieDetailView: View {
         .cornerRadius(16)
     }
     
-    private var detailContent: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            // Title
-            Text(movie.title)
+    #if !os(tvOS)
+    private var macDetailContent: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text(displayMovie.title)
                 .font(.title)
                 .fontWeight(.bold)
             
-            // Metadata
             HStack(spacing: 16) {
-                if let year = movie.year {
-                    Text(String(year))
-                        .foregroundStyle(.secondary)
+                if let year = displayMovie.year {
+                    Text(String(year)).foregroundStyle(.secondary)
                 }
-                
-                if let duration = movie.duration {
-                    Text("\(duration) min")
-                        .foregroundStyle(.secondary)
+                if let duration = displayMovie.duration {
+                    Text(formatDuration(duration)).foregroundStyle(.secondary)
                 }
-                
-                if let rating = movie.rating {
+                if let rating = displayMovie.rating, rating > 0 {
                     HStack(spacing: 4) {
-                        Image(systemName: "star.fill")
-                            .foregroundColor(.yellow)
+                        Image(systemName: "star.fill").foregroundColor(.yellow)
                         Text(String(format: "%.1f", rating))
                     }
                 }
-                
-                Text(movie.category)
-                    .foregroundStyle(.secondary)
+                Text(displayMovie.category).foregroundStyle(.secondary)
             }
             .font(.callout)
             
-            // Description
-            if let description = movie.description {
-                Text(description)
-                    .font(.body)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(5)
+            if let description = displayMovie.description, !description.isEmpty {
+                Text(description).font(.body).foregroundStyle(.secondary)
             }
             
-            Spacer()
+            if let cast = displayMovie.cast, !cast.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Starring").font(.callout).fontWeight(.bold)
+                    Text(cast).font(.callout).foregroundStyle(.secondary)
+                }
+            }
             
-            // Actions
+            if let director = displayMovie.director, !director.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Directed by").font(.callout).fontWeight(.bold)
+                    Text(director).font(.callout).foregroundStyle(.secondary)
+                }
+            }
+            
+            if let genre = displayMovie.genre, !genre.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Genre").font(.callout).fontWeight(.bold)
+                    Text(genre).font(.callout).foregroundStyle(.secondary)
+                }
+            }
+            
             HStack(spacing: 24) {
-                Button {
-                    onPlay()
-                } label: {
+                Button { onPlay() } label: {
                     Label(L10n.Player.play, systemImage: "play.fill")
                 }
                 .buttonStyle(.borderedProminent)
                 
-                Button {
-                    onToggleFavorite()
-                } label: {
+                Button { onToggleFavorite() } label: {
                     Label(
-                        movie.isFavorite ? L10n.Favorites.removeFromFavorites : L10n.Favorites.addToFavorites,
-                        systemImage: movie.isFavorite ? "heart.fill" : "heart"
+                        displayMovie.isFavorite ? L10n.Favorites.removeFromFavorites : L10n.Favorites.addToFavorites,
+                        systemImage: displayMovie.isFavorite ? "heart.fill" : "heart"
                     )
                 }
                 .buttonStyle(.bordered)
             }
+            
+            if isLoadingInfo {
+                ProgressView()
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .task {
+            guard !movie.isDetailLoaded, !isLoadingInfo else { return }
+            isLoadingInfo = true
+            if let updated = await contentViewModel.loadMovieInfo(for: movie) {
+                detailedMovie = updated
+            }
+            isLoadingInfo = false
+        }
     }
+    #endif
 }
 
 // MARK: - Movie Category Row View (handles auto-loading)
@@ -456,6 +706,72 @@ struct PosterLoadingPlaceholder: View {
                     .scaleEffect(1.2)
             }
         }
+    }
+}
+
+// MARK: - Metadata Pill
+
+struct MetadataPill: View {
+    let text: String
+    var icon: String? = nil
+    var tint: Color? = nil
+    
+    var body: some View {
+        HStack(spacing: 4) {
+            if let icon {
+                Image(systemName: icon)
+                    .font(.caption2)
+                    .foregroundColor(tint ?? .secondary)
+            }
+            Text(text)
+                .font(.caption)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(Color(.secondarySystemBackground))
+        .cornerRadius(8)
+    }
+}
+
+// MARK: - Flow Layout
+
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 8
+    
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let result = arrange(proposal: proposal, subviews: subviews)
+        return result.size
+    }
+    
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let result = arrange(proposal: proposal, subviews: subviews)
+        for (index, position) in result.positions.enumerated() {
+            subviews[index].place(at: CGPoint(x: bounds.minX + position.x, y: bounds.minY + position.y), proposal: .unspecified)
+        }
+    }
+    
+    private func arrange(proposal: ProposedViewSize, subviews: Subviews) -> (positions: [CGPoint], size: CGSize) {
+        let maxWidth = proposal.width ?? .infinity
+        var positions: [CGPoint] = []
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+        var rowHeight: CGFloat = 0
+        var maxX: CGFloat = 0
+        
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x + size.width > maxWidth && x > 0 {
+                x = 0
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            positions.append(CGPoint(x: x, y: y))
+            rowHeight = max(rowHeight, size.height)
+            x += size.width + spacing
+            maxX = max(maxX, x - spacing)
+        }
+        
+        return (positions, CGSize(width: maxX, height: y + rowHeight))
     }
 }
 
