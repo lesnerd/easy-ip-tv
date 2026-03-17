@@ -591,23 +591,91 @@ class StorageService: ObservableObject {
         let seasonNumber: Int? // For shows
         let episodeNumber: Int? // For shows
         let episodeTitle: String? // For shows
+        let posterURL: URL? // Poster/thumbnail for display
+        let showTitle: String? // Parent show title for episodes
+        
+        private enum CodingKeys: String, CodingKey {
+            case id, contentType, title, progress, currentTime, duration, timestamp
+            case showId, episodeId, seasonNumber, episodeNumber, episodeTitle
+            case posterURL, showTitle
+        }
+        
+        init(id: String, contentType: String, title: String, progress: Double,
+             currentTime: Double, duration: Double, timestamp: Date,
+             showId: String?, episodeId: String?, seasonNumber: Int?,
+             episodeNumber: Int?, episodeTitle: String?,
+             posterURL: URL? = nil, showTitle: String? = nil) {
+            self.id = id
+            self.contentType = contentType
+            self.title = title
+            self.progress = progress
+            self.currentTime = currentTime
+            self.duration = duration
+            self.timestamp = timestamp
+            self.showId = showId
+            self.episodeId = episodeId
+            self.seasonNumber = seasonNumber
+            self.episodeNumber = episodeNumber
+            self.episodeTitle = episodeTitle
+            self.posterURL = posterURL
+            self.showTitle = showTitle
+        }
+        
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            id = try container.decode(String.self, forKey: .id)
+            contentType = try container.decode(String.self, forKey: .contentType)
+            title = try container.decode(String.self, forKey: .title)
+            progress = try container.decode(Double.self, forKey: .progress)
+            currentTime = try container.decode(Double.self, forKey: .currentTime)
+            duration = try container.decode(Double.self, forKey: .duration)
+            timestamp = try container.decode(Date.self, forKey: .timestamp)
+            showId = try container.decodeIfPresent(String.self, forKey: .showId)
+            episodeId = try container.decodeIfPresent(String.self, forKey: .episodeId)
+            seasonNumber = try container.decodeIfPresent(Int.self, forKey: .seasonNumber)
+            episodeNumber = try container.decodeIfPresent(Int.self, forKey: .episodeNumber)
+            episodeTitle = try container.decodeIfPresent(String.self, forKey: .episodeTitle)
+            posterURL = try container.decodeIfPresent(URL.self, forKey: .posterURL)
+            showTitle = try container.decodeIfPresent(String.self, forKey: .showTitle)
+        }
     }
     
-    /// Saves a continue watching item
-    func saveContinueWatching(item: ContinueWatchingItem) {
+    /// Saves a continue watching item. For episodes finished (>= 90%), auto-queues the next episode.
+    func saveContinueWatching(item: ContinueWatchingItem, nextEpisode: (episode: Episode, seasonNumber: Int)? = nil) {
         var items = getContinueWatching()
         
         // Remove existing item with same ID
         items.removeAll { $0.id == item.id }
+        // Also remove any existing entry for the same show (avoid duplicates per show)
+        if item.contentType == "show", let showId = item.showId {
+            items.removeAll { $0.showId == showId }
+        }
         
-        // Only add if not finished (< 95%)
-        if item.progress < 0.95 && item.progress > 0.05 {
+        if item.progress >= 0.9, let next = nextEpisode {
+            // Episode finished -- queue the next episode instead
+            let nextItem = ContinueWatchingItem(
+                id: next.episode.id,
+                contentType: "show",
+                title: item.showTitle ?? item.title,
+                progress: 0,
+                currentTime: 0,
+                duration: Double(next.episode.duration ?? 0) * 60,
+                timestamp: Date(),
+                showId: item.showId,
+                episodeId: next.episode.id,
+                seasonNumber: next.seasonNumber,
+                episodeNumber: next.episode.episodeNumber,
+                episodeTitle: next.episode.title,
+                posterURL: item.posterURL,
+                showTitle: item.showTitle
+            )
+            items.insert(nextItem, at: 0)
+        } else if item.progress < 0.95 && item.progress > 0.05 {
             items.insert(item, at: 0)
         }
         
-        // Keep only last 10 items
-        if items.count > 10 {
-            items = Array(items.prefix(10))
+        if items.count > 50 {
+            items = Array(items.prefix(50))
         }
         
         if let data = try? encoder.encode(items) {

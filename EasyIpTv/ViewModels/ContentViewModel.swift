@@ -23,6 +23,12 @@ class ContentViewModel: ObservableObject {
     @Published var featuredMovies: [Movie] = []
     @Published var featuredShows: [Show] = []
     
+    /// Trending content for home screen (aggregated from top categories, sorted by rating)
+    @Published var trendingMovies: [Movie] = []
+    @Published var trendingShows: [Show] = []
+    @Published var trendingChannels: [Channel] = []
+    private var hasTrendingLoaded = false
+    
     @Published var isLoading: Bool = false
     @Published var isLoadingCategory: Bool = false
     @Published var loadingCategoryIds: Set<String> = []
@@ -133,6 +139,35 @@ class ContentViewModel: ObservableObject {
             for season in show.seasons {
                 if let episode = season.episodes.first(where: { $0.id == episodeId }) {
                     return episode
+                }
+            }
+        }
+        return nil
+    }
+    
+    /// Finds the next episode after the given one within the same show
+    func findNextEpisode(afterEpisodeId episodeId: String, inShowId showId: String?) -> (episode: Episode, seasonNumber: Int)? {
+        let targetShow: Show?
+        if let showId {
+            targetShow = show(withId: showId)
+        } else {
+            targetShow = allLoadedShows.first { show in
+                show.seasons.contains { season in
+                    season.episodes.contains { $0.id == episodeId }
+                }
+            }
+        }
+        guard let show = targetShow else { return nil }
+        let sortedSeasons = show.seasons.sorted { $0.seasonNumber < $1.seasonNumber }
+        
+        for (sIdx, season) in sortedSeasons.enumerated() {
+            let sortedEpisodes = season.episodes.sorted { $0.episodeNumber < $1.episodeNumber }
+            if let eIdx = sortedEpisodes.firstIndex(where: { $0.id == episodeId }) {
+                if eIdx + 1 < sortedEpisodes.count {
+                    return (sortedEpisodes[eIdx + 1], season.seasonNumber)
+                }
+                if sIdx + 1 < sortedSeasons.count, let firstEp = sortedSeasons[sIdx + 1].episodes.sorted(by: { $0.episodeNumber < $1.episodeNumber }).first {
+                    return (firstEp, sortedSeasons[sIdx + 1].seasonNumber)
                 }
             }
         }
@@ -465,6 +500,63 @@ class ContentViewModel: ObservableObject {
             await loadMoviesForCategory(firstVod)
             featuredMovies = Array(movieCache[firstVod.name]?.prefix(Self.maxFeaturedItems) ?? [])
         }
+    }
+    
+    // MARK: - Trending Content
+    
+    /// Loads trending content by aggregating from top categories and sorting by rating
+    func loadTrendingContent() async {
+        guard !hasTrendingLoaded else { return }
+        guard !vodCategories.isEmpty || !seriesCategories.isEmpty || !liveCategories.isEmpty else { return }
+        hasTrendingLoaded = true
+        
+        let maxTrending = 20
+        let categoriesToLoad = 5
+        
+        // Trending Movies: load from first N VOD categories, sort by rating
+        let vodCats = Array(vodCategories.prefix(categoriesToLoad))
+        for cat in vodCats {
+            await loadMoviesForCategory(cat)
+        }
+        let allMovies = vodCats.compactMap { movieCache[$0.name] }.flatMap { $0 }
+        let uniqueMovies = Array(Dictionary(grouping: allMovies, by: { $0.id }).compactMapValues(\.first).values)
+        trendingMovies = uniqueMovies
+            .sorted { ($0.rating ?? 0) > ($1.rating ?? 0) }
+            .prefix(maxTrending)
+            .map { $0 }
+        
+        // Trending Shows: load from first N series categories, sort by rating
+        let seriesCats = Array(seriesCategories.prefix(categoriesToLoad))
+        for cat in seriesCats {
+            await loadShowsForCategory(cat)
+        }
+        let allShows = seriesCats.compactMap { showCache[$0.name] }.flatMap { $0 }
+        let uniqueShows = Array(Dictionary(grouping: allShows, by: { $0.id }).compactMapValues(\.first).values)
+        trendingShows = uniqueShows
+            .sorted { ($0.rating ?? 0) > ($1.rating ?? 0) }
+            .prefix(maxTrending)
+            .map { $0 }
+        
+        // Trending Live TV: load from first N live categories
+        let liveCats = Array(liveCategories.prefix(3))
+        for cat in liveCats {
+            await loadChannelsForCategory(cat)
+        }
+        trendingChannels = liveCats
+            .compactMap { channelCache[$0.name] }
+            .flatMap { $0 }
+            .prefix(maxTrending)
+            .map { $0 }
+        
+        NSLog("[ContentViewModel] Loaded trending: %d movies, %d shows, %d channels",
+              trendingMovies.count, trendingShows.count, trendingChannels.count)
+        
+        // Prefetch poster images for trending content
+        var prefetchURLs: [URL] = []
+        prefetchURLs.append(contentsOf: trendingMovies.compactMap(\.posterURL))
+        prefetchURLs.append(contentsOf: trendingShows.compactMap(\.posterURL))
+        prefetchURLs.append(contentsOf: trendingChannels.compactMap(\.logoURL))
+        ImageCacheManager.shared.prefetch(urls: prefetchURLs)
     }
     
     /// Check if a specific category is currently loading

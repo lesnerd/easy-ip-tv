@@ -169,6 +169,11 @@ enum L10n {
         static var featured: String { tr("Featured") }
         static var seeAll: String { tr("See All") }
         static var noResults: String { tr("No Results") }
+        static var trendingMovies: String { tr("Trending Movies") }
+        static var trendingSeries: String { tr("Trending Series") }
+        static var trendingLiveTV: String { tr("Trending Live TV") }
+        static var myFavorites: String { tr("My Favorites") }
+        static var upNext: String { tr("Up Next") }
         static func season(_ number: Int) -> String { tr("Season %lld", number) }
         static func episode(_ number: Int) -> String { tr("Episode %lld", number) }
         static func seasonEpisode(_ season: Int, _ episode: Int) -> String {
@@ -176,6 +181,7 @@ enum L10n {
         }
         static func duration(_ minutes: Int) -> String { tr("%lld min", minutes) }
         static func episodeCount(_ count: Int) -> String { tr("%lld episodes", count) }
+        static func minutesLeft(_ minutes: Int) -> String { tr("%lld min left", minutes) }
     }
     
     // MARK: - Errors

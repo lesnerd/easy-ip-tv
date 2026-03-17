@@ -30,10 +30,14 @@ EASY SETUP
 • Stalker Portal / MAC-based authentication
 Add your source from the Settings screen using the Siri Remote. Simple text entry, and you're live.
 
+YOUR PERSONAL HOME SCREEN
+Launch the app and your Home screen is waiting. Continue Watching, Trending Movies, Trending Series, and Trending Live TV — everything curated for you. Finish an episode? The next one is already queued up and ready.
+
 SMART FEATURES
 • Favorites — quickly access your most-watched channels
 • Language Sorting — put your preferred language categories first
 • Category Pill Bar — swipe between categories while watching
+• Auto next-episode — binge seamlessly
 • Search — find any channel, movie, or show instantly
 
 GO PREMIUM ($11.90/year)

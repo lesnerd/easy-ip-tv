@@ -1,24 +1,29 @@
 # EasyIpTv
 
-A user-friendly Apple TV IPTV app built with SwiftUI.
+A multi-platform IPTV app built with SwiftUI for iOS, iPadOS, macOS, and tvOS.
 
 ## Features
 
+- **Home Screen** - Personalized landing page with Continue Watching, Trending Movies, Trending Series, and Trending Live TV
+  - Resume movies and shows exactly where you left off
+  - Auto-suggests the next episode when you finish one
+  - Trending content ranked by rating with bold numbered cards (Apple TV style)
 - **Live TV** - Browse and watch live TV channels organized by categories
-- **Movies** - Access your VOD movie library with detailed views
+- **Movies** - Access your VOD movie library with rich detail views (cast, director, genre)
 - **Shows** - Browse TV series with season and episode navigation
-- **Favorites** - Quick access to your favorite content from the main menu
+- **Favorites** - Quick access to your favorite content from the Home screen
   - Long-press any channel, movie, or show to add/remove from favorites
-  - Favorites are grouped by category for easy navigation
+- **Freemium Model** - Free tier with ads; Premium ($11.90/year) for ad-free, unlimited playlists/favorites, and more
 - **Multi-language Support** - English, Hungarian (Magyar), and Hebrew (עברית) with RTL support
+- **Multiple Playlist Inputs** - M3U/M3U8, Xtream Codes, and Stalker Portal (MAC-based)
+- **VLCKit Playback** - Robust video playback for all container formats (MKV, TS, etc.)
 - **Channel Navigation** - Easy channel switching while watching live TV
   - Swipe up/down to show channel navigator
   - Channel up/down for quick switching
-  - Return to last watched channel
 
 ## Requirements
 
-- tvOS 17.0+
+- iOS 17.0+ / iPadOS 17.0+ / macOS 14.0+ / tvOS 17.0+
 - Xcode 15.0+
 - Swift 5.9+
 
@@ -61,12 +66,13 @@ EasyIpTv/
 │   └── ContentCategory.swift      # Category and favorites models
 ├── Views/
 │   ├── MainMenuView.swift         # Tab navigation
+│   ├── Home/                      # Home screen (Continue Watching, Trending)
 │   ├── LiveTV/                    # Live TV views
 │   ├── Movies/                    # Movies views
 │   ├── Shows/                     # Shows views
 │   ├── Favorites/                 # Favorites view
-│   ├── Player/                    # Video player and overlays
-│   ├── Settings/                  # Settings view
+│   ├── Player/                    # Video player (AVPlayer + VLCKit)
+│   ├── Settings/                  # Settings and upgrade views
 │   └── Components/                # Reusable UI components
 ├── ViewModels/
 │   ├── ContentViewModel.swift     # Content management

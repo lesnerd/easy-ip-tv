@@ -6,10 +6,10 @@ struct MainMenuView: View {
     @EnvironmentObject var favoritesViewModel: FavoritesViewModel
     @EnvironmentObject var localizationManager: LocalizationManager
     
-    @State private var selectedTab: Tab = .favorites
+    @State private var selectedTab: Tab = .home
     
     enum Tab: String, CaseIterable, Identifiable {
-        case favorites
+        case home
         case liveTV
         case movies
         case shows
@@ -19,7 +19,7 @@ struct MainMenuView: View {
         
         var title: String {
             switch self {
-            case .favorites: return L10n.Navigation.favorites
+            case .home: return L10n.Navigation.home
             case .liveTV: return L10n.Navigation.liveTV
             case .movies: return L10n.Navigation.movies
             case .shows: return L10n.Navigation.shows
@@ -29,7 +29,7 @@ struct MainMenuView: View {
         
         var icon: String {
             switch self {
-            case .favorites: return "heart.fill"
+            case .home: return "house.fill"
             case .liveTV: return "tv"
             case .movies: return "film"
             case .shows: return "play.rectangle.on.rectangle"
@@ -76,11 +76,11 @@ struct MainMenuView: View {
     
     private var tabNavigation: some View {
         TabView(selection: $selectedTab) {
-            FavoritesView()
+            HomeView()
                 .tabItem {
-                    Label(Tab.favorites.title, systemImage: Tab.favorites.icon)
+                    Label(Tab.home.title, systemImage: Tab.home.icon)
                 }
-                .tag(Tab.favorites)
+                .tag(Tab.home)
             
             LiveTVView()
                 .tabItem {
@@ -113,8 +113,8 @@ struct MainMenuView: View {
     @ViewBuilder
     private func tabContent(for tab: Tab) -> some View {
         switch tab {
-        case .favorites:
-            FavoritesView()
+        case .home:
+            HomeView()
         case .liveTV:
             LiveTVView()
         case .movies:

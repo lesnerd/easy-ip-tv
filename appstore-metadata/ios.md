@@ -27,10 +27,14 @@ WORKS WITH YOUR SETUP
 • Stalker Portal / MAC-based authentication
 Just paste your URL or enter your credentials. That's it.
 
+YOUR PERSONAL HOME SCREEN
+Open the app and everything you need is right there. Continue Watching picks up exactly where you left off — movies, shows, even the right episode and timestamp. Trending Movies, Trending Series, and Trending Live TV surface the best content from your library, ranked and ready to play.
+
 SMART & PERSONAL
 • Favorites — heart the channels and movies you love
 • Language Sorting — prioritize content in your preferred languages
 • Continue Watching — pick up right where you left off
+• Next Episode — automatically queued when you finish an episode
 • Search — find anything across your entire library
 
 DESIGNED FOR IPHONE & IPAD

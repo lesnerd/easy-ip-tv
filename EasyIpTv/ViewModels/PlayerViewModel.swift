@@ -489,7 +489,6 @@ class PlayerViewModel: ObservableObject {
         if let movie = currentMovie {
             storage.saveWatchProgress(contentId: movie.id, progress: progress)
             
-            // Save to continue watching
             let continueItem = StorageService.ContinueWatchingItem(
                 id: movie.id,
                 contentType: "movie",
@@ -502,11 +501,11 @@ class PlayerViewModel: ObservableObject {
                 episodeId: nil,
                 seasonNumber: nil,
                 episodeNumber: nil,
-                episodeTitle: nil
+                episodeTitle: nil,
+                posterURL: movie.posterURL
             )
             storage.saveContinueWatching(item: continueItem)
             
-            // Save to recently watched
             let recentItem = StorageService.WatchedItem(
                 id: movie.id,
                 contentType: "movie",
@@ -519,20 +518,21 @@ class PlayerViewModel: ObservableObject {
         } else if let episode = currentEpisode {
             storage.saveWatchProgress(contentId: episode.id, progress: progress)
             
-            // Save to continue watching (using show ID as the main ID)
             let continueItem = StorageService.ContinueWatchingItem(
                 id: episode.id,
                 contentType: "show",
-                title: episode.title,
+                title: currentShowTitle ?? episode.title,
                 progress: progress,
                 currentTime: currentTime,
                 duration: duration,
                 timestamp: Date(),
-                showId: nil, // Would need to pass show info
+                showId: currentShowId,
                 episodeId: episode.id,
-                seasonNumber: nil,
+                seasonNumber: currentSeasonNumber,
                 episodeNumber: episode.episodeNumber,
-                episodeTitle: episode.title
+                episodeTitle: episode.title,
+                posterURL: currentShowPosterURL ?? episode.thumbnailURL,
+                showTitle: currentShowTitle
             )
             storage.saveContinueWatching(item: continueItem)
             

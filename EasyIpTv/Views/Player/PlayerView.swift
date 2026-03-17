@@ -323,6 +323,9 @@ struct PlayerView: View {
         }
         .onDisappear {
             NSLog("[PlayerView] onDisappear")
+            if useVLCPlayer {
+                saveVLCProgress()
+            }
             playerViewModel.stop()
             vlcControlsTimer?.invalidate()
         }
@@ -463,6 +466,83 @@ struct PlayerView: View {
         guard let current = playerViewModel.currentChannel ?? channel,
               let previous = contentViewModel.previousChannel(before: current) else { return }
         playChannel(previous)
+    }
+    
+    // MARK: - VLC Progress Saving
+    
+    private func saveVLCProgress() {
+        guard vlcDuration > 0 else { return }
+        let progress = vlcCurrentTime / vlcDuration
+        guard progress > 0 else { return }
+        let storage = StorageService.shared
+        
+        if let movie = movie {
+            storage.saveWatchProgress(contentId: movie.id, progress: progress)
+            
+            let continueItem = StorageService.ContinueWatchingItem(
+                id: movie.id,
+                contentType: "movie",
+                title: movie.title,
+                progress: progress,
+                currentTime: vlcCurrentTime,
+                duration: vlcDuration,
+                timestamp: Date(),
+                showId: nil,
+                episodeId: nil,
+                seasonNumber: nil,
+                episodeNumber: nil,
+                episodeTitle: nil,
+                posterURL: movie.posterURL,
+                showTitle: nil
+            )
+            storage.saveContinueWatching(item: continueItem)
+            
+            let recentItem = StorageService.WatchedItem(
+                id: movie.id,
+                contentType: "movie",
+                title: movie.title,
+                watchedDate: Date(),
+                imageURL: movie.posterURL
+            )
+            storage.saveRecentlyWatched(item: recentItem)
+            NSLog("[PlayerView] Saved VLC movie progress: %.2f for %@", progress, movie.title)
+            
+        } else if let episode = episode {
+            storage.saveWatchProgress(contentId: episode.id, progress: progress)
+            
+            let nextEp = contentViewModel.findNextEpisode(afterEpisodeId: episode.id, inShowId: showContext?.id)
+            
+            let continueItem = StorageService.ContinueWatchingItem(
+                id: episode.id,
+                contentType: "show",
+                title: showContext?.title ?? episode.title,
+                progress: progress,
+                currentTime: vlcCurrentTime,
+                duration: vlcDuration,
+                timestamp: Date(),
+                showId: showContext?.id,
+                episodeId: episode.id,
+                seasonNumber: seasonNumber,
+                episodeNumber: episode.episodeNumber,
+                episodeTitle: episode.title,
+                posterURL: showContext?.posterURL ?? episode.thumbnailURL,
+                showTitle: showContext?.title
+            )
+            storage.saveContinueWatching(item: continueItem, nextEpisode: nextEp)
+            
+            let recentItem = StorageService.WatchedItem(
+                id: showContext?.id ?? episode.id,
+                contentType: "show",
+                title: showContext?.title ?? episode.title,
+                watchedDate: Date(),
+                imageURL: showContext?.posterURL,
+                showId: showContext?.id,
+                seasonNumber: seasonNumber,
+                episodeNumber: episode.episodeNumber
+            )
+            storage.saveRecentlyWatched(item: recentItem)
+            NSLog("[PlayerView] Saved VLC episode progress: %.2f for %@ S%d E%d", progress, episode.title, seasonNumber ?? 0, episode.episodeNumber)
+        }
     }
     
     // MARK: - VLC Controls

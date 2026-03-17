@@ -27,10 +27,14 @@ CONNECT ANY SOURCE
 • Stalker Portal / MAC-based authentication
 Paste your URL, enter your credentials, and you're streaming.
 
+YOUR PERSONAL HOME SCREEN
+Open the app and your personalized Home screen greets you with Continue Watching, Trending Movies, Trending Series, and Trending Live TV. Pick up exactly where you left off — the app remembers every movie, episode, and timestamp.
+
 SMART FEATURES
 • Favorites for quick access to channels and movies you love
 • Language-based category sorting to surface content that matters
 • Continue Watching to pick up where you left off
+• Auto next-episode — finish an episode, the next one is already queued
 • Powerful search across your entire library
 
 GO PREMIUM ($11.90/year)

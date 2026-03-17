@@ -107,7 +107,7 @@ struct UpgradePromptView: View {
                 Button {
                     dismiss()
                 } label: {
-                    Text("Maybe Later")
+                    Text("Dismiss")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
