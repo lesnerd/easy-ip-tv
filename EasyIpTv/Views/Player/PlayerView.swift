@@ -481,6 +481,12 @@ struct PlayerView: View {
         let storage = StorageService.shared
         
         if let movie = movie {
+            #if canImport(VLCKitSPM)
+            let snapshot = vlcController.captureSnapshot(contentId: movie.id)
+            #else
+            let snapshot: URL? = nil
+            #endif
+            
             storage.saveWatchProgress(contentId: movie.id, progress: progress)
             
             let continueItem = StorageService.ContinueWatchingItem(
@@ -497,7 +503,8 @@ struct PlayerView: View {
                 episodeNumber: nil,
                 episodeTitle: nil,
                 posterURL: movie.posterURL,
-                showTitle: nil
+                showTitle: nil,
+                snapshotURL: snapshot
             )
             storage.saveContinueWatching(item: continueItem)
             
@@ -512,6 +519,12 @@ struct PlayerView: View {
             NSLog("[PlayerView] Saved VLC movie progress: %.2f for %@", progress, movie.title)
             
         } else if let episode = episode {
+            #if canImport(VLCKitSPM)
+            let snapshot = vlcController.captureSnapshot(contentId: episode.id)
+            #else
+            let snapshot: URL? = nil
+            #endif
+            
             storage.saveWatchProgress(contentId: episode.id, progress: progress)
             
             let nextEp = contentViewModel.findNextEpisode(afterEpisodeId: episode.id, inShowId: showContext?.id)
@@ -530,7 +543,8 @@ struct PlayerView: View {
                 episodeNumber: episode.episodeNumber,
                 episodeTitle: episode.title,
                 posterURL: showContext?.posterURL ?? episode.thumbnailURL,
-                showTitle: showContext?.title
+                showTitle: showContext?.title,
+                snapshotURL: snapshot
             )
             storage.saveContinueWatching(item: continueItem, nextEpisode: nextEp)
             

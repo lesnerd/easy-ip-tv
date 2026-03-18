@@ -541,31 +541,34 @@ struct HomeContinueCard: View {
         #endif
     }
     
+    private var posterSize: CGFloat {
+        #if os(tvOS)
+        return 50
+        #else
+        return 40
+        #endif
+    }
+    
     var body: some View {
         Button {
             onPlay()
         } label: {
             VStack(alignment: .leading, spacing: 8) {
                 ZStack {
-                    if let posterURL = item.posterURL {
-                        CachedAsyncImage(url: posterURL) { image in
+                    // Main image: snapshot (last frame) if available, otherwise poster
+                    if let snapshotURL = item.snapshotURL,
+                       FileManager.default.fileExists(atPath: snapshotURL.path) {
+                        AsyncImage(url: snapshotURL) { image in
                             image
                                 .resizable()
                                 .aspectRatio(contentMode: .fill)
                         } placeholder: {
-                            ShimmerPlaceholder()
+                            snapshotFallback
                         }
                         .frame(width: cardWidth, height: cardWidth * 9 / 16)
                         .clipped()
                     } else {
-                        Rectangle()
-                            .fill(Color.gray.opacity(0.3))
-                            .frame(width: cardWidth, height: cardWidth * 9 / 16)
-                            .overlay {
-                                Image(systemName: item.contentType == "movie" ? "film" : "play.rectangle.on.rectangle")
-                                    .font(.system(size: 40))
-                                    .foregroundColor(.white.opacity(0.4))
-                            }
+                        snapshotFallback
                     }
                     
                     // Play icon (centered)
@@ -575,6 +578,22 @@ struct HomeContinueCard: View {
                         .shadow(radius: 6)
                 }
                 .frame(width: cardWidth, height: cardWidth * 9 / 16)
+                .overlay(alignment: .bottomTrailing) {
+                    // Poster thumbnail in bottom-right
+                    if let posterURL = item.posterURL {
+                        CachedAsyncImage(url: posterURL) { image in
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                        } placeholder: {
+                            Color.gray.opacity(0.3)
+                        }
+                        .frame(width: posterSize, height: posterSize * 1.5)
+                        .cornerRadius(6)
+                        .shadow(color: .black.opacity(0.5), radius: 4, x: 0, y: 2)
+                        .padding(6)
+                    }
+                }
                 .overlay(alignment: .bottom) {
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
@@ -633,6 +652,30 @@ struct HomeContinueCard: View {
         .scaleEffect(isFocused ? 1.05 : 1.0)
         .animation(.easeInOut(duration: 0.2), value: isFocused)
         #endif
+    }
+    
+    @ViewBuilder
+    private var snapshotFallback: some View {
+        if let posterURL = item.posterURL {
+            CachedAsyncImage(url: posterURL) { image in
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } placeholder: {
+                ShimmerPlaceholder()
+            }
+            .frame(width: cardWidth, height: cardWidth * 9 / 16)
+            .clipped()
+        } else {
+            Rectangle()
+                .fill(Color.gray.opacity(0.3))
+                .frame(width: cardWidth, height: cardWidth * 9 / 16)
+                .overlay {
+                    Image(systemName: item.contentType == "movie" ? "film" : "play.rectangle.on.rectangle")
+                        .font(.system(size: 40))
+                        .foregroundColor(.white.opacity(0.4))
+                }
+        }
     }
 }
 

@@ -26,6 +26,27 @@ class VLCPlayerController: ObservableObject {
     func seek(to fraction: Float) {
         mediaPlayer?.position = fraction
     }
+    
+    /// Captures the current video frame and saves it to disk.
+    /// Returns the local file URL on success.
+    func captureSnapshot(contentId: String) -> URL? {
+        guard let player = mediaPlayer, player.isPlaying || player.state == .paused else { return nil }
+        let dir = Self.snapshotsDirectory
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let fileURL = dir.appendingPathComponent("\(contentId).png")
+        player.saveVideoSnapshot(at: fileURL.path, withWidth: 640, andHeight: 360)
+        if FileManager.default.fileExists(atPath: fileURL.path) {
+            NSLog("[VLC] Snapshot saved for %@", contentId)
+            return fileURL
+        }
+        NSLog("[VLC] Snapshot capture failed for %@", contentId)
+        return nil
+    }
+    
+    static var snapshotsDirectory: URL {
+        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+        return caches.appendingPathComponent("vlc-snapshots", isDirectory: true)
+    }
 }
 
 /// Shared VLC delegate that updates SwiftUI bindings
