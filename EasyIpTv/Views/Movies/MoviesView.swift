@@ -70,6 +70,7 @@ struct MoviesView: View {
         }
         .platformFullScreen(item: $playingMovie) { movie in
             PlayerView(movie: movie, onClose: { playingMovie = nil })
+                .id(movie.id)
                 .environmentObject(contentViewModel)
         }
         .overlay {

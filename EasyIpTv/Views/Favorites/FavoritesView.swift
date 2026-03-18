@@ -80,6 +80,7 @@ struct FavoritesView: View {
         .platformFullScreen(isPresented: $showChannelPlayer) {
             if let channel = selectedChannel {
                 PlayerView(channel: channel)
+                    .id(channel.id)
             }
         }
         .sheet(isPresented: $showMovieDetail) {
@@ -96,6 +97,7 @@ struct FavoritesView: View {
         .platformFullScreen(isPresented: $showMoviePlayer) {
             if let movie = selectedMovie {
                 PlayerView(movie: movie)
+                    .id(movie.id)
             }
         }
         .sheet(isPresented: $showShowDetail) {
@@ -113,6 +115,7 @@ struct FavoritesView: View {
         .platformFullScreen(isPresented: $showEpisodePlayer) {
             if let episode = selectedEpisode {
                 PlayerView(episode: episode, showContext: selectedShow, seasonNumber: selectedSeasonNumber)
+                    .id(episode.id)
             }
         }
     }

@@ -597,11 +597,12 @@ class StorageService: ObservableObject {
         let posterURL: URL? // Poster/thumbnail for display
         let showTitle: String? // Parent show title for episodes
         let snapshotURL: URL? // Local file URL of captured video frame
+        let streamURL: URL? // Stream URL for direct playback fallback
         
         private enum CodingKeys: String, CodingKey {
             case id, contentType, title, progress, currentTime, duration, timestamp
             case showId, episodeId, seasonNumber, episodeNumber, episodeTitle
-            case posterURL, showTitle, snapshotURL
+            case posterURL, showTitle, snapshotURL, streamURL
         }
         
         init(id: String, contentType: String, title: String, progress: Double,
@@ -609,7 +610,7 @@ class StorageService: ObservableObject {
              showId: String?, episodeId: String?, seasonNumber: Int?,
              episodeNumber: Int?, episodeTitle: String?,
              posterURL: URL? = nil, showTitle: String? = nil,
-             snapshotURL: URL? = nil) {
+             snapshotURL: URL? = nil, streamURL: URL? = nil) {
             self.id = id
             self.contentType = contentType
             self.title = title
@@ -625,6 +626,7 @@ class StorageService: ObservableObject {
             self.posterURL = posterURL
             self.showTitle = showTitle
             self.snapshotURL = snapshotURL
+            self.streamURL = streamURL
         }
         
         init(from decoder: Decoder) throws {
@@ -644,6 +646,7 @@ class StorageService: ObservableObject {
             posterURL = try container.decodeIfPresent(URL.self, forKey: .posterURL)
             showTitle = try container.decodeIfPresent(String.self, forKey: .showTitle)
             snapshotURL = try container.decodeIfPresent(URL.self, forKey: .snapshotURL)
+            streamURL = try container.decodeIfPresent(URL.self, forKey: .streamURL)
         }
     }
     

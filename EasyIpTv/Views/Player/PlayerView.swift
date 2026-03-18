@@ -19,6 +19,9 @@ struct PlayerView: View {
     @State private var showVLCControls = false
     @State private var vlcControlsTimer: Timer?
     @State private var hasRestoredVLCPosition = false
+    @State private var isScrubbing = false
+    @State private var scrubProgress: CGFloat = 0
+    @State private var seekedProgress: CGFloat? = nil
     #if canImport(VLCKitSPM)
     @StateObject private var vlcController = VLCPlayerController()
     #endif
@@ -420,6 +423,13 @@ struct PlayerView: View {
                 }
             }
         }
+        .onChange(of: vlcCurrentTime) { _, _ in
+            guard let target = seekedProgress, vlcDuration > 0, !isScrubbing else { return }
+            let currentProgress = CGFloat(vlcCurrentTime / vlcDuration)
+            if abs(currentProgress - target) < 0.02 {
+                seekedProgress = nil
+            }
+        }
         .onChange(of: playerViewModel.isBuffering) { _, isBuffering in
             bufferingTimer?.invalidate()
             if isBuffering {
@@ -504,7 +514,8 @@ struct PlayerView: View {
                 episodeTitle: nil,
                 posterURL: movie.posterURL,
                 showTitle: nil,
-                snapshotURL: snapshot
+                snapshotURL: snapshot,
+                streamURL: movie.streamURL
             )
             storage.saveContinueWatching(item: continueItem)
             
@@ -544,7 +555,8 @@ struct PlayerView: View {
                 episodeTitle: episode.title,
                 posterURL: showContext?.posterURL ?? episode.thumbnailURL,
                 showTitle: showContext?.title,
-                snapshotURL: snapshot
+                snapshotURL: snapshot,
+                streamURL: episode.streamURL
             )
             storage.saveContinueWatching(item: continueItem, nextEpisode: nextEp)
             
@@ -569,7 +581,19 @@ struct PlayerView: View {
         hasRestoredVLCPosition = true
         let contentId = movie?.id ?? episode?.id
         guard let contentId else { return }
-        let progress = StorageService.shared.getWatchProgress(for: contentId)
+        
+        var progress = StorageService.shared.getWatchProgress(for: contentId)
+        
+        // Fallback: check ContinueWatchingItem directly (covers auto-queued or
+        // desynchronized entries where watchProgress dict has no matching entry)
+        if progress <= 0.05 {
+            if let item = StorageService.shared.getContinueWatching()
+                .first(where: { $0.id == contentId || $0.episodeId == contentId }) {
+                progress = item.progress
+            }
+        }
+        
+        NSLog("[PlayerView] restoreVLCPosition: progress=%.4f for %@", progress, contentId)
         guard progress > 0.05 && progress < 0.95 else { return }
         #if canImport(VLCKitSPM)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -670,11 +694,11 @@ struct PlayerView: View {
                 Spacer()
                 
                 // Bottom progress bar
-                VStack(spacing: 8) {
+                VStack(spacing: 4) {
                     vlcProgressBar
                     
                     HStack {
-                        Text(vlcFormattedTime(vlcCurrentTime))
+                        Text(vlcFormattedTime(isScrubbing ? scrubProgress * vlcDuration : (seekedProgress != nil ? seekedProgress! * vlcDuration : vlcCurrentTime)))
                             .font(.caption)
                             .foregroundColor(.white.opacity(0.8))
                             .monospacedDigit()
@@ -686,7 +710,7 @@ struct PlayerView: View {
                     }
                 }
                 .padding(.horizontal, 20)
-                .padding(.bottom, 40)
+                .padding(.bottom, 30)
             }
         }
     }
@@ -694,38 +718,53 @@ struct PlayerView: View {
     @ViewBuilder
     private var vlcProgressBar: some View {
         GeometryReader { geo in
-            let progress = vlcDuration > 0 ? CGFloat(vlcCurrentTime / vlcDuration) : 0
+            let liveProgress = vlcDuration > 0 ? CGFloat(vlcCurrentTime / vlcDuration) : 0
+            let displayProgress: CGFloat = if isScrubbing {
+                scrubProgress
+            } else if let seeked = seekedProgress {
+                seeked
+            } else {
+                liveProgress
+            }
             
             ZStack(alignment: .leading) {
-                // Track background
                 Capsule()
                     .fill(Color.white.opacity(0.3))
-                    .frame(height: 4)
+                    .frame(height: isScrubbing ? 8 : 6)
                 
-                // Progress fill
                 Capsule()
                     .fill(Color.white)
-                    .frame(width: max(0, geo.size.width * progress), height: 4)
+                    .frame(width: max(0, geo.size.width * displayProgress), height: isScrubbing ? 8 : 6)
                 
-                // Scrubber handle
                 Circle()
                     .fill(Color.white)
-                    .frame(width: 14, height: 14)
-                    .offset(x: max(0, geo.size.width * progress - 7))
+                    .frame(width: isScrubbing ? 28 : 22, height: isScrubbing ? 28 : 22)
+                    .shadow(color: .black.opacity(0.3), radius: 4)
+                    .offset(x: max(0, geo.size.width * displayProgress - (isScrubbing ? 14 : 11)))
             }
+            .frame(maxHeight: .infinity)
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { value in
-                        let fraction = Float(max(0, min(1, value.location.x / geo.size.width)))
+                        let fraction = CGFloat(max(0, min(1, value.location.x / geo.size.width)))
+                        if !isScrubbing { isScrubbing = true }
+                        scrubProgress = fraction
+                        showVLCControlsTemporarily()
+                    }
+                    .onEnded { value in
+                        let fraction = CGFloat(max(0, min(1, value.location.x / geo.size.width)))
+                        seekedProgress = fraction
+                        isScrubbing = false
                         #if canImport(VLCKitSPM)
-                        vlcController.seek(to: fraction)
+                        vlcController.seek(to: Float(fraction))
                         #endif
                         showVLCControlsTemporarily()
                     }
             )
+            .animation(.easeInOut(duration: 0.15), value: isScrubbing)
         }
-        .frame(height: 14)
+        .frame(height: 44)
     }
     #endif
     

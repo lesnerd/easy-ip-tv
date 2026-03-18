@@ -83,6 +83,7 @@ struct ShowsView: View {
         }
         .platformFullScreen(item: $playingEpisode) { episode in
             PlayerView(episode: episode, showContext: selectedShow, seasonNumber: selectedSeasonNumber, onClose: { playingEpisode = nil })
+                .id(episode.id)
                 .environmentObject(contentViewModel)
         }
         .overlay {

@@ -113,6 +113,7 @@ struct LiveTVView: View {
         }
         .platformFullScreen(item: $playingChannel) { channel in
             PlayerView(channel: channel, onClose: { playingChannel = nil })
+                .id(channel.id)
                 .environmentObject(contentViewModel)
         }
         .overlay {

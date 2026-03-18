@@ -116,6 +116,7 @@ struct HomeView: View {
         .platformFullScreen(isPresented: $showChannelPlayer) {
             if let channel = selectedChannel {
                 PlayerView(channel: channel)
+                    .id(channel.id)
             }
         }
         .sheet(isPresented: $showMovieDetail) {
@@ -133,6 +134,7 @@ struct HomeView: View {
         .platformFullScreen(isPresented: $showMoviePlayer) {
             if let movie = selectedMovie {
                 PlayerView(movie: movie)
+                    .id(movie.id)
             }
         }
         .sheet(isPresented: $showShowDetail) {
@@ -151,6 +153,7 @@ struct HomeView: View {
         .platformFullScreen(isPresented: $showEpisodePlayer) {
             if let episode = selectedEpisode {
                 PlayerView(episode: episode, showContext: selectedShow, seasonNumber: selectedSeasonNumber)
+                    .id(episode.id)
             }
         }
     }
@@ -440,15 +443,39 @@ struct HomeView: View {
             if let movie = contentViewModel.movie(withId: item.id) {
                 selectedMovie = movie
                 showMoviePlayer = true
+            } else if let streamURL = item.streamURL {
+                selectedMovie = Movie(
+                    id: item.id, title: item.title,
+                    posterURL: item.posterURL, streamURL: streamURL,
+                    category: "", year: nil, duration: Int(item.duration / 60),
+                    description: nil, rating: nil, director: nil,
+                    cast: nil, genre: nil, backdropURL: nil, streamId: nil
+                )
+                showMoviePlayer = true
             }
-        } else if let episodeId = item.episodeId,
-                  let episode = contentViewModel.findEpisode(byId: episodeId) {
-            if let showId = item.showId {
-                selectedShow = contentViewModel.show(withId: showId)
+        } else if let episodeId = item.episodeId {
+            if let episode = contentViewModel.findEpisode(byId: episodeId) {
+                if let showId = item.showId {
+                    selectedShow = contentViewModel.show(withId: showId)
+                }
+                selectedEpisode = episode
+                selectedSeasonNumber = item.seasonNumber
+                showEpisodePlayer = true
+            } else if let streamURL = item.streamURL {
+                selectedEpisode = Episode(
+                    id: episodeId,
+                    episodeNumber: item.episodeNumber ?? 1,
+                    title: item.episodeTitle ?? item.title,
+                    thumbnailURL: item.posterURL,
+                    streamURL: streamURL,
+                    duration: Int(item.duration / 60)
+                )
+                if let showId = item.showId {
+                    selectedShow = contentViewModel.show(withId: showId)
+                }
+                selectedSeasonNumber = item.seasonNumber
+                showEpisodePlayer = true
             }
-            selectedEpisode = episode
-            selectedSeasonNumber = item.seasonNumber
-            showEpisodePlayer = true
         }
     }
     
