@@ -333,6 +333,7 @@ class StorageService: ObservableObject {
         
         if let data = try? encoder.encode(allProgress) {
             defaults.set(data, forKey: Keys.watchProgress)
+            defaults.synchronize()
         }
     }
     
@@ -408,6 +409,7 @@ class StorageService: ObservableObject {
     private func savePlaylistURLs() {
         if let data = try? encoder.encode(playlistURLs) {
             defaults.set(data, forKey: Keys.playlistURLs)
+            defaults.synchronize()
         }
     }
     
@@ -563,6 +565,7 @@ class StorageService: ObservableObject {
         
         if let data = try? encoder.encode(items) {
             defaults.set(data, forKey: Keys.recentlyWatched)
+            defaults.synchronize()
         }
     }
     
@@ -640,7 +643,7 @@ class StorageService: ObservableObject {
         }
     }
     
-    /// Saves a continue watching item. For episodes finished (>= 90%), auto-queues the next episode.
+    /// Saves a continue watching item. Items watched past 90% are considered finished and removed.
     func saveContinueWatching(item: ContinueWatchingItem, nextEpisode: (episode: Episode, seasonNumber: Int)? = nil) {
         var items = getContinueWatching()
         
@@ -651,26 +654,9 @@ class StorageService: ObservableObject {
             items.removeAll { $0.showId == showId }
         }
         
-        if item.progress >= 0.9, let next = nextEpisode {
-            // Episode finished -- queue the next episode instead
-            let nextItem = ContinueWatchingItem(
-                id: next.episode.id,
-                contentType: "show",
-                title: item.showTitle ?? item.title,
-                progress: 0,
-                currentTime: 0,
-                duration: Double(next.episode.duration ?? 0) * 60,
-                timestamp: Date(),
-                showId: item.showId,
-                episodeId: next.episode.id,
-                seasonNumber: next.seasonNumber,
-                episodeNumber: next.episode.episodeNumber,
-                episodeTitle: next.episode.title,
-                posterURL: item.posterURL,
-                showTitle: item.showTitle
-            )
-            items.insert(nextItem, at: 0)
-        } else if item.progress < 0.95 && item.progress > 0.05 {
+        if item.progress >= 0.9 {
+            // Nearly finished — treat as complete, don't re-add
+        } else if item.progress > 0.05 {
             items.insert(item, at: 0)
         }
         
@@ -680,6 +666,7 @@ class StorageService: ObservableObject {
         
         if let data = try? encoder.encode(items) {
             defaults.set(data, forKey: Keys.continueWatching)
+            defaults.synchronize()
         }
     }
     
@@ -699,6 +686,7 @@ class StorageService: ObservableObject {
         
         if let data = try? encoder.encode(items) {
             defaults.set(data, forKey: Keys.continueWatching)
+            defaults.synchronize()
         }
     }
     

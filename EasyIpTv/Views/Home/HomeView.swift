@@ -19,10 +19,7 @@ struct HomeView: View {
     @State private var showEpisodePlayer = false
     @State private var showUpgradeSheet = false
     @State private var pendingAction: (() -> Void)?
-    
-    private var continueWatchingItems: [StorageService.ContinueWatchingItem] {
-        StorageService.shared.getContinueWatching()
-    }
+    @State private var continueWatchingItems: [StorageService.ContinueWatchingItem] = []
     
     var body: some View {
         NavigationStack {
@@ -94,6 +91,18 @@ struct HomeView: View {
                 BannerAdView { showUpgradeSheet = true }
                     .environmentObject(premiumManager)
             }
+        }
+        .onAppear {
+            reloadContinueWatching()
+        }
+        .onChange(of: showMoviePlayer) { _, isPresented in
+            if !isPresented { reloadContinueWatching() }
+        }
+        .onChange(of: showEpisodePlayer) { _, isPresented in
+            if !isPresented { reloadContinueWatching() }
+        }
+        .onChange(of: showChannelPlayer) { _, isPresented in
+            if !isPresented { reloadContinueWatching() }
         }
         .sheet(isPresented: $showUpgradeSheet, onDismiss: {
             if let action = pendingAction {
@@ -422,6 +431,10 @@ struct HomeView: View {
     
     // MARK: - Actions
     
+    private func reloadContinueWatching() {
+        continueWatchingItems = StorageService.shared.getContinueWatching()
+    }
+    
     private func handleContinueWatching(_ item: StorageService.ContinueWatchingItem) {
         if item.contentType == "movie" {
             if let movie = contentViewModel.movie(withId: item.id) {
@@ -533,7 +546,7 @@ struct HomeContinueCard: View {
             onPlay()
         } label: {
             VStack(alignment: .leading, spacing: 8) {
-                ZStack(alignment: .bottom) {
+                ZStack {
                     if let posterURL = item.posterURL {
                         CachedAsyncImage(url: posterURL) { image in
                             image
@@ -555,26 +568,23 @@ struct HomeContinueCard: View {
                             }
                     }
                     
-                    // Play icon
+                    // Play icon (centered)
                     Image(systemName: "play.circle.fill")
                         .font(.system(size: 44))
                         .foregroundColor(.white)
                         .shadow(radius: 6)
-                    
-                    // Progress bar at bottom
-                    VStack {
-                        Spacer()
-                        GeometryReader { geo in
-                            ZStack(alignment: .leading) {
-                                Rectangle().fill(Color.gray.opacity(0.5))
-                                Rectangle().fill(Color.accentColor)
-                                    .frame(width: geo.size.width * item.progress)
-                            }
-                        }
-                        .frame(height: 4)
-                    }
                 }
                 .frame(width: cardWidth, height: cardWidth * 9 / 16)
+                .overlay(alignment: .bottom) {
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Rectangle().fill(Color.gray.opacity(0.5))
+                            Rectangle().fill(Color.accentColor)
+                                .frame(width: geo.size.width * item.progress)
+                        }
+                    }
+                    .frame(height: 4)
+                }
                 .cornerRadius(12)
                 
                 VStack(alignment: .leading, spacing: 4) {
@@ -583,8 +593,8 @@ struct HomeContinueCard: View {
                         .fontWeight(.medium)
                         .lineLimit(1)
                     
-                    if item.contentType == "show" {
-                        HStack(spacing: 4) {
+                    HStack(spacing: 4) {
+                        if item.contentType == "show" {
                             if let season = item.seasonNumber, let episode = item.episodeNumber {
                                 Text("S\(season) E\(episode)")
                                     .font(.caption)
@@ -596,14 +606,22 @@ struct HomeContinueCard: View {
                                     .foregroundStyle(.secondary)
                                     .lineLimit(1)
                             }
+                        } else {
+                            Text(item.contentType == "movie" ? "Movie" : "")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
                     }
+                    .frame(height: 16)
                     
                     let remaining = max(0, item.duration - item.currentTime)
                     if remaining > 60 {
                         Text("\(Int(remaining / 60)) min left")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
+                    } else {
+                        Text(" ")
+                            .font(.caption2)
                     }
                 }
                 .frame(width: cardWidth, alignment: .leading)

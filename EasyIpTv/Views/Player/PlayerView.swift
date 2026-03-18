@@ -18,6 +18,7 @@ struct PlayerView: View {
     @State private var vlcHasStartedPlaying = false
     @State private var showVLCControls = false
     @State private var vlcControlsTimer: Timer?
+    @State private var hasRestoredVLCPosition = false
     #if canImport(VLCKitSPM)
     @StateObject private var vlcController = VLCPlayerController()
     #endif
@@ -414,6 +415,9 @@ struct PlayerView: View {
         .onChange(of: vlcIsPlaying) { _, isPlaying in
             if isPlaying {
                 vlcHasStartedPlaying = true
+                if !hasRestoredVLCPosition {
+                    restoreVLCPosition()
+                }
             }
         }
         .onChange(of: playerViewModel.isBuffering) { _, isBuffering in
@@ -543,6 +547,22 @@ struct PlayerView: View {
             storage.saveRecentlyWatched(item: recentItem)
             NSLog("[PlayerView] Saved VLC episode progress: %.2f for %@ S%d E%d", progress, episode.title, seasonNumber ?? 0, episode.episodeNumber)
         }
+    }
+    
+    // MARK: - VLC Resume
+    
+    private func restoreVLCPosition() {
+        hasRestoredVLCPosition = true
+        let contentId = movie?.id ?? episode?.id
+        guard let contentId else { return }
+        let progress = StorageService.shared.getWatchProgress(for: contentId)
+        guard progress > 0.05 && progress < 0.95 else { return }
+        #if canImport(VLCKitSPM)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            vlcController.seek(to: Float(progress))
+            NSLog("[PlayerView] Restored VLC position to %.1f%% for %@", progress * 100, contentId)
+        }
+        #endif
     }
     
     // MARK: - VLC Controls
