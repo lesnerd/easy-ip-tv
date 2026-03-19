@@ -306,7 +306,8 @@ class DownloadManager: NSObject, ObservableObject {
     
     private func fileExtension(from url: URL) -> String {
         let ext = url.pathExtension.lowercased()
-        let known = ["mp4", "mkv", "avi", "ts", "m3u8", "mov", "webm"]
+        let known = ["mp4", "mkv", "avi", "ts", "m3u8", "mov", "webm",
+                     "flv", "wmv", "mpg", "mpeg", "m4v", "3gp", "ogv", "vob"]
         return known.contains(ext) ? ext : "mp4"
     }
 }

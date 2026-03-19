@@ -27,6 +27,8 @@ class PlayerViewModel: ObservableObject {
     @Published var savedPosition: Double = 0
     @Published var savedPositionFormatted: String = ""
     
+    @Published var playbackFailed: Bool = false
+    
     // Subtitle support
     @Published var availableSubtitles: [SubtitleTrack] = []
     @Published var selectedSubtitle: SubtitleTrack?
@@ -53,6 +55,7 @@ class PlayerViewModel: ObservableObject {
     private var rateObserver: NSKeyValueObservation?
     private var pendingResumeProgress: Double?
     private var pendingResumeContentId: String?
+    private var stallTimer: Timer?
     
     // Show context for episode tracking
     private var currentShowId: String?
@@ -415,7 +418,19 @@ class PlayerViewModel: ObservableObject {
                 switch item.status {
                 case .readyToPlay:
                     self?.isBuffering = false
+                    self?.stallTimer?.invalidate()
                     self?.autoSelectSubtitle()
+                    
+                    // Start stall timer: if no frames within 8s, declare failure
+                    self?.stallTimer = Timer.scheduledTimer(withTimeInterval: 8.0, repeats: false) { _ in
+                        Task { @MainActor in
+                            guard let s = self else { return }
+                            if s.currentTime <= 0 && s.isBuffering {
+                                NSLog("[PlayerVM] Stall timeout — no frames received, declaring failure")
+                                s.playbackFailed = true
+                            }
+                        }
+                    }
                     
                     // Check for pending resume prompt
                     if let progress = self?.pendingResumeProgress,
@@ -428,6 +443,8 @@ class PlayerViewModel: ObservableObject {
                     }
                 case .failed:
                     self?.isBuffering = false
+                    NSLog("[PlayerVM] AVPlayer item failed: %@", item.error?.localizedDescription ?? "unknown")
+                    self?.playbackFailed = true
                 default:
                     self?.isBuffering = true
                 }
@@ -445,6 +462,8 @@ class PlayerViewModel: ObservableObject {
     private func cleanup(destroyPlayer: Bool = false) {
         controlsTimer?.invalidate()
         controlsTimer = nil
+        stallTimer?.invalidate()
+        stallTimer = nil
         
         if let observer = timeObserver {
             player?.removeTimeObserver(observer)
@@ -465,6 +484,7 @@ class PlayerViewModel: ObservableObject {
         
         isPlaying = false
         isBuffering = false
+        playbackFailed = false
         currentTime = 0
         duration = 0
         progress = 0

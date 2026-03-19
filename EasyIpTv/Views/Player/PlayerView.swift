@@ -79,15 +79,34 @@ struct PlayerView: View {
            let localURL = DownloadManager.shared.localURL(for: contentId) {
             return localURL
         }
-        return channel?.streamURL ?? movie?.streamURL ?? episode?.streamURL
+        let activeChannel = currentLiveChannel ?? channel
+        return activeChannel?.streamURL ?? movie?.streamURL ?? episode?.streamURL
     }
     
-    /// Use VLC for all VOD content (movies/shows) since AVPlayer struggles with many Xtream Codes streams.
-    /// Live TV channels still use AVPlayer (they typically serve HLS/TS which AVPlayer handles well).
+    /// Determines whether VLC should be used instead of AVPlayer.
+    /// VOD always uses VLC. For live TV, we check the URL scheme and path:
+    /// AVPlayer handles HLS (.m3u8) well; everything else goes through VLC.
     private var needsVLCPlayer: Bool {
-        guard streamURL != nil else { return false }
-        return movie != nil || episode != nil
+        guard let url = streamURL else { return false }
+        if movie != nil || episode != nil { return true }
+        let scheme = url.scheme?.lowercased() ?? ""
+        let vlcOnlySchemes: Set<String> = ["rtsp", "rtmp", "rtp", "udp", "mms", "mmsh", "rtmps", "rtmpt", "rtmpe"]
+        if vlcOnlySchemes.contains(scheme) { return true }
+        if scheme == "http" || scheme == "https" {
+            let path = url.path.lowercased()
+            let query = url.query?.lowercased() ?? ""
+            let isHLS = path.hasSuffix(".m3u8") || query.contains(".m3u8")
+            return !isHLS
+        }
+        return true
     }
+    
+    @State private var vlcPlaybackFailed = false
+    @State private var avplayerFallbackAttempted = false
+    @State private var currentLiveChannel: Channel?
+    
+    private var isLiveTV: Bool { channel != nil }
+    private var activeChannel: Channel? { currentLiveChannel ?? channel }
     
     @State private var bufferingTooLong = false
     @State private var bufferingTimer: Timer?
@@ -108,7 +127,8 @@ struct PlayerView: View {
                     isPlaying: $vlcIsPlaying,
                     currentTime: $vlcCurrentTime,
                     duration: $vlcDuration,
-                    isBuffering: $vlcIsBuffering
+                    isBuffering: $vlcIsBuffering,
+                    hasError: $vlcPlaybackFailed
                 )
                 .ignoresSafeArea()
                 Color.clear
@@ -135,7 +155,8 @@ struct PlayerView: View {
                     isPlaying: $vlcIsPlaying,
                     currentTime: $vlcCurrentTime,
                     duration: $vlcDuration,
-                    isBuffering: $vlcIsBuffering
+                    isBuffering: $vlcIsBuffering,
+                    hasError: $vlcPlaybackFailed
                 )
                 .ignoresSafeArea()
                 Color.clear
@@ -151,8 +172,50 @@ struct PlayerView: View {
             }
             #endif
             
+            // Error overlay when both players have failed
+            if vlcPlaybackFailed && (avplayerFallbackAttempted || useVLCPlayer) {
+                VStack(spacing: 20) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 48))
+                        .foregroundColor(.yellow)
+                    
+                    Text("Unable to Play")
+                        .font(.title2.bold())
+                        .foregroundColor(.white)
+                    
+                    Text("The format may not be supported or the stream may be offline.")
+                        .font(.subheadline)
+                        .foregroundColor(.white.opacity(0.7))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
+                    
+                    HStack(spacing: 16) {
+                        Button {
+                            vlcPlaybackFailed = false
+                            avplayerFallbackAttempted = false
+                            vlcHasStartedPlaying = false
+                            useVLCPlayer = false
+                            startPlayback()
+                        } label: {
+                            Label("Try Again", systemImage: "arrow.clockwise")
+                                .font(.callout.bold())
+                        }
+                        .buttonStyle(.borderedProminent)
+                        
+                        Button {
+                            dismiss()
+                        } label: {
+                            Label("Go Back", systemImage: "arrow.left")
+                                .font(.callout)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(.white)
+                    }
+                    .padding(.top, 8)
+                }
+            }
             // Buffering indicator - for VLC, hide once playback has started (VLC fires many buffering events)
-            if useVLCPlayer ? (vlcIsBuffering && !vlcHasStartedPlaying) : playerViewModel.isBuffering {
+            else if useVLCPlayer ? (vlcIsBuffering && !vlcHasStartedPlaying) : playerViewModel.isBuffering {
                 VStack(spacing: 16) {
                     ProgressView()
                         .scaleEffect(2)
@@ -177,8 +240,8 @@ struct PlayerView: View {
             
             // Controls overlay
             #if os(iOS)
-            // iOS: compact channel bar for live TV (native VideoPlayer handles play/pause/seek)
-            if playerViewModel.isLiveContent && channel != nil {
+            // iOS: compact channel bar for live TV
+            if isLiveTV {
                 VStack {
                     Spacer()
                     HStack(spacing: 32) {
@@ -202,8 +265,8 @@ struct PlayerView: View {
                     .padding(.bottom, 16)
                 }
             }
-            // iOS: VLC VOD controls for movies/shows
-            if useVLCPlayer && showVLCControls {
+            // iOS: VLC controls overlay (VOD and live TV when VLC is active)
+            if useVLCPlayer && !isLiveTV && showVLCControls {
                 vlcControlsOverlay
                     .transition(.opacity)
                     .animation(.easeInOut(duration: 0.25), value: showVLCControls)
@@ -236,7 +299,7 @@ struct PlayerView: View {
                 PlayerControlsOverlay(
                     title: useVLCPlayer ? vlcContentTitle : playerViewModel.currentTitle,
                     isPlaying: useVLCPlayer ? vlcIsPlaying : playerViewModel.isPlaying,
-                    isLive: playerViewModel.isLiveContent,
+                    isLive: isLiveTV,
                     currentTime: useVLCPlayer ? vlcFormattedTime(vlcCurrentTime) : playerViewModel.formattedCurrentTime,
                     duration: useVLCPlayer ? vlcFormattedTime(vlcDuration) : playerViewModel.formattedDuration,
                     progress: useVLCPlayer ? (vlcDuration > 0 ? vlcCurrentTime / vlcDuration : 0) : playerViewModel.progress,
@@ -285,10 +348,10 @@ struct PlayerView: View {
             #endif
             
             // Channel navigator overlay
-            if playerViewModel.showChannelNavigator, (playerViewModel.currentChannel ?? channel) != nil {
+            if playerViewModel.showChannelNavigator, let currentCh = activeChannel {
                 ChannelNavigatorOverlay(
                     channels: contentViewModel.channels,
-                    currentChannel: playerViewModel.currentChannel ?? channel!,
+                    currentChannel: playerViewModel.currentChannel ?? currentCh,
                     onSelectChannel: { newChannel in
                         playerViewModel.hideNavigator()
                         playChannel(newChannel)
@@ -384,7 +447,7 @@ struct PlayerView: View {
             return .handled
         }
         .onKeyPress(.leftArrow) {
-            if !playerViewModel.isLiveContent {
+            if !isLiveTV {
                 #if canImport(VLCKitSPM)
                 if useVLCPlayer { vlcController.seekBackward(seconds: 15); return .handled }
                 #endif
@@ -393,7 +456,7 @@ struct PlayerView: View {
             return .handled
         }
         .onKeyPress(.rightArrow) {
-            if !playerViewModel.isLiveContent {
+            if !isLiveTV {
                 #if canImport(VLCKitSPM)
                 if useVLCPlayer { vlcController.seekForward(seconds: 15); return .handled }
                 #endif
@@ -402,7 +465,7 @@ struct PlayerView: View {
             return .handled
         }
         .onKeyPress(.upArrow) {
-            if channel != nil && !playerViewModel.showChannelNavigator {
+            if isLiveTV && !playerViewModel.showChannelNavigator {
                 playerViewModel.showNavigator()
             }
             return .handled
@@ -410,7 +473,7 @@ struct PlayerView: View {
         .onKeyPress(.downArrow) {
             if playerViewModel.showChannelNavigator {
                 playerViewModel.hideNavigator()
-            } else if channel != nil {
+            } else if isLiveTV {
                 playerViewModel.showNavigator()
             }
             return .handled
@@ -434,6 +497,14 @@ struct PlayerView: View {
             if abs(currentProgress - target) < 0.02 {
                 seekedProgress = nil
             }
+        }
+        .onChange(of: playerViewModel.playbackFailed) { _, failed in
+            guard failed, !useVLCPlayer, !avplayerFallbackAttempted else { return }
+            NSLog("[PlayerView] AVPlayer failed — falling back to VLC")
+            avplayerFallbackAttempted = true
+            playerViewModel.stop()
+            useVLCPlayer = true
+            vlcHasStartedPlaying = false
         }
         .onChange(of: playerViewModel.isBuffering) { _, isBuffering in
             bufferingTimer?.invalidate()
@@ -472,17 +543,55 @@ struct PlayerView: View {
     }
     
     private func playChannel(_ newChannel: Channel) {
-        playerViewModel.play(channel: newChannel)
+        currentLiveChannel = newChannel
+        let url = newChannel.streamURL
+        let vlcNeeded = Self.urlNeedsVLC(url)
+        
+        if vlcNeeded {
+            if useVLCPlayer {
+                #if canImport(VLCKitSPM)
+                vlcController.changeMedia(url: url)
+                #endif
+            } else {
+                playerViewModel.stop()
+                useVLCPlayer = true
+                vlcHasStartedPlaying = false
+                vlcIsBuffering = true
+            }
+            playerViewModel.currentChannel = newChannel
+        } else {
+            if useVLCPlayer {
+                #if canImport(VLCKitSPM)
+                vlcController.stopPlayback()
+                #endif
+                useVLCPlayer = false
+            }
+            playerViewModel.play(channel: newChannel)
+        }
+    }
+    
+    /// Static helper so it can be used without self
+    private static func urlNeedsVLC(_ url: URL) -> Bool {
+        let scheme = url.scheme?.lowercased() ?? ""
+        let vlcOnlySchemes: Set<String> = ["rtsp", "rtmp", "rtp", "udp", "mms", "mmsh", "rtmps", "rtmpt", "rtmpe"]
+        if vlcOnlySchemes.contains(scheme) { return true }
+        if scheme == "http" || scheme == "https" {
+            let path = url.path.lowercased()
+            let query = url.query?.lowercased() ?? ""
+            let isHLS = path.hasSuffix(".m3u8") || query.contains(".m3u8")
+            return !isHLS
+        }
+        return true
     }
     
     private func nextChannel() {
-        guard let current = playerViewModel.currentChannel ?? channel,
+        guard let current = activeChannel,
               let next = contentViewModel.nextChannel(after: current) else { return }
         playChannel(next)
     }
     
     private func previousChannel() {
-        guard let current = playerViewModel.currentChannel ?? channel,
+        guard let current = activeChannel,
               let previous = contentViewModel.previousChannel(before: current) else { return }
         playChannel(previous)
     }
@@ -621,7 +730,7 @@ struct PlayerView: View {
     }
     
     private var vlcContentTitle: String {
-        movie?.title ?? episode?.title ?? "Playing"
+        activeChannel?.name ?? movie?.title ?? episode?.title ?? "Playing"
     }
     
     private func vlcFormattedTime(_ seconds: Double) -> String {
@@ -777,17 +886,17 @@ struct PlayerView: View {
     private func handleMoveCommand(_ direction: MoveCommandDirection) {
         switch direction {
         case .up:
-            if channel != nil && !playerViewModel.showChannelNavigator {
+            if isLiveTV && !playerViewModel.showChannelNavigator {
                 playerViewModel.showNavigator()
             }
         case .down:
             if playerViewModel.showChannelNavigator {
                 playerViewModel.hideNavigator()
-            } else if channel != nil {
+            } else if isLiveTV {
                 playerViewModel.showNavigator()
             }
         case .left:
-            if !playerViewModel.isLiveContent {
+            if !isLiveTV {
                 #if canImport(VLCKitSPM)
                 if useVLCPlayer {
                     vlcController.seekBackward(seconds: 15)
@@ -799,7 +908,7 @@ struct PlayerView: View {
                 #endif
             }
         case .right:
-            if !playerViewModel.isLiveContent {
+            if !isLiveTV {
                 #if canImport(VLCKitSPM)
                 if useVLCPlayer {
                     vlcController.seekForward(seconds: 15)

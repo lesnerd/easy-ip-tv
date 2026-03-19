@@ -6,6 +6,14 @@ import VLCKitSPM
 class VLCPlayerController: ObservableObject {
     fileprivate var mediaPlayer: VLCMediaPlayer?
     
+    static func applyMediaOptions(_ media: VLCMedia) {
+        media.addOption("--network-caching=3000")
+        media.addOption("--rtsp-tcp")
+        media.addOption("--http-reconnect")
+        media.addOption("--adaptive-logic=highest")
+        media.addOption("--codec=avcodec,all")
+    }
+    
     func togglePlayback() {
         guard let player = mediaPlayer else { return }
         if player.isPlaying {
@@ -25,6 +33,20 @@ class VLCPlayerController: ObservableObject {
     
     func seek(to fraction: Float) {
         mediaPlayer?.position = fraction
+    }
+    
+    func changeMedia(url: URL) {
+        guard let player = mediaPlayer else { return }
+        player.stop()
+        let media = VLCMedia(url: url)
+        Self.applyMediaOptions(media)
+        player.media = media
+        player.play()
+        NSLog("[VLC] Changed media to %@", url.absoluteString)
+    }
+    
+    func stopPlayback() {
+        mediaPlayer?.stop()
     }
     
     /// Captures the current video frame and saves it to disk.
@@ -55,14 +77,16 @@ class VLCCoordinator: NSObject, VLCMediaPlayerDelegate {
     var currentTimeBinding: Binding<Double>
     var durationBinding: Binding<Double>
     var isBufferingBinding: Binding<Bool>
+    var hasErrorBinding: Binding<Bool>
     var controller: VLCPlayerController
     var mediaPlayer: VLCMediaPlayer?
     
-    init(isPlaying: Binding<Bool>, currentTime: Binding<Double>, duration: Binding<Double>, isBuffering: Binding<Bool>, controller: VLCPlayerController) {
+    init(isPlaying: Binding<Bool>, currentTime: Binding<Double>, duration: Binding<Double>, isBuffering: Binding<Bool>, hasError: Binding<Bool>, controller: VLCPlayerController) {
         self.isPlayingBinding = isPlaying
         self.currentTimeBinding = currentTime
         self.durationBinding = duration
         self.isBufferingBinding = isBuffering
+        self.hasErrorBinding = hasError
         self.controller = controller
         super.init()
     }
@@ -75,7 +99,7 @@ class VLCCoordinator: NSObject, VLCMediaPlayerDelegate {
         player.drawable = view
         
         let media = VLCMedia(url: url)
-        media.addOption("--network-caching=3000")
+        VLCPlayerController.applyMediaOptions(media)
         player.media = media
         player.play()
         
@@ -91,7 +115,7 @@ class VLCCoordinator: NSObject, VLCMediaPlayerDelegate {
         player.drawable = view
         
         let media = VLCMedia(url: url)
-        media.addOption("--network-caching=3000")
+        VLCPlayerController.applyMediaOptions(media)
         player.media = media
         player.play()
         
@@ -125,10 +149,15 @@ class VLCCoordinator: NSObject, VLCMediaPlayerDelegate {
                 self.isBufferingBinding.wrappedValue = !isActuallyPlaying
             case .opening:
                 self.isBufferingBinding.wrappedValue = true
-            case .ended, .stopped, .error:
-                NSLog("[VLC] Playback ended/stopped/error state=%d", state.rawValue)
+            case .ended, .stopped:
+                NSLog("[VLC] Playback ended/stopped state=%d", state.rawValue)
                 self.isPlayingBinding.wrappedValue = false
                 self.isBufferingBinding.wrappedValue = false
+            case .error:
+                NSLog("[VLC] Playback error state=%d", state.rawValue)
+                self.isPlayingBinding.wrappedValue = false
+                self.isBufferingBinding.wrappedValue = false
+                self.hasErrorBinding.wrappedValue = true
             @unknown default:
                 break
             }
@@ -157,6 +186,7 @@ struct VLCPlayerNSView: NSViewRepresentable {
     @Binding var currentTime: Double
     @Binding var duration: Double
     @Binding var isBuffering: Bool
+    @Binding var hasError: Bool
     
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
@@ -171,7 +201,7 @@ struct VLCPlayerNSView: NSViewRepresentable {
     func updateNSView(_ nsView: NSView, context: Context) {}
     
     func makeCoordinator() -> VLCCoordinator {
-        VLCCoordinator(isPlaying: $isPlaying, currentTime: $currentTime, duration: $duration, isBuffering: $isBuffering, controller: controller)
+        VLCCoordinator(isPlaying: $isPlaying, currentTime: $currentTime, duration: $duration, isBuffering: $isBuffering, hasError: $hasError, controller: controller)
     }
     
     static func dismantleNSView(_ nsView: NSView, coordinator: VLCCoordinator) {
@@ -190,6 +220,7 @@ struct VLCPlayerUIView: UIViewRepresentable {
     @Binding var currentTime: Double
     @Binding var duration: Double
     @Binding var isBuffering: Bool
+    @Binding var hasError: Bool
     
     func makeUIView(context: Context) -> UIView {
         let view = UIView()
@@ -203,7 +234,7 @@ struct VLCPlayerUIView: UIViewRepresentable {
     func updateUIView(_ uiView: UIView, context: Context) {}
     
     func makeCoordinator() -> VLCCoordinator {
-        VLCCoordinator(isPlaying: $isPlaying, currentTime: $currentTime, duration: $duration, isBuffering: $isBuffering, controller: controller)
+        VLCCoordinator(isPlaying: $isPlaying, currentTime: $currentTime, duration: $duration, isBuffering: $isBuffering, hasError: $hasError, controller: controller)
     }
     
     static func dismantleUIView(_ uiView: UIView, coordinator: VLCCoordinator) {
