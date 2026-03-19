@@ -283,8 +283,14 @@ struct ShowDetailView: View {
     var onToggleFavorite: () -> Void = {}
     
     @EnvironmentObject var contentViewModel: ContentViewModel
+    @EnvironmentObject var downloadManager: DownloadManager
+    @EnvironmentObject var premiumManager: PremiumManager
     @State private var selectedSeason: Season?
     @State private var isLoadingEpisodes = false
+    @State private var showUpgradeForDownload = false
+    @State private var showDownloadInterstitial = false
+    @State private var pendingDownloadEpisode: Episode?
+    @State private var pendingDownloadSeasonNumber: Int?
     @Environment(\.dismiss) private var dismiss
     
     init(show: Show, onPlayEpisode: @escaping (Episode, Int?) -> Void = { _, _ in }, onToggleFavorite: @escaping () -> Void = {}) {
@@ -294,11 +300,36 @@ struct ShowDetailView: View {
     }
     
     var body: some View {
-        #if os(tvOS)
-        tvOSLayout
-        #else
-        adaptiveLayout
-        #endif
+        ZStack {
+            #if os(tvOS)
+            tvOSLayout
+            #else
+            adaptiveLayout
+            #endif
+            
+            if showDownloadInterstitial {
+                InterstitialAdOverlay(
+                    onDismiss: {
+                        showDownloadInterstitial = false
+                        if let ep = pendingDownloadEpisode, let sn = pendingDownloadSeasonNumber {
+                            downloadManager.startDownload(episode: ep, showTitle: show.title, showId: show.id, seasonNumber: sn)
+                            pendingDownloadEpisode = nil
+                            pendingDownloadSeasonNumber = nil
+                        }
+                    },
+                    onUpgrade: {
+                        showDownloadInterstitial = false
+                        pendingDownloadEpisode = nil
+                        pendingDownloadSeasonNumber = nil
+                        showUpgradeForDownload = true
+                    }
+                )
+                .environmentObject(premiumManager)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .transition(.opacity)
+                .zIndex(999)
+            }
+        }
     }
     
     #if os(tvOS)
@@ -462,13 +493,54 @@ struct ShowDetailView: View {
                 if let season = selectedSeason ?? show.seasons.first {
                     LazyVStack(spacing: 8) {
                         ForEach(season.episodes) { episode in
-                            EpisodeRowView(episode: episode) {
-                                onPlayEpisode(episode, season.seasonNumber)
-                            }
+                            EpisodeRowView(
+                                episode: episode,
+                                onPlay: { onPlayEpisode(episode, season.seasonNumber) },
+                                downloadState: episodeDownloadState(episode),
+                                onDownload: { downloadEpisode(episode, seasonNumber: season.seasonNumber) },
+                                onCancelDownload: { downloadManager.cancelDownload(id: episode.id) }
+                            )
                         }
                     }
                 }
             }
+        }
+        .sheet(isPresented: $showUpgradeForDownload) {
+            UpgradePromptView()
+                .environmentObject(premiumManager)
+        }
+    }
+    
+    private func episodeDownloadState(_ episode: Episode) -> EpisodeDownloadState {
+        if downloadManager.isDownloaded(id: episode.id) { return .downloaded }
+        if downloadManager.isDownloading(id: episode.id) { return .downloading(downloadManager.activeDownloads[episode.id]?.fractionCompleted ?? 0) }
+        return .notDownloaded
+    }
+    
+    private func downloadEpisode(_ episode: Episode, seasonNumber: Int) {
+        if !premiumManager.canDownload(currentCount: downloadManager.totalDownloadCount) {
+            showUpgradeForDownload = true
+        } else if !premiumManager.isPremium {
+            let shown = AdManager.shared.showRealInterstitial { [self] in
+                downloadManager.startDownload(
+                    episode: episode,
+                    showTitle: show.title,
+                    showId: show.id,
+                    seasonNumber: seasonNumber
+                )
+            }
+            if !shown {
+                pendingDownloadEpisode = episode
+                pendingDownloadSeasonNumber = seasonNumber
+                showDownloadInterstitial = true
+            }
+        } else {
+            downloadManager.startDownload(
+                episode: episode,
+                showTitle: show.title,
+                showId: show.id,
+                seasonNumber: seasonNumber
+            )
         }
     }
     
@@ -484,11 +556,22 @@ struct ShowDetailView: View {
     }
 }
 
+// MARK: - Episode Download State
+
+enum EpisodeDownloadState {
+    case notDownloaded
+    case downloading(Double)
+    case downloaded
+}
+
 // MARK: - Episode Row View
 
 struct EpisodeRowView: View {
     let episode: Episode
     var onPlay: () -> Void = {}
+    var downloadState: EpisodeDownloadState = .notDownloaded
+    var onDownload: (() -> Void)?
+    var onCancelDownload: (() -> Void)?
     
     @FocusState private var isFocused: Bool
     
@@ -497,13 +580,11 @@ struct EpisodeRowView: View {
             onPlay()
         } label: {
             HStack(spacing: 16) {
-                // Episode number
                 Text("E\(episode.episodeNumber)")
                     .font(.headline)
                     .foregroundStyle(.secondary)
                     .frame(width: 40)
                 
-                // Thumbnail
                 CachedAsyncImage(url: episode.thumbnailURL) { image in
                     image
                         .resizable()
@@ -519,7 +600,6 @@ struct EpisodeRowView: View {
                 .frame(width: 120, height: 68)
                 .cornerRadius(6)
                 
-                // Info
                 VStack(alignment: .leading, spacing: 4) {
                     Text(episode.title)
                         .font(.callout)
@@ -532,7 +612,6 @@ struct EpisodeRowView: View {
                                 .foregroundStyle(.secondary)
                         }
                         
-                        // Progress bar
                         if episode.watchProgress > 0 {
                             GeometryReader { geo in
                                 ZStack(alignment: .leading) {
@@ -551,6 +630,8 @@ struct EpisodeRowView: View {
                 
                 Spacer()
                 
+                episodeDownloadIndicator
+                
                 Image(systemName: "play.circle.fill")
                     .font(.title2)
                     .foregroundStyle(.secondary)
@@ -568,6 +649,42 @@ struct EpisodeRowView: View {
         .scaleEffect(isFocused ? 1.02 : 1.0)
         .animation(.easeInOut(duration: 0.15), value: isFocused)
         #endif
+    }
+    
+    @ViewBuilder
+    private var episodeDownloadIndicator: some View {
+        switch downloadState {
+        case .downloaded:
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(.green)
+                .font(.title3)
+        case .downloading(let progress):
+            HStack(spacing: 4) {
+                ProgressView(value: progress)
+                    .frame(width: 30)
+                if let onCancelDownload {
+                    Button {
+                        onCancelDownload()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        case .notDownloaded:
+            if let onDownload {
+                Button {
+                    onDownload()
+                } label: {
+                    Image(systemName: "arrow.down.circle")
+                        .font(.title3)
+                        .foregroundColor(.accentColor)
+                }
+                .buttonStyle(.plain)
+            }
+        }
     }
 }
 

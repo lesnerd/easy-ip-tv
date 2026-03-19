@@ -44,6 +44,8 @@
 		A10001001111111100000035 /* StalkerPortalService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000035 /* StalkerPortalService.swift */; };
 		A10001001111111100000036 /* LanguagePriority.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000036 /* LanguagePriority.swift */; };
 		A10001001111111100000037 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000037 /* AppIcon.icns */; };
+		DL0001001111111100000001 /* DownloadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DL0002001111111100000001 /* DownloadManager.swift */; };
+		DL0001001111111100000002 /* DownloadsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DL0002001111111100000002 /* DownloadsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -86,6 +88,8 @@
 		A10002001111111100000035 /* StalkerPortalService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StalkerPortalService.swift; sourceTree = "<group>"; };
 		A10002001111111100000036 /* LanguagePriority.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguagePriority.swift; sourceTree = "<group>"; };
 		A10002001111111100000037 /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = AppIcon.icns; sourceTree = "<group>"; };
+		DL0002001111111100000001 /* DownloadManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadManager.swift; sourceTree = "<group>"; };
+		DL0002001111111100000002 /* DownloadsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadsView.swift; sourceTree = "<group>"; };
 		A10003001111111100000001 /* EasyIpTv.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EasyIpTv.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E419FFB42F39E55D00502E91 /* Products.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; name = Products.storekit; path = EasyIpTv/Products.storekit; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -185,6 +189,7 @@
 			isa = PBXGroup;
 			children = (
 				A10002001111111100000033 /* AdManager.swift */,
+				DL0002001111111100000001 /* DownloadManager.swift */,
 				A10002001111111100000011 /* M3UParser.swift */,
 				A10002001111111100000032 /* PremiumManager.swift */,
 				A10002001111111100000035 /* StalkerPortalService.swift */,
@@ -209,6 +214,7 @@
 			isa = PBXGroup;
 			children = (
 				A10005001111111100000011 /* Components */,
+				DL0005001111111100000001 /* Downloads */,
 				A10005001111111100000012 /* Favorites */,
 				H0ME0003000000000000001 /* Home */,
 				A10005001111111100000013 /* LiveTV */,
@@ -219,6 +225,14 @@
 				A10005001111111100000017 /* Shows */,
 			);
 			path = Views;
+			sourceTree = "<group>";
+		};
+		DL0005001111111100000001 /* Downloads */ = {
+			isa = PBXGroup;
+			children = (
+				DL0002001111111100000002 /* DownloadsView.swift */,
+			);
+			path = Downloads;
 			sourceTree = "<group>";
 		};
 		A10005001111111100000011 /* Components */ = {
@@ -405,6 +419,8 @@
 				A10001001111111100000034 /* UpgradePromptView.swift in Sources */,
 				A10001001111111100000035 /* StalkerPortalService.swift in Sources */,
 				A10001001111111100000036 /* LanguagePriority.swift in Sources */,
+				DL0001001111111100000001 /* DownloadManager.swift in Sources */,
+				DL0001001111111100000002 /* DownloadsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

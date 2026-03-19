@@ -35,6 +35,7 @@ class PremiumManager: ObservableObject {
     static let freeMaxFavorites = 10
     static let freeMaxContinueWatching = 3
     static let freeInterstitialEveryNPlays = 5
+    static let freeMaxDownloads = 2
     
     // MARK: - Private
     
@@ -266,6 +267,21 @@ class PremiumManager: ObservableObject {
     /// Max continue watching items allowed
     var continueWatchingLimit: Int {
         isPremium ? 50 : Self.freeMaxContinueWatching
+    }
+    
+    /// Max downloads allowed
+    var maxDownloads: Int {
+        isPremium ? Int.max : Self.freeMaxDownloads
+    }
+    
+    /// Whether the user can download more content
+    func canDownload(currentCount: Int) -> Bool {
+        isPremium || currentCount < Self.freeMaxDownloads
+    }
+    
+    /// Whether the user can change the download retention period
+    var canChangeRetention: Bool {
+        isPremium
     }
     
     /// Whether an interstitial ad should be shown based on play count

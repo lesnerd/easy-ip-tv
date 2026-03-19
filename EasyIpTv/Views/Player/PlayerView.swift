@@ -74,7 +74,12 @@ struct PlayerView: View {
     }
     
     private var streamURL: URL? {
-        channel?.streamURL ?? movie?.streamURL ?? episode?.streamURL
+        let contentId = movie?.id ?? episode?.id
+        if let contentId,
+           let localURL = DownloadManager.shared.localURL(for: contentId) {
+            return localURL
+        }
+        return channel?.streamURL ?? movie?.streamURL ?? episode?.streamURL
     }
     
     /// Use VLC for all VOD content (movies/shows) since AVPlayer struggles with many Xtream Codes streams.

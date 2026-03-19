@@ -174,6 +174,34 @@ struct SettingsView: View {
                     Label(L10n.Settings.quality, systemImage: "slider.horizontal.3")
                 }
                 
+                // Download Retention Section
+                Section {
+                    if premiumManager.canChangeRetention {
+                        Picker("Keep Downloads For", selection: Binding(
+                            get: { StorageService.shared.getDownloadRetention() },
+                            set: { StorageService.shared.saveDownloadRetention($0) }
+                        )) {
+                            ForEach(DownloadRetention.allCases) { retention in
+                                Text(retention.displayName).tag(retention)
+                            }
+                        }
+                    } else {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Keep Downloads For")
+                                    .font(.body)
+                                Text("1 Week")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            PremiumLockBadge()
+                        }
+                    }
+                } header: {
+                    Label("Download Retention", systemImage: "clock.arrow.circlepath")
+                }
+                
                 // About Section
                 Section {
                     HStack {

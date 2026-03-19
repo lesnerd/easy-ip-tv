@@ -31,6 +31,8 @@ class StorageService: ObservableObject {
         static let cachedShows = "cached_shows"
         static let cachedCategories = "cached_categories"
         static let cacheTimestamp = "cache_timestamp"
+        static let downloadedItems = "downloaded_items"
+        static let downloadRetention = "download_retention_period"
     }
     
     // MARK: - Properties
@@ -695,6 +697,47 @@ class StorageService: ObservableObject {
             defaults.set(data, forKey: Keys.continueWatching)
             defaults.synchronize()
         }
+    }
+    
+    // MARK: - Downloads Persistence
+    
+    func saveDownloads(_ items: [DownloadedItem]) {
+        do {
+            let data = try encoder.encode(items)
+            defaults.set(data, forKey: Keys.downloadedItems)
+            defaults.synchronize()
+            NSLog("[StorageService] Saved %d downloads (%d bytes)", items.count, data.count)
+        } catch {
+            NSLog("[StorageService] Failed to encode downloads: %@", error.localizedDescription)
+        }
+    }
+    
+    func getDownloads() -> [DownloadedItem] {
+        guard let data = defaults.data(forKey: Keys.downloadedItems) else {
+            NSLog("[StorageService] No download data found in UserDefaults")
+            return []
+        }
+        do {
+            let items = try decoder.decode([DownloadedItem].self, from: data)
+            NSLog("[StorageService] Loaded %d downloads from UserDefaults", items.count)
+            return items
+        } catch {
+            NSLog("[StorageService] Failed to decode downloads: %@", error.localizedDescription)
+            return []
+        }
+    }
+    
+    func saveDownloadRetention(_ retention: DownloadRetention) {
+        defaults.set(retention.rawValue, forKey: Keys.downloadRetention)
+        defaults.synchronize()
+    }
+    
+    func getDownloadRetention() -> DownloadRetention {
+        guard let raw = defaults.string(forKey: Keys.downloadRetention),
+              let retention = DownloadRetention(rawValue: raw) else {
+            return .oneWeek
+        }
+        return retention
     }
     
     // MARK: - Content Cache (Categories Only - Lightweight)

@@ -6,6 +6,7 @@ struct EasyIpTvApp: App {
     @StateObject private var favoritesViewModel = FavoritesViewModel()
     @StateObject private var localizationManager = LocalizationManager.shared
     @StateObject private var premiumManager = PremiumManager()
+    @StateObject private var downloadManager = DownloadManager.shared
     
     var body: some Scene {
         WindowGroup {
@@ -14,12 +15,13 @@ struct EasyIpTvApp: App {
                 .environmentObject(favoritesViewModel)
                 .environmentObject(localizationManager)
                 .environmentObject(premiumManager)
+                .environmentObject(downloadManager)
                 .environment(\.layoutDirection, localizationManager.currentLanguage.isRTL ? .rightToLeft : .leftToRight)
                 // Force full view rebuild when language changes so sidebar flips, titles update, etc.
                 .id("root-\(localizationManager.currentLanguage.rawValue)")
                 .task {
-                    // Initialize ads SDK
                     AdManager.shared.initialize()
+                    downloadManager.performCleanup()
                     
                     await contentViewModel.loadContentIfNeeded()
                     favoritesViewModel.syncFavorites(

@@ -45,6 +45,10 @@ class AdManager: ObservableObject {
         #endif
     }
     
+    #if canImport(GoogleMobileAds) && os(iOS)
+    private var interstitialAd: GADInterstitialAd?
+    #endif
+    
     private init() {}
     
     /// Initialize the ads SDK (call on app launch)
@@ -55,6 +59,7 @@ class AdManager: ObservableObject {
             print("[AdMob] SDK initialized: \(status.adapterStatusesByClassName)")
             #endif
         }
+        Task { await preloadInterstitial() }
         #endif
     }
     
@@ -76,7 +81,84 @@ class AdManager: ObservableObject {
         }
         return true
     }
+    
+    // MARK: - Real Interstitial Ad (iOS)
+    
+    /// Preloads an interstitial ad so it's ready to show instantly
+    func preloadInterstitial() async {
+        #if canImport(GoogleMobileAds) && os(iOS)
+        do {
+            interstitialAd = try await GADInterstitialAd.load(
+                withAdUnitID: Self.interstitialAdUnitId,
+                request: GADRequest()
+            )
+            isInterstitialReady = true
+            NSLog("[AdMob] Interstitial ad preloaded")
+        } catch {
+            isInterstitialReady = false
+            NSLog("[AdMob] Failed to load interstitial: %@", error.localizedDescription)
+        }
+        #endif
+    }
+    
+    /// Shows a real AdMob interstitial ad. Calls completion when dismissed.
+    /// Returns true if a real ad was shown. Returns false if no ad available (caller should use fallback).
+    @discardableResult
+    func showRealInterstitial(completion: @escaping () -> Void) -> Bool {
+        #if canImport(GoogleMobileAds) && os(iOS)
+        guard let ad = interstitialAd else {
+            Task { await preloadInterstitial() }
+            return false
+        }
+        
+        let rootVC = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap { $0.windows }
+            .first { $0.isKeyWindow }?.rootViewController
+        
+        let delegate = InterstitialAdDelegate(onDismiss: { [weak self] in
+            completion()
+            Task { await self?.preloadInterstitial() }
+        })
+        ad.fullScreenContentDelegate = delegate
+        _retainedDelegate = delegate
+        
+        ad.present(fromRootViewController: rootVC)
+        interstitialAd = nil
+        isInterstitialReady = false
+        return true
+        #else
+        return false
+        #endif
+    }
+    
+    #if canImport(GoogleMobileAds) && os(iOS)
+    private var _retainedDelegate: InterstitialAdDelegate?
+    #endif
 }
+
+#if canImport(GoogleMobileAds) && os(iOS)
+private class InterstitialAdDelegate: NSObject, GADFullScreenContentDelegate {
+    let onDismiss: () -> Void
+    
+    init(onDismiss: @escaping () -> Void) {
+        self.onDismiss = onDismiss
+    }
+    
+    func adDidDismissFullScreenContent(_ ad: GADFullScreenPresentingAd) {
+        Task { @MainActor in
+            onDismiss()
+        }
+    }
+    
+    func ad(_ ad: GADFullScreenPresentingAd, didFailToPresentFullScreenContentWithError error: Error) {
+        NSLog("[AdMob] Interstitial failed to present: %@", error.localizedDescription)
+        Task { @MainActor in
+            onDismiss()
+        }
+    }
+}
+#endif
 
 // MARK: - Banner Ad View
 

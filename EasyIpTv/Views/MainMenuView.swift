@@ -13,6 +13,7 @@ struct MainMenuView: View {
         case liveTV
         case movies
         case shows
+        case downloads
         case settings
         
         var id: String { rawValue }
@@ -23,6 +24,7 @@ struct MainMenuView: View {
             case .liveTV: return L10n.Navigation.liveTV
             case .movies: return L10n.Navigation.movies
             case .shows: return L10n.Navigation.shows
+            case .downloads: return "Downloads"
             case .settings: return L10n.Navigation.settings
             }
         }
@@ -33,6 +35,7 @@ struct MainMenuView: View {
             case .liveTV: return "tv"
             case .movies: return "film"
             case .shows: return "play.rectangle.on.rectangle"
+            case .downloads: return "arrow.down.circle.fill"
             case .settings: return "gear"
             }
         }
@@ -100,6 +103,12 @@ struct MainMenuView: View {
                 }
                 .tag(Tab.shows)
             
+            DownloadsView()
+                .tabItem {
+                    Label(Tab.downloads.title, systemImage: Tab.downloads.icon)
+                }
+                .tag(Tab.downloads)
+            
             SettingsView()
                 .tabItem {
                     Label(Tab.settings.title, systemImage: Tab.settings.icon)
@@ -121,6 +130,8 @@ struct MainMenuView: View {
             MoviesView()
         case .shows:
             ShowsView()
+        case .downloads:
+            DownloadsView()
         case .settings:
             SettingsView()
         }

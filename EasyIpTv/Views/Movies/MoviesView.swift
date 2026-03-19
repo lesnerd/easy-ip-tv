@@ -257,20 +257,28 @@ struct MovieDetailView: View {
     
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var contentViewModel: ContentViewModel
+    @EnvironmentObject var downloadManager: DownloadManager
+    @EnvironmentObject var premiumManager: PremiumManager
     @State private var detailedMovie: Movie?
     @State private var isLoadingInfo = false
     @State private var isDescriptionExpanded = false
+    @State private var showUpgradeForDownload = false
+    @State private var showDownloadInterstitial = false
     
     private var displayMovie: Movie {
         detailedMovie ?? movie
     }
     
     var body: some View {
-        #if os(tvOS)
-        tvOSDetailLayout
-        #else
-        adaptiveDetailLayout
-        #endif
+        ZStack {
+            #if os(tvOS)
+            tvOSDetailLayout
+            #else
+            adaptiveDetailLayout
+            #endif
+            
+            downloadInterstitialOverlay
+        }
     }
     
     #if os(tvOS)
@@ -325,12 +333,18 @@ struct MovieDetailView: View {
                         )
                     }
                     .buttonStyle(.bordered)
+                    
+                    movieDownloadButton
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             Spacer()
         }
         .padding(PlatformMetrics.detailPadding)
+        .sheet(isPresented: $showUpgradeForDownload) {
+            UpgradePromptView()
+                .environmentObject(premiumManager)
+        }
     }
     #endif
     
@@ -428,6 +442,8 @@ struct MovieDetailView: View {
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
                     
+                    movieDownloadButton
+                    
                     // Loading indicator for detail info
                     if isLoadingInfo {
                         HStack {
@@ -494,6 +510,10 @@ struct MovieDetailView: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 32)
+                .sheet(isPresented: $showUpgradeForDownload) {
+                    UpgradePromptView()
+                        .environmentObject(premiumManager)
+                }
                 #else
                 // macOS: horizontal layout
                 HStack(alignment: .top, spacing: 24) {
@@ -608,6 +628,8 @@ struct MovieDetailView: View {
                     )
                 }
                 .buttonStyle(.bordered)
+                
+                movieDownloadButton
             }
             
             if isLoadingInfo {
@@ -623,8 +645,78 @@ struct MovieDetailView: View {
             }
             isLoadingInfo = false
         }
+        .sheet(isPresented: $showUpgradeForDownload) {
+            UpgradePromptView()
+                .environmentObject(premiumManager)
+        }
     }
     #endif
+    
+    @ViewBuilder
+    private var movieDownloadButton: some View {
+        let movieId = displayMovie.id
+        if downloadManager.isDownloaded(id: movieId) {
+            Label("Downloaded", systemImage: "checkmark.circle.fill")
+                .font(.callout)
+                .foregroundStyle(.green)
+        } else if downloadManager.isDownloading(id: movieId) {
+            if let progress = downloadManager.activeDownloads[movieId] {
+                HStack(spacing: 8) {
+                    ProgressView(value: progress.fractionCompleted)
+                        .frame(width: 60)
+                    Text("\(Int(progress.fractionCompleted * 100))%")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Button {
+                        downloadManager.cancelDownload(id: movieId)
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        } else {
+            Button {
+                if !premiumManager.canDownload(currentCount: downloadManager.totalDownloadCount) {
+                    showUpgradeForDownload = true
+                } else if !premiumManager.isPremium {
+                    let shown = AdManager.shared.showRealInterstitial { [self] in
+                        downloadManager.startDownload(movie: displayMovie)
+                    }
+                    if !shown {
+                        showDownloadInterstitial = true
+                    }
+                } else {
+                    downloadManager.startDownload(movie: displayMovie)
+                }
+            } label: {
+                Label("Download", systemImage: "arrow.down.circle")
+            }
+            .buttonStyle(.bordered)
+        }
+    }
+    
+    private var downloadInterstitialOverlay: some View {
+        Group {
+            if showDownloadInterstitial {
+                InterstitialAdOverlay(
+                    onDismiss: {
+                        showDownloadInterstitial = false
+                        downloadManager.startDownload(movie: displayMovie)
+                    },
+                    onUpgrade: {
+                        showDownloadInterstitial = false
+                        showUpgradeForDownload = true
+                    }
+                )
+                .environmentObject(premiumManager)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .transition(.opacity)
+                .zIndex(999)
+            }
+        }
+    }
 }
 
 // MARK: - Movie Category Row View (handles auto-loading)
