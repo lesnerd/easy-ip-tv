@@ -765,5 +765,9 @@ class StorageService: ObservableObject {
         defaults.removeObject(forKey: Keys.recentlyWatched)
         defaults.removeObject(forKey: Keys.continueWatching)
         defaults.removeObject(forKey: Keys.cachedChannels)
+        defaults.removeObject(forKey: Keys.favoriteChannels)
+        defaults.removeObject(forKey: Keys.favoriteMovies)
+        defaults.removeObject(forKey: Keys.favoriteShows)
+        defaults.removeObject(forKey: Keys.downloadedItems)
     }
 }

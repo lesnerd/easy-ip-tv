@@ -21,3 +21,11 @@ Packages/
 *.swo
 *~
 archives/
+
+# Secrets & signing
+*.p8
+*.p12
+*.mobileprovision
+.env
+.env.*
+credentials.json

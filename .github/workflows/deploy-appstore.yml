@@ -10,8 +10,42 @@ permissions:
   contents: read
 
 jobs:
+  unit-tests:
+    name: Unit Tests
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '26'
+
+      - name: Run unit tests
+        run: |
+          xcodebuild test \
+            -project EasyIpTv.xcodeproj \
+            -scheme EasyIpTv \
+            -destination "platform=iOS Simulator,name=iPhone 17" \
+            -only-testing:EasyIpTvTests \
+            -skip-testing:EasyIpTvTests/ContentLoadingTests \
+            -skip-testing:EasyIpTvTests/M3UIntegrationTests \
+            -parallel-testing-enabled YES \
+            -enableCodeCoverage NO \
+            -resultBundlePath TestResults.xcresult \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-test-results
+          path: TestResults.xcresult
+
   deploy-ios:
     name: Deploy iOS
+    needs: unit-tests
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4

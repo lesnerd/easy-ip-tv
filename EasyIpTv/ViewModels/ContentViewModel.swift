@@ -1150,6 +1150,16 @@ class ContentViewModel: ObservableObject {
         return allChannels[previousIndex]
     }
     
+    #if DEBUG
+    func setCachesForTesting(channelCache: [String: [Channel]] = [:],
+                             movieCache: [String: [Movie]] = [:],
+                             showCache: [String: [Show]] = [:]) {
+        self.channelCache = channelCache
+        self.movieCache = movieCache
+        self.showCache = showCache
+    }
+    #endif
+    
     func nearbyChannels(around channel: Channel, count: Int = 5) -> [Channel] {
         let allChannels = channelCache[channel.category] ?? []
         guard let currentIndex = allChannels.firstIndex(where: { $0.id == channel.id }) else { return [] }

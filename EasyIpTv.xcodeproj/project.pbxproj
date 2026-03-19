@@ -46,7 +46,35 @@
 		A10001001111111100000037 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000037 /* AppIcon.icns */; };
 		DL0001001111111100000001 /* DownloadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DL0002001111111100000001 /* DownloadManager.swift */; };
 		DL0001001111111100000002 /* DownloadsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DL0002001111111100000002 /* DownloadsView.swift */; };
+		T10001001111111100000001 /* M3UParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T10002001111111100000001 /* M3UParserTests.swift */; };
+		T10001001111111100000002 /* XtreamCodesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T10002001111111100000002 /* XtreamCodesTests.swift */; };
+		T10001001111111100000003 /* StalkerPortalTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T10002001111111100000003 /* StalkerPortalTests.swift */; };
+		T10001001111111100000004 /* PlaylistTypeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T10002001111111100000004 /* PlaylistTypeTests.swift */; };
+		T10001001111111100000005 /* LanguagePriorityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T10002001111111100000005 /* LanguagePriorityTests.swift */; };
+		T10001001111111100000006 /* ModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T10002001111111100000006 /* ModelTests.swift */; };
+		T10001001111111100000007 /* PlayerLogicTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T10002001111111100000007 /* PlayerLogicTests.swift */; };
+		T10001001111111100000008 /* StorageServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T10002001111111100000008 /* StorageServiceTests.swift */; };
+		T10001001111111100000009 /* PremiumManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T10002001111111100000009 /* PremiumManagerTests.swift */; };
+		T10001001111111100000010 /* DownloadManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T10002001111111100000010 /* DownloadManagerTests.swift */; };
+		T10001001111111100000011 /* ContentViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T10002001111111100000011 /* ContentViewModelTests.swift */; };
+		T10001001111111100000012 /* M3UIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T10002001111111100000012 /* M3UIntegrationTests.swift */; };
+		T10001001111111100000013 /* ContentLoadingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T10002001111111100000013 /* ContentLoadingTests.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXBuildFile (SPM) section */
+		E4VLC00100000001 /* VLCKitSPM in Frameworks */ = {isa = PBXBuildFile; productRef = E4VLC00200000001 /* VLCKitSPM */; };
+		E4GAD00100000001 /* GoogleMobileAds in Frameworks */ = {isa = PBXBuildFile; platformFilters = (ios, ); productRef = E4GAD00200000001 /* GoogleMobileAds */; };
+/* End PBXBuildFile (SPM) section */
+
+/* Begin PBXContainerItemProxy section */
+		T10010001111111100000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A10009001111111100000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A10006001111111100000001;
+			remoteInfo = EasyIpTv;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		A10002001111111100000001 /* EasyIpTvApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EasyIpTvApp.swift; sourceTree = "<group>"; };
@@ -92,12 +120,21 @@
 		DL0002001111111100000002 /* DownloadsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadsView.swift; sourceTree = "<group>"; };
 		A10003001111111100000001 /* EasyIpTv.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EasyIpTv.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E419FFB42F39E55D00502E91 /* Products.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; name = Products.storekit; path = EasyIpTv/Products.storekit; sourceTree = "<group>"; };
+		T10003001111111100000001 /* EasyIpTvTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = EasyIpTvTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		T10002001111111100000001 /* M3UParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = M3UParserTests.swift; sourceTree = "<group>"; };
+		T10002001111111100000002 /* XtreamCodesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XtreamCodesTests.swift; sourceTree = "<group>"; };
+		T10002001111111100000003 /* StalkerPortalTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StalkerPortalTests.swift; sourceTree = "<group>"; };
+		T10002001111111100000004 /* PlaylistTypeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistTypeTests.swift; sourceTree = "<group>"; };
+		T10002001111111100000005 /* LanguagePriorityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguagePriorityTests.swift; sourceTree = "<group>"; };
+		T10002001111111100000006 /* ModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelTests.swift; sourceTree = "<group>"; };
+		T10002001111111100000007 /* PlayerLogicTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerLogicTests.swift; sourceTree = "<group>"; };
+		T10002001111111100000008 /* StorageServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageServiceTests.swift; sourceTree = "<group>"; };
+		T10002001111111100000009 /* PremiumManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumManagerTests.swift; sourceTree = "<group>"; };
+		T10002001111111100000010 /* DownloadManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadManagerTests.swift; sourceTree = "<group>"; };
+		T10002001111111100000011 /* ContentViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentViewModelTests.swift; sourceTree = "<group>"; };
+		T10002001111111100000012 /* M3UIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = M3UIntegrationTests.swift; sourceTree = "<group>"; };
+		T10002001111111100000013 /* ContentLoadingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentLoadingTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
-
-/* Begin PBXBuildFile (SPM) section */
-		E4VLC00100000001 /* VLCKitSPM in Frameworks */ = {isa = PBXBuildFile; productRef = E4VLC00200000001 /* VLCKitSPM */; };
-		E4GAD00100000001 /* GoogleMobileAds in Frameworks */ = {isa = PBXBuildFile; platformFilters = (ios, ); productRef = E4GAD00200000001 /* GoogleMobileAds */; };
-/* End PBXBuildFile (SPM) section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		A10004001111111100000001 /* Frameworks */ = {
@@ -109,6 +146,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		T10004001111111100000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -117,6 +161,7 @@
 			children = (
 				E419FFB42F39E55D00502E91 /* Products.storekit */,
 				A10005001111111100000002 /* EasyIpTv */,
+				T10005001111111100000001 /* EasyIpTvTests */,
 				A10005001111111100000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -141,8 +186,29 @@
 			isa = PBXGroup;
 			children = (
 				A10003001111111100000001 /* EasyIpTv.app */,
+				T10003001111111100000001 /* EasyIpTvTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		T10005001111111100000001 /* EasyIpTvTests */ = {
+			isa = PBXGroup;
+			children = (
+				T10002001111111100000001 /* M3UParserTests.swift */,
+				T10002001111111100000002 /* XtreamCodesTests.swift */,
+				T10002001111111100000003 /* StalkerPortalTests.swift */,
+				T10002001111111100000004 /* PlaylistTypeTests.swift */,
+				T10002001111111100000005 /* LanguagePriorityTests.swift */,
+				T10002001111111100000006 /* ModelTests.swift */,
+				T10002001111111100000007 /* PlayerLogicTests.swift */,
+				T10002001111111100000008 /* StorageServiceTests.swift */,
+				T10002001111111100000009 /* PremiumManagerTests.swift */,
+				T10002001111111100000010 /* DownloadManagerTests.swift */,
+				T10002001111111100000011 /* ContentViewModelTests.swift */,
+				T10002001111111100000012 /* M3UIntegrationTests.swift */,
+				T10002001111111100000013 /* ContentLoadingTests.swift */,
+			);
+			path = EasyIpTvTests;
 			sourceTree = "<group>";
 		};
 		A10005001111111100000004 /* App */ = {
@@ -329,6 +395,23 @@
 			productReference = A10003001111111100000001 /* EasyIpTv.app */;
 			productType = "com.apple.product-type.application";
 		};
+		T10006001111111100000001 /* EasyIpTvTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = T10008001111111100000001 /* Build configuration list for PBXNativeTarget "EasyIpTvTests" */;
+			buildPhases = (
+				T10007001111111100000001 /* Sources */,
+				T10004001111111100000001 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				T10011001111111100000001 /* PBXTargetDependency */,
+			);
+			name = EasyIpTvTests;
+			productName = EasyIpTvTests;
+			productReference = T10003001111111100000001 /* EasyIpTvTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -341,6 +424,10 @@
 				TargetAttributes = {
 					A10006001111111100000001 = {
 						CreatedOnToolsVersion = 15.0;
+					};
+					T10006001111111100000001 = {
+						CreatedOnToolsVersion = 15.0;
+						TestTargetID = A10006001111111100000001;
 					};
 				};
 			};
@@ -363,6 +450,7 @@
 			projectRoot = "";
 			targets = (
 				A10006001111111100000001 /* EasyIpTv */,
+				T10006001111111100000001 /* EasyIpTvTests */,
 			);
 		};
 /* End PBXProject section */
@@ -424,7 +512,35 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		T10007001111111100000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				T10001001111111100000001 /* M3UParserTests.swift in Sources */,
+				T10001001111111100000002 /* XtreamCodesTests.swift in Sources */,
+				T10001001111111100000003 /* StalkerPortalTests.swift in Sources */,
+				T10001001111111100000004 /* PlaylistTypeTests.swift in Sources */,
+				T10001001111111100000005 /* LanguagePriorityTests.swift in Sources */,
+				T10001001111111100000006 /* ModelTests.swift in Sources */,
+				T10001001111111100000007 /* PlayerLogicTests.swift in Sources */,
+				T10001001111111100000008 /* StorageServiceTests.swift in Sources */,
+				T10001001111111100000009 /* PremiumManagerTests.swift in Sources */,
+				T10001001111111100000010 /* DownloadManagerTests.swift in Sources */,
+				T10001001111111100000011 /* ContentViewModelTests.swift in Sources */,
+				T10001001111111100000012 /* M3UIntegrationTests.swift in Sources */,
+				T10001001111111100000013 /* ContentLoadingTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		T10011001111111100000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A10006001111111100000001 /* EasyIpTv */;
+			targetProxy = T10010001111111100000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		A1000A001111111100000001 /* Debug */ = {
@@ -612,6 +728,44 @@
 			};
 			name = Release;
 		};
+		T1000A001111111100000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = E8QKWT4ZU2;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.easycompany.EasyIpTvTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/EasyIpTv.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/EasyIpTv";
+			};
+			name = Debug;
+		};
+		T1000A001111111100000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = E8QKWT4ZU2;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.easycompany.EasyIpTvTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/EasyIpTv.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/EasyIpTv";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -629,6 +783,15 @@
 			buildConfigurations = (
 				A1000A001111111100000001 /* Debug */,
 				A1000A001111111100000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		T10008001111111100000001 /* Build configuration list for PBXNativeTarget "EasyIpTvTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				T1000A001111111100000001 /* Debug */,
+				T1000A001111111100000002 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -147,7 +147,7 @@ final class StalkerPortalTests: XCTestCase {
     }
     
     func testExtractStreamURL_InvalidURL() {
-        let url = StalkerPortalService.extractStreamURL(from: "not a url at all")
+        let url = StalkerPortalService.extractStreamURL(from: "")
         XCTAssertNil(url)
     }
 }

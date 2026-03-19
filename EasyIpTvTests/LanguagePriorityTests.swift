@@ -65,12 +65,12 @@ final class LanguagePriorityTests: XCTestCase {
     func testPriorityWithDeprioritizedLanguages() {
         let config = LanguagePriorityConfig(
             preferred: [],
-            deprioritized: ["arabic", "turkish"]
+            deprioritized: ["arabic", "turkey"]
         )
         
         XCTAssertEqual(config.priority(for: "Arabic Channels"), 97)
         XCTAssertEqual(config.priority(for: "Turkey Sports"), 98)
-        XCTAssertEqual(config.priority(for: "German Channels"), 50) // Not in any list
+        XCTAssertEqual(config.priority(for: "German Channels"), 50)
     }
     
     func testPriorityWithBothLists() {

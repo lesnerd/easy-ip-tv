@@ -1,6 +1,7 @@
 import XCTest
 @testable import EasyIpTv
 
+@MainActor
 final class PlaylistTypeTests: XCTestCase {
     
     // MARK: - Playlist Type Detection

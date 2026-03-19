@@ -570,8 +570,7 @@ struct PlayerView: View {
         }
     }
     
-    /// Static helper so it can be used without self
-    private static func urlNeedsVLC(_ url: URL) -> Bool {
+    static func urlNeedsVLC(_ url: URL) -> Bool {
         let scheme = url.scheme?.lowercased() ?? ""
         let vlcOnlySchemes: Set<String> = ["rtsp", "rtmp", "rtp", "udp", "mms", "mmsh", "rtmps", "rtmpt", "rtmpe"]
         if vlcOnlySchemes.contains(scheme) { return true }
