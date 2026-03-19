@@ -342,7 +342,7 @@ struct MovieDetailView: View {
         }
         .padding(PlatformMetrics.detailPadding)
         .sheet(isPresented: $showUpgradeForDownload) {
-            UpgradePromptView()
+            UpgradePromptView(reason: "You've reached the free limit of \(PremiumManager.freeMaxDownloads) downloads. Upgrade to Premium for unlimited downloads.")
                 .environmentObject(premiumManager)
         }
     }
@@ -511,7 +511,7 @@ struct MovieDetailView: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 32)
                 .sheet(isPresented: $showUpgradeForDownload) {
-                    UpgradePromptView()
+                    UpgradePromptView(reason: "You've reached the free limit of \(PremiumManager.freeMaxDownloads) downloads. Upgrade to Premium for unlimited downloads.")
                         .environmentObject(premiumManager)
                 }
                 #else
@@ -646,7 +646,7 @@ struct MovieDetailView: View {
             isLoadingInfo = false
         }
         .sheet(isPresented: $showUpgradeForDownload) {
-            UpgradePromptView()
+            UpgradePromptView(reason: "You've reached the free limit of \(PremiumManager.freeMaxDownloads) downloads. Upgrade to Premium for unlimited downloads.")
                 .environmentObject(premiumManager)
         }
     }

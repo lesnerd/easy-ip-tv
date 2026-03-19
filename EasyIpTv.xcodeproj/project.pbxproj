@@ -59,6 +59,7 @@
 		T10001001111111100000011 /* ContentViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T10002001111111100000011 /* ContentViewModelTests.swift */; };
 		T10001001111111100000012 /* M3UIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T10002001111111100000012 /* M3UIntegrationTests.swift */; };
 		T10001001111111100000013 /* ContentLoadingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T10002001111111100000013 /* ContentLoadingTests.swift */; };
+		T10001001111111100000014 /* UXFixesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T10002001111111100000014 /* UXFixesTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXBuildFile (SPM) section */
@@ -134,6 +135,7 @@
 		T10002001111111100000011 /* ContentViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentViewModelTests.swift; sourceTree = "<group>"; };
 		T10002001111111100000012 /* M3UIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = M3UIntegrationTests.swift; sourceTree = "<group>"; };
 		T10002001111111100000013 /* ContentLoadingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentLoadingTests.swift; sourceTree = "<group>"; };
+		T10002001111111100000014 /* UXFixesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UXFixesTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -207,6 +209,7 @@
 				T10002001111111100000011 /* ContentViewModelTests.swift */,
 				T10002001111111100000012 /* M3UIntegrationTests.swift */,
 				T10002001111111100000013 /* ContentLoadingTests.swift */,
+				T10002001111111100000014 /* UXFixesTests.swift */,
 			);
 			path = EasyIpTvTests;
 			sourceTree = "<group>";
@@ -529,6 +532,7 @@
 				T10001001111111100000011 /* ContentViewModelTests.swift in Sources */,
 				T10001001111111100000012 /* M3UIntegrationTests.swift in Sources */,
 				T10001001111111100000013 /* ContentLoadingTests.swift in Sources */,
+				T10001001111111100000014 /* UXFixesTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

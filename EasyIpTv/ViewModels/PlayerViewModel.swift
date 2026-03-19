@@ -421,12 +421,20 @@ class PlayerViewModel: ObservableObject {
                     self?.stallTimer?.invalidate()
                     self?.autoSelectSubtitle()
                     
-                    // Start stall timer: if no frames within 8s, declare failure
-                    self?.stallTimer = Timer.scheduledTimer(withTimeInterval: 8.0, repeats: false) { _ in
+                    // Start stall timer: if playback hasn't actually started
+                    // within 6s of readyToPlay, declare failure so VLC can try.
+                    // This catches streams where AVPlayer parses the manifest
+                    // but can't decode the video (e.g. unsupported HEVC profiles).
+                    self?.stallTimer = Timer.scheduledTimer(withTimeInterval: 6.0, repeats: false) { _ in
                         Task { @MainActor in
                             guard let s = self else { return }
-                            if s.currentTime <= 0 && s.isBuffering {
-                                NSLog("[PlayerVM] Stall timeout — no frames received, declaring failure")
+                            let stuck = s.currentTime <= 0
+                                || s.player?.timeControlStatus != .playing
+                                || s.player?.currentItem?.tracks.filter({ $0.assetTrack?.mediaType == .video }).allSatisfy({ !$0.isEnabled }) == true
+                            if stuck {
+                                NSLog("[PlayerVM] Stall timeout — AVPlayer not producing frames, declaring failure (time=%.1f, status=%d)",
+                                      s.currentTime,
+                                      s.player?.timeControlStatus.rawValue ?? -1)
                                 s.playbackFailed = true
                             }
                         }

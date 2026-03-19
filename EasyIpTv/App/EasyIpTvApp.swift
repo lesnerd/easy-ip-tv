@@ -219,6 +219,8 @@ extension View {
     }
     
     /// Item-based variant: presents when item is non-nil, passes unwrapped item to content.
+    /// Uses `isPresented:` internally on iOS/tvOS to avoid SwiftUI dismiss-on-rerender
+    /// issues with `fullScreenCover(item:)` when the parent view re-renders rapidly.
     @ViewBuilder
     func platformFullScreen<Item: Identifiable, Content: View>(item: Binding<Item?>, @ViewBuilder content: @escaping (Item) -> Content) -> some View {
         #if os(macOS)
@@ -232,7 +234,17 @@ extension View {
             }
         }
         #else
-        self.fullScreenCover(item: item, content: content)
+        self.fullScreenCover(
+            isPresented: Binding(
+                get: { item.wrappedValue != nil },
+                set: { if !$0 { item.wrappedValue = nil } }
+            ),
+            onDismiss: { item.wrappedValue = nil }
+        ) {
+            if let value = item.wrappedValue {
+                content(value)
+            }
+        }
         #endif
     }
     

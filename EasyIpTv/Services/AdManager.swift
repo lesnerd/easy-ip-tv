@@ -49,17 +49,21 @@ class AdManager: ObservableObject {
     private var interstitialAd: GADInterstitialAd?
     #endif
     
+    private var preloadRetryCount = 0
+    private let maxPreloadRetries = 3
+    private var isPreloading = false
+    
     private init() {}
     
     /// Initialize the ads SDK (call on app launch)
     func initialize() {
         #if canImport(GoogleMobileAds) && os(iOS)
-        GADMobileAds.sharedInstance().start { status in
+        GADMobileAds.sharedInstance().start { [weak self] status in
             #if DEBUG
             print("[AdMob] SDK initialized: \(status.adapterStatusesByClassName)")
             #endif
+            Task { await self?.preloadInterstitial() }
         }
-        Task { await preloadInterstitial() }
         #endif
     }
     
@@ -87,18 +91,33 @@ class AdManager: ObservableObject {
     /// Preloads an interstitial ad so it's ready to show instantly
     func preloadInterstitial() async {
         #if canImport(GoogleMobileAds) && os(iOS)
+        guard !isPreloading, interstitialAd == nil else { return }
+        isPreloading = true
         do {
             interstitialAd = try await GADInterstitialAd.load(
                 withAdUnitID: Self.interstitialAdUnitId,
                 request: GADRequest()
             )
             isInterstitialReady = true
+            preloadRetryCount = 0
             NSLog("[AdMob] Interstitial ad preloaded")
         } catch {
             isInterstitialReady = false
             NSLog("[AdMob] Failed to load interstitial: %@", error.localizedDescription)
+            schedulePreloadRetry()
         }
+        isPreloading = false
         #endif
+    }
+    
+    private func schedulePreloadRetry() {
+        guard preloadRetryCount < maxPreloadRetries else { return }
+        preloadRetryCount += 1
+        let delay = pow(2.0, Double(preloadRetryCount))
+        Task {
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            await preloadInterstitial()
+        }
     }
     
     /// Shows a real AdMob interstitial ad. Calls completion when dismissed.
@@ -111,10 +130,23 @@ class AdManager: ObservableObject {
             return false
         }
         
-        let rootVC = UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .flatMap { $0.windows }
-            .first { $0.isKeyWindow }?.rootViewController
+        guard let rootVC = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .flatMap({ $0.windows })
+            .first(where: { $0.isKeyWindow })?.rootViewController else {
+            NSLog("[AdMob] No root view controller found, skipping ad")
+            interstitialAd = nil
+            isInterstitialReady = false
+            completion()
+            Task { await preloadInterstitial() }
+            return false
+        }
+        
+        // Walk to the topmost presented controller so the ad isn't hidden behind a sheet
+        var topVC = rootVC
+        while let presented = topVC.presentedViewController {
+            topVC = presented
+        }
         
         let delegate = InterstitialAdDelegate(onDismiss: { [weak self] in
             completion()
@@ -123,7 +155,7 @@ class AdManager: ObservableObject {
         ad.fullScreenContentDelegate = delegate
         _retainedDelegate = delegate
         
-        ad.present(fromRootViewController: rootVC)
+        ad.present(fromRootViewController: topVC)
         interstitialAd = nil
         isInterstitialReady = false
         return true

@@ -112,7 +112,10 @@ struct LiveTVView: View {
             }
         }
         .platformFullScreen(item: $playingChannel) { channel in
-            PlayerView(channel: channel, onClose: { playingChannel = nil })
+            PlayerView(channel: channel, onClose: {
+                NSLog("[LiveTV] Player closed for channel %@", channel.name)
+                playingChannel = nil
+            })
                 .id(channel.id)
                 .environmentObject(contentViewModel)
         }
@@ -121,6 +124,7 @@ struct LiveTVView: View {
                 InterstitialAdOverlay(
                     onDismiss: {
                         showInterstitial = false
+                        NSLog("[LiveTV] Interstitial dismissed — presenting channel %@", selectedChannel?.name ?? "nil")
                         playingChannel = selectedChannel
                     },
                     onUpgrade: {
@@ -339,11 +343,17 @@ struct LiveTVView: View {
     // MARK: - Actions
     
     private func playChannel(_ channel: Channel) {
+        guard playingChannel == nil else {
+            NSLog("[LiveTV] playChannel ignored — player already presenting %@", playingChannel?.name ?? "?")
+            return
+        }
         selectedChannel = channel
         AdManager.shared.recordPlay()
         if AdManager.shared.showInterstitialIfNeeded(premiumManager: premiumManager) {
+            NSLog("[LiveTV] Interstitial gate — showing ad overlay before channel %@", channel.name)
             showInterstitial = true
         } else {
+            NSLog("[LiveTV] Presenting player for channel %@", channel.name)
             playingChannel = channel
         }
     }

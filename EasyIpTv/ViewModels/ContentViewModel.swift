@@ -206,9 +206,6 @@ class ContentViewModel: ObservableObject {
     init() {
         languagePriorityConfig = storage.getLanguagePriority()
         setupMemoryWarningObserver()
-        Task {
-            await loadCategories()
-        }
     }
     
     // MARK: - Memory Management
@@ -288,6 +285,7 @@ class ContentViewModel: ObservableObject {
         let playlistURLs = storage.playlistURLs
         guard !playlistURLs.isEmpty else {
             hasContent = false
+            hasLoadedOnce = true
             return
         }
         
@@ -1016,7 +1014,7 @@ class ContentViewModel: ObservableObject {
     
     /// Loads content if needed
     func loadContentIfNeeded() async {
-        guard !hasLoadedOnce && !isLoadingInProgress else { return }
+        guard !hasLoadedOnce else { return }
         await loadCategories()
     }
     

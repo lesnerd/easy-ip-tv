@@ -456,14 +456,23 @@ struct ShowDetailView: View {
     private func loadEpisodesIfNeeded() async {
         guard show.seasons.isEmpty else {
             selectedSeason = show.seasons.first
+            prefetchThumbnails(for: show.seasons.first)
             return
         }
         isLoadingEpisodes = true
         if let updatedShow = await contentViewModel.loadSeriesInfo(for: show) {
             show = updatedShow
             selectedSeason = updatedShow.seasons.first
+            prefetchThumbnails(for: updatedShow.seasons.first)
         }
         isLoadingEpisodes = false
+    }
+    
+    private func prefetchThumbnails(for season: Season?) {
+        guard let season else { return }
+        let urls = season.episodes.compactMap(\.thumbnailURL)
+        guard !urls.isEmpty else { return }
+        ImageCacheManager.shared.prefetch(urls: urls)
     }
     
     private var seasonsAndEpisodes: some View {
@@ -474,6 +483,7 @@ struct ShowDetailView: View {
                         ForEach(show.seasons) { season in
                             Button {
                                 selectedSeason = season
+                                prefetchThumbnails(for: season)
                             } label: {
                                 Text(season.displayTitle)
                                     .padding(.horizontal, 16)
@@ -506,7 +516,7 @@ struct ShowDetailView: View {
             }
         }
         .sheet(isPresented: $showUpgradeForDownload) {
-            UpgradePromptView()
+            UpgradePromptView(reason: "You've reached the free limit of \(PremiumManager.freeMaxDownloads) downloads. Upgrade to Premium for unlimited downloads.")
                 .environmentObject(premiumManager)
         }
     }
@@ -590,15 +600,23 @@ struct EpisodeRowView: View {
                         .resizable()
                         .aspectRatio(contentMode: .fill)
                 } placeholder: {
-                    Rectangle()
-                        .fill(Color.gray.opacity(0.3))
-                        .overlay {
-                            Image(systemName: "play.fill")
-                                .foregroundStyle(.secondary)
+                    ZStack {
+                        LinearGradient(
+                            colors: [Color.gray.opacity(0.4), Color.gray.opacity(0.2)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                        VStack(spacing: 2) {
+                            Image(systemName: "play.rectangle.fill")
+                                .font(.title3)
+                            Text("E\(episode.episodeNumber)")
+                                .font(.caption2.weight(.semibold))
                         }
+                        .foregroundStyle(.secondary)
+                    }
                 }
                 .frame(width: 120, height: 68)
-                .cornerRadius(6)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(episode.title)

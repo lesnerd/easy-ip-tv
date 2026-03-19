@@ -179,7 +179,6 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
             switch phase {
             case .empty:
                 placeholder()
-                    .onAppear { loadImage() }
             case .success(let image):
                 content(image)
                     .transition(.opacity.animation(.easeIn(duration: 0.2)))
@@ -189,19 +188,35 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
                 placeholder()
             }
         }
+        .onAppear {
+            guard case .success = phase else {
+                reloadIfNeeded()
+                return
+            }
+        }
         .onDisappear {
             loadTask?.cancel()
+            loadTask = nil
+            if case .success = phase { } else {
+                phase = .empty
+            }
         }
     }
     
     private var failureView: some View {
         placeholder()
             .overlay {
-                if retryCount < maxRetries {
+                if url != nil, retryCount < maxRetries {
                     ProgressView()
                         .onAppear { retryWithDelay() }
                 }
             }
+    }
+    
+    private func reloadIfNeeded() {
+        guard loadTask == nil else { return }
+        retryCount = 0
+        loadImage()
     }
     
     private func loadImage() {
@@ -210,6 +225,7 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
             return
         }
         loadTask?.cancel()
+        phase = .empty
         loadTask = Task {
             await fetchImage(from: url)
         }
@@ -231,23 +247,13 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
         let manager = ImageCacheManager.shared
         let nsURL = url as NSURL
         
-        // 1. Check in-memory decoded cache (instant)
+        // 1. Check in-memory decoded cache (instant, no work)
         if let cached = manager.decodedCache.object(forKey: nsURL) {
             phase = .success(Self.swiftUIImage(from: cached))
             return
         }
         
-        // 2. Check URL cache (disk) and decode with downsampling
-        let request = URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad)
-        if let cachedResponse = manager.urlCache.cachedResponse(for: request),
-           let platformImg = ImageCacheManager.downsample(data: cachedResponse.data, maxPixelSize: 400) {
-            let cost = platformImg.estimatedCost
-            manager.decodedCache.setObject(platformImg, forKey: nsURL, cost: cost)
-            phase = .success(Self.swiftUIImage(from: platformImg))
-            return
-        }
-        
-        // 3. Network fetch with downsampling
+        // 2. Disk cache check + network fetch + downsampling (all off MainActor)
         if let platformImg = await manager.fetchAndCache(url: url, maxPixelSize: 400) {
             guard !Task.isCancelled else { return }
             phase = .success(Self.swiftUIImage(from: platformImg))
