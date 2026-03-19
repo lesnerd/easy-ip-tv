@@ -7,10 +7,9 @@ struct HomeView: View {
     @EnvironmentObject var favoritesViewModel: FavoritesViewModel
     @EnvironmentObject var premiumManager: PremiumManager
     
-    @State private var selectedChannel: Channel?
     @State private var selectedMovie: Movie?
     @State private var selectedShow: Show?
-    @State private var showChannelPlayer = false
+    @State private var playingChannel: Channel?
     @State private var showMoviePlayer = false
     @State private var showMovieDetail = false
     @State private var showShowDetail = false
@@ -101,23 +100,24 @@ struct HomeView: View {
         .onChange(of: showEpisodePlayer) { _, isPresented in
             if !isPresented { reloadContinueWatching() }
         }
-        .onChange(of: showChannelPlayer) { _, isPresented in
-            if !isPresented { reloadContinueWatching() }
+        .onChange(of: playingChannel) { _, value in
+            if value == nil { reloadContinueWatching() }
         }
         .sheet(isPresented: $showUpgradeSheet, onDismiss: {
             if let action = pendingAction {
                 pendingAction = nil
-                action()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    action()
+                }
             }
         }) {
             UpgradePromptView()
                 .environmentObject(premiumManager)
         }
-        .platformFullScreen(isPresented: $showChannelPlayer) {
-            if let channel = selectedChannel {
-                PlayerView(channel: channel)
-                    .id(channel.id)
-            }
+        .platformFullScreen(item: $playingChannel) { channel in
+            PlayerView(channel: channel, onClose: { playingChannel = nil })
+                .id(channel.id)
+                .environmentObject(contentViewModel)
         }
         .sheet(isPresented: $showMovieDetail) {
             if let movie = selectedMovie {
@@ -340,12 +340,9 @@ struct HomeView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: PlatformMetrics.horizontalSpacing) {
                     ForEach(contentViewModel.trendingChannels) { channel in
-                        ChannelCard(channel: channel) {
-                            gatedAction {
-                                selectedChannel = channel
-                                showChannelPlayer = true
-                            }
-                        }
+                        ChannelCard(channel: channel, onTap: {
+                            playingChannel = channel
+                        })
                         .frame(width: PlatformMetrics.channelCardWidth)
                         .overlay(alignment: .topTrailing) {
                             if !premiumManager.isPremium {
@@ -375,10 +372,7 @@ struct HomeView: View {
                 ) {
                     ForEach(favoritesViewModel.favoriteChannels) { channel in
                         ChannelCard(channel: channel) {
-                            gatedAction {
-                                selectedChannel = channel
-                                showChannelPlayer = true
-                            }
+                            playingChannel = channel
                         } onLongPress: {
                             contentViewModel.toggleFavorite(channel: channel)
                             favoritesViewModel.toggleFavorite(channel: channel)

@@ -6,10 +6,9 @@ struct FavoritesView: View {
     @EnvironmentObject var favoritesViewModel: FavoritesViewModel
     @EnvironmentObject var premiumManager: PremiumManager
     
-    @State private var selectedChannel: Channel?
+    @State private var playingChannel: Channel?
     @State private var selectedMovie: Movie?
     @State private var selectedShow: Show?
-    @State private var showChannelPlayer = false
     @State private var showMoviePlayer = false
     @State private var showMovieDetail = false
     @State private var showShowDetail = false
@@ -77,11 +76,10 @@ struct FavoritesView: View {
             UpgradePromptView()
                 .environmentObject(premiumManager)
         }
-        .platformFullScreen(isPresented: $showChannelPlayer) {
-            if let channel = selectedChannel {
-                PlayerView(channel: channel)
-                    .id(channel.id)
-            }
+        .platformFullScreen(item: $playingChannel) { channel in
+            PlayerView(channel: channel, onClose: { playingChannel = nil })
+                .id(channel.id)
+                .environmentObject(contentViewModel)
         }
         .sheet(isPresented: $showMovieDetail) {
             if let movie = selectedMovie {
@@ -251,10 +249,9 @@ struct FavoritesView: View {
                     if !searchedChannels.isEmpty {
                         CategoryRow(title: L10n.Navigation.liveTV, icon: "tv.fill", itemCount: searchedChannels.count) {
                             ForEach(searchedChannels) { channel in
-                                ChannelCard(channel: channel) {
-                                    selectedChannel = channel
-                                    showChannelPlayer = true
-                                }
+                                ChannelCard(channel: channel, onTap: {
+                                    playingChannel = channel
+                                })
                                 .frame(width: PlatformMetrics.channelCardWidth)
                             }
                         }
@@ -302,8 +299,7 @@ struct FavoritesView: View {
     // MARK: - Actions
     
     private func playChannel(_ channel: Channel) {
-        selectedChannel = channel
-        showChannelPlayer = true
+        playingChannel = channel
     }
     
     private func selectMovie(_ movie: Movie) {
