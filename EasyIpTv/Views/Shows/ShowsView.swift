@@ -364,7 +364,10 @@ struct ShowDetailView: View {
                     
                     VStack(alignment: .leading, spacing: 16) {
                         showHeader
-                        favoriteButton
+                        HStack(spacing: 12) {
+                            favoriteButton
+                            SubtitlePreferenceButton()
+                        }
                     }
                 }
                 
@@ -558,7 +561,10 @@ struct ShowDetailView: View {
     private var detailContent: some View {
         VStack(alignment: .leading, spacing: 24) {
             showHeader
-            favoriteButton
+            HStack(spacing: 12) {
+                favoriteButton
+                SubtitlePreferenceButton()
+            }
             Divider()
             seasonsAndEpisodes
         }

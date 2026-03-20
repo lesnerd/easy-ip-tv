@@ -477,6 +477,12 @@ class ContentViewModel: ObservableObject {
             
             hasContent = !liveCategories.isEmpty || !vodCategories.isEmpty
             
+            if let epgURLString = content.epgURL, !epgURLString.isEmpty {
+                Task {
+                    await EPGService.shared.loadXMLTV(from: epgURLString)
+                }
+            }
+            
         } catch {
             self.error = error
         }
@@ -610,7 +616,11 @@ class ContentViewModel: ObservableObject {
                     logoURL: logoURL,
                     streamURL: streamURL,
                     category: category.name,
-                    channelNumber: channelNumber
+                    channelNumber: channelNumber,
+                    epgChannelId: stream.epgChannelId,
+                    hasCatchup: (stream.tvArchive ?? 0) == 1,
+                    catchupDays: stream.tvArchiveDuration,
+                    streamId: streamId
                 )
                 channelNumber += 1
                 return channel
@@ -627,6 +637,16 @@ class ContentViewModel: ObservableObject {
             touchCacheOrder(category.name, order: &channelCacheOrder)
             evictChannelCache(keepCount: Self.maxCachedCategories)
             self.channels = processedChannels
+            
+            // Fetch EPG data for these channels in the background
+            Task {
+                await EPGService.shared.fetchBatchEPG(
+                    for: processedChannels,
+                    baseURL: credentials.baseURL,
+                    username: credentials.username,
+                    password: credentials.password
+                )
+            }
             
         } catch {
             #if DEBUG
@@ -1157,6 +1177,20 @@ class ContentViewModel: ObservableObject {
         self.showCache = showCache
     }
     #endif
+    
+    func buildArchiveURL(for channel: Channel, program: EPGProgram) -> URL? {
+        guard let credentials = cachedCredentials,
+              let streamId = channel.streamId else { return nil }
+        let durationMinutes = Int(program.end.timeIntervalSince(program.start) / 60)
+        return xtreamService.buildArchiveURL(
+            baseURL: credentials.baseURL,
+            username: credentials.username,
+            password: credentials.password,
+            streamId: streamId,
+            start: program.start,
+            durationMinutes: durationMinutes
+        )
+    }
     
     func nearbyChannels(around channel: Channel, count: Int = 5) -> [Channel] {
         let allChannels = channelCache[channel.category] ?? []

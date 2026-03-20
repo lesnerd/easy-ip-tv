@@ -87,6 +87,8 @@ actor XtreamCodesService {
         let categoryId: String?
         let epgChannelId: String?
         let isAdult: Int?
+        let tvArchive: Int?
+        let tvArchiveDuration: Int?
         
         enum CodingKeys: String, CodingKey {
             case num, name
@@ -96,6 +98,33 @@ actor XtreamCodesService {
             case categoryId = "category_id"
             case epgChannelId = "epg_channel_id"
             case isAdult = "is_adult"
+            case tvArchive = "tv_archive"
+            case tvArchiveDuration = "tv_archive_duration"
+        }
+    }
+    
+    struct EPGItem: Codable {
+        let id: String?
+        let epgId: String?
+        let title: String?
+        let lang: String?
+        let start: String?
+        let end: String?
+        let description: String?
+        let channelId: String?
+        
+        enum CodingKeys: String, CodingKey {
+            case id, title, lang, start, end, description
+            case epgId = "epg_id"
+            case channelId = "channel_id"
+        }
+    }
+    
+    struct ShortEPGResponse: Codable {
+        let epgListings: [EPGItem]?
+        
+        enum CodingKeys: String, CodingKey {
+            case epgListings = "epg_listings"
         }
     }
     
@@ -534,6 +563,71 @@ actor XtreamCodesService {
     /// Builds the stream URL for a VOD movie
     nonisolated func buildVodStreamURL(baseURL: String, username: String, password: String, streamId: Int, extension ext: String) -> URL? {
         let urlString = "\(baseURL)/movie/\(username)/\(password)/\(streamId).\(ext)"
+        return URL(string: urlString)
+    }
+    
+    // MARK: - EPG
+    
+    func getShortEPG(baseURL: String, username: String, password: String, streamId: Int) async throws -> [EPGProgram] {
+        let urlString = "\(baseURL)/player_api.php?username=\(username)&password=\(password)&action=get_short_epg&stream_id=\(streamId)"
+        guard let url = URL(string: urlString) else { throw XtreamError.invalidURL }
+        let data = try await fetchData(from: url)
+        let response = try decoder.decode(ShortEPGResponse.self, from: data)
+        return (response.epgListings ?? []).compactMap { Self.mapEPGItem($0) }
+    }
+    
+    func getFullEPG(baseURL: String, username: String, password: String, streamId: Int) async throws -> [EPGProgram] {
+        let urlString = "\(baseURL)/player_api.php?username=\(username)&password=\(password)&action=get_simple_data_table&stream_id=\(streamId)"
+        guard let url = URL(string: urlString) else { throw XtreamError.invalidURL }
+        let data = try await fetchData(from: url)
+        let response = try decoder.decode(ShortEPGResponse.self, from: data)
+        return (response.epgListings ?? []).compactMap { Self.mapEPGItem($0) }
+    }
+    
+    private static let epgDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        f.timeZone = TimeZone(identifier: "UTC")
+        return f
+    }()
+    
+    nonisolated static func mapEPGItem(_ item: EPGItem) -> EPGProgram? {
+        guard let title = item.title,
+              let startStr = item.start,
+              let endStr = item.end,
+              let start = epgDateFormatter.date(from: startStr),
+              let end = epgDateFormatter.date(from: endStr) else { return nil }
+        
+        let decodedTitle = Self.decodeBase64IfNeeded(title)
+        let decodedDesc = item.description.flatMap { Self.decodeBase64IfNeeded($0) }
+        
+        return EPGProgram(
+            id: item.id ?? UUID().uuidString,
+            title: decodedTitle,
+            description: decodedDesc,
+            start: start,
+            end: end,
+            channelId: item.channelId ?? item.epgId ?? "",
+            lang: item.lang
+        )
+    }
+    
+    nonisolated private static func decodeBase64IfNeeded(_ string: String) -> String {
+        guard let data = Data(base64Encoded: string),
+              let decoded = String(data: data, encoding: .utf8) else {
+            return string
+        }
+        return decoded
+    }
+    
+    // MARK: - TV Archive / Catchup
+    
+    nonisolated func buildArchiveURL(baseURL: String, username: String, password: String, streamId: Int, start: Date, durationMinutes: Int) -> URL? {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd:HH-mm"
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        let startStr = formatter.string(from: start)
+        let urlString = "\(baseURL)/streaming/timeshift.php?username=\(username)&password=\(password)&stream=\(streamId)&start=\(startStr)&duration=\(durationMinutes)"
         return URL(string: urlString)
     }
     

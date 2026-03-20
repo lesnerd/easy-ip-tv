@@ -143,19 +143,45 @@ struct CardButtonStyle: ButtonStyle {
 
 struct ChannelCard: View {
     let channel: Channel
+    var nowPlaying: String? = nil
     var onTap: () -> Void = {}
     var onLongPress: () -> Void = {}
+    var onCatchup: (() -> Void)? = nil
     
     var body: some View {
         ContentCard(
             title: channel.name,
-            subtitle: channel.category,
+            subtitle: nowPlaying ?? channel.category,
             imageURL: channel.logoURL,
             isFavorite: channel.isFavorite,
             aspectRatio: 16/9,
             onTap: onTap,
             onLongPress: onLongPress
         )
+        .overlay(alignment: .topLeading) {
+            if channel.hasCatchup {
+                if let onCatchup {
+                    Button {
+                        onCatchup()
+                    } label: {
+                        catchupBadge
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    catchupBadge
+                }
+            }
+        }
+    }
+    
+    private var catchupBadge: some View {
+        Label("Catchup", systemImage: "clock.arrow.circlepath")
+            .font(.system(size: 9, weight: .semibold))
+            .foregroundColor(.white)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 2)
+            .background(Color.orange.opacity(0.85), in: Capsule())
+            .padding(6)
     }
 }
 

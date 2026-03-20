@@ -259,6 +259,7 @@ struct MovieDetailView: View {
     @EnvironmentObject var contentViewModel: ContentViewModel
     @EnvironmentObject var downloadManager: DownloadManager
     @EnvironmentObject var premiumManager: PremiumManager
+    @ObservedObject private var streamService = StreamService.shared
     @State private var detailedMovie: Movie?
     @State private var isLoadingInfo = false
     @State private var isDescriptionExpanded = false
@@ -335,6 +336,8 @@ struct MovieDetailView: View {
                     .buttonStyle(.bordered)
                     
                     movieDownloadButton
+                    
+                    SubtitlePreferenceButton()
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -442,7 +445,11 @@ struct MovieDetailView: View {
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
                     
-                    movieDownloadButton
+                    HStack(spacing: 12) {
+                        movieDownloadButton
+                        Spacer()
+                        SubtitlePreferenceButton()
+                    }
                     
                     // Loading indicator for detail info
                     if isLoadingInfo {
@@ -630,6 +637,8 @@ struct MovieDetailView: View {
                 .buttonStyle(.bordered)
                 
                 movieDownloadButton
+                
+                SubtitlePreferenceButton()
             }
             
             if isLoadingInfo {

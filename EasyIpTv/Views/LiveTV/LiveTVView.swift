@@ -41,6 +41,7 @@ struct LiveTVView: View {
     @EnvironmentObject var contentViewModel: ContentViewModel
     @EnvironmentObject var favoritesViewModel: FavoritesViewModel
     @EnvironmentObject var premiumManager: PremiumManager
+    @ObservedObject var epgService = EPGService.shared
     
     @State private var selectedCategory: ContentViewModel.CategoryInfo?
     @State private var selectedChannel: Channel?
@@ -50,6 +51,8 @@ struct LiveTVView: View {
     @State private var searchText = ""
     @State private var filterMode: ChannelFilterMode = .all
     @State private var showSearchResults = false
+    @State private var showEPGGuide = false
+    @State private var catchupChannel: Channel?
     
     private var filterModes: [ChannelFilterMode] {
         ChannelFilterMode.fromPriorities(
@@ -103,6 +106,13 @@ struct LiveTVView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .automatic) {
+                    Button {
+                        showEPGGuide = true
+                    } label: {
+                        Label("TV Guide", systemImage: "list.bullet.rectangle.fill")
+                    }
+                }
+                ToolbarItem(placement: .automatic) {
                     filterMenu
                 }
             }
@@ -142,6 +152,24 @@ struct LiveTVView: View {
         .sheet(isPresented: $showUpgrade) {
             UpgradePromptView()
                 .environmentObject(premiumManager)
+        }
+        .sheet(isPresented: $showEPGGuide) {
+            EPGGuideView(
+                channels: contentViewModel.channels,
+                onPlayChannel: { channel in
+                    showEPGGuide = false
+                    playChannel(channel)
+                },
+                onPlayCatchup: { channel, program in
+                    showEPGGuide = false
+                    playCatchup(channel: channel, program: program)
+                }
+            )
+        }
+        .sheet(item: $catchupChannel) { channel in
+            CatchupView(channel: channel) { ch, program in
+                playCatchup(channel: ch, program: program)
+            }
         }
     }
     
@@ -208,11 +236,11 @@ struct LiveTVView: View {
                 } else {
                     // Channel grid
                     CategoryGrid(items: filteredChannels, columns: PlatformMetrics.gridColumns) { channel in
-                        ChannelCard(channel: channel) {
+                        ChannelCard(channel: channel, nowPlaying: nowPlayingText(for: channel), onTap: {
                             playChannel(channel)
-                        } onLongPress: {
+                        }, onLongPress: {
                             toggleFavorite(channel)
-                        }
+                        }, onCatchup: channel.hasCatchup ? { catchupChannel = channel } : nil)
                     }
                 }
             }
@@ -233,11 +261,11 @@ struct LiveTVView: View {
                         itemCount: contentViewModel.featuredChannels.count
                     ) {
                         ForEach(contentViewModel.featuredChannels.prefix(PlatformMetrics.rowItemLimit)) { channel in
-                            ChannelCard(channel: channel) {
+                            ChannelCard(channel: channel, nowPlaying: nowPlayingText(for: channel), onTap: {
                                 playChannel(channel)
-                            } onLongPress: {
+                            }, onLongPress: {
                                 toggleFavorite(channel)
-                            }
+                            }, onCatchup: channel.hasCatchup ? { catchupChannel = channel } : nil)
                             .frame(width: PlatformMetrics.channelCardWidth)
                         }
                     }
@@ -249,6 +277,7 @@ struct LiveTVView: View {
                         category: category,
                         onPlayChannel: { playChannel($0) },
                         onToggleFavorite: { toggleFavorite($0) },
+                        onCatchupChannel: { catchupChannel = $0 },
                         onSeeAll: { selectedCategory = category }
                     )
                     .environmentObject(contentViewModel)
@@ -318,11 +347,11 @@ struct LiveTVView: View {
                 } else {
                     // Channel grid
                     CategoryGrid(items: channels, columns: PlatformMetrics.gridColumns) { channel in
-                        ChannelCard(channel: channel) {
+                        ChannelCard(channel: channel, nowPlaying: nowPlayingText(for: channel), onTap: {
                             playChannel(channel)
-                        } onLongPress: {
+                        }, onLongPress: {
                             toggleFavorite(channel)
-                        }
+                        }, onCatchup: channel.hasCatchup ? { catchupChannel = channel } : nil)
                     }
                 }
             }
@@ -362,6 +391,25 @@ struct LiveTVView: View {
         contentViewModel.toggleFavorite(channel: channel)
         favoritesViewModel.toggleFavorite(channel: channel)
     }
+    
+    private func playCatchup(channel: Channel, program: EPGProgram) {
+        guard let archiveURL = contentViewModel.buildArchiveURL(for: channel, program: program) else { return }
+        let archiveChannel = Channel(
+            id: channel.id,
+            name: "\(channel.name) - \(program.title)",
+            logoURL: channel.logoURL,
+            streamURL: archiveURL,
+            category: channel.category,
+            streamId: channel.streamId
+        )
+        playingChannel = archiveChannel
+    }
+    
+    private func nowPlayingText(for channel: Channel) -> String? {
+        let key = channel.streamId.map { "\($0)" } ?? channel.epgChannelId ?? channel.tvgId
+        guard let key else { return nil }
+        return epgService.nowPlaying(for: key)?.title
+    }
 }
 
 // MARK: - Live Category Row View (handles auto-loading)
@@ -371,10 +419,12 @@ private struct LiveCategoryRowView: View {
     let category: ContentViewModel.CategoryInfo
     var onPlayChannel: (Channel) -> Void
     var onToggleFavorite: (Channel) -> Void
+    var onCatchupChannel: ((Channel) -> Void)? = nil
     var onSeeAll: () -> Void
     
     @EnvironmentObject var contentViewModel: ContentViewModel
     @EnvironmentObject var favoritesViewModel: FavoritesViewModel
+    @ObservedObject private var epgService = EPGService.shared
     @State private var hasRequestedLoad = false
     
     var body: some View {
@@ -414,11 +464,13 @@ private struct LiveCategoryRowView: View {
                 }
             } else {
                 ForEach(channels.prefix(PlatformMetrics.rowItemLimit)) { channel in
-                    ChannelCard(channel: channel) {
-                        onPlayChannel(channel)
-                    } onLongPress: {
-                        onToggleFavorite(channel)
-                    }
+                    ChannelCard(
+                        channel: channel,
+                        nowPlaying: nowPlayingText(for: channel),
+                        onTap: { onPlayChannel(channel) },
+                        onLongPress: { onToggleFavorite(channel) },
+                        onCatchup: channel.hasCatchup ? { onCatchupChannel?(channel) } : nil
+                    )
                     .frame(width: PlatformMetrics.channelCardWidth)
                 }
                 
@@ -427,6 +479,12 @@ private struct LiveCategoryRowView: View {
                 }
             }
         }
+    }
+    
+    private func nowPlayingText(for channel: Channel) -> String? {
+        let key = channel.streamId.map { "\($0)" } ?? channel.epgChannelId ?? channel.tvgId
+        guard let key else { return nil }
+        return epgService.nowPlaying(for: key)?.title
     }
 }
 

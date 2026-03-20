@@ -30,9 +30,10 @@ actor M3UParser {
         var movies: [Movie]
         var shows: [Show]
         var categories: [String: ContentType]
+        var epgURL: String?
         
         static var empty: ParsedContent {
-            ParsedContent(channels: [], movies: [], shows: [], categories: [:])
+            ParsedContent(channels: [], movies: [], shows: [], categories: [:], epgURL: nil)
         }
     }
     
@@ -70,6 +71,12 @@ actor M3UParser {
             throw ParserError.invalidFormat
         }
         
+        var epgURL: String?
+        if let header = lines.first {
+            epgURL = Self.extractAttribute(from: header, name: "url-tvg")
+                ?? Self.extractAttribute(from: header, name: "x-tvg-url")
+        }
+        
         var items: [M3UItem] = []
         var currentInfo: ExtInfInfo?
         
@@ -100,7 +107,22 @@ actor M3UParser {
             throw ParserError.emptyPlaylist
         }
         
-        return categorize(items: items)
+        var result = categorize(items: items)
+        result.epgURL = epgURL
+        return result
+    }
+    
+    nonisolated private static func extractAttribute(from line: String, name: String) -> String? {
+        let pattern = "\(name)=\"([^\"]*)\""
+        guard let range = line.range(of: pattern, options: .regularExpression) else { return nil }
+        let match = String(line[range])
+        if let quoteStart = match.firstIndex(of: "\""),
+           let quoteEnd = match.lastIndex(of: "\""),
+           quoteStart < quoteEnd {
+            let start = match.index(after: quoteStart)
+            return String(match[start..<quoteEnd])
+        }
+        return nil
     }
     
     // MARK: - Private Methods

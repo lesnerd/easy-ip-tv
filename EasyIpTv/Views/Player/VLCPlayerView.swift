@@ -6,12 +6,59 @@ import VLCKitSPM
 class VLCPlayerController: ObservableObject {
     fileprivate var mediaPlayer: VLCMediaPlayer?
     
+    @Published var subtitleTracks: [(index: Int32, name: String)] = []
+    @Published var currentSubtitleIndex: Int32 = -1
+    private var didAutoSelectSubtitle = false
+    
     static func applyMediaOptions(_ media: VLCMedia) {
         media.addOption("--network-caching=3000")
         media.addOption("--rtsp-tcp")
         media.addOption("--http-reconnect")
         media.addOption("--adaptive-logic=highest")
         media.addOption("--codec=avcodec,all")
+    }
+    
+    func loadSubtitleTracks() {
+        guard let player = mediaPlayer else {
+            subtitleTracks = []
+            return
+        }
+        guard let indexes = player.videoSubTitlesIndexes as? [Int32],
+              let names = player.videoSubTitlesNames as? [String] else {
+            subtitleTracks = []
+            return
+        }
+        var tracks: [(index: Int32, name: String)] = []
+        for (i, idx) in indexes.enumerated() where i < names.count {
+            tracks.append((index: idx, name: names[i]))
+        }
+        subtitleTracks = tracks
+        currentSubtitleIndex = player.currentVideoSubTitleIndex
+        
+        autoSelectPreferredSubtitle()
+    }
+    
+    private func autoSelectPreferredSubtitle() {
+        guard !didAutoSelectSubtitle, mediaPlayer != nil else { return }
+        guard let preferredCode = UserDefaults.standard.string(forKey: "subtitle_language") else { return }
+        
+        let selectableTracks = subtitleTracks.filter { $0.index != -1 && $0.index != 0 }
+        guard !selectableTracks.isEmpty else { return }
+        
+        for track in selectableTracks {
+            if SubtitleLanguageMatcher.matches(trackLanguage: track.name, preferredCode: preferredCode)
+                || SubtitleLanguageMatcher.nameMatches(trackName: track.name, preferredCode: preferredCode) {
+                NSLog("[VLC] Auto-selecting subtitle track: %@ (index %d) for preferred code '%@'", track.name, track.index, preferredCode)
+                selectSubtitle(index: track.index)
+                didAutoSelectSubtitle = true
+                return
+            }
+        }
+    }
+    
+    func selectSubtitle(index: Int32) {
+        mediaPlayer?.currentVideoSubTitleIndex = index
+        currentSubtitleIndex = index
     }
     
     func togglePlayback() {
@@ -38,6 +85,7 @@ class VLCPlayerController: ObservableObject {
     func changeMedia(url: URL) {
         guard let player = mediaPlayer else { return }
         player.stop()
+        didAutoSelectSubtitle = false
         let media = VLCMedia(url: url)
         Self.applyMediaOptions(media)
         player.media = media
@@ -142,6 +190,7 @@ class VLCCoordinator: NSObject, VLCMediaPlayerDelegate {
             case .playing:
                 self.isPlayingBinding.wrappedValue = true
                 self.isBufferingBinding.wrappedValue = false
+                self.controller.loadSubtitleTracks()
             case .paused:
                 self.isPlayingBinding.wrappedValue = false
                 self.isBufferingBinding.wrappedValue = false
@@ -158,6 +207,8 @@ class VLCCoordinator: NSObject, VLCMediaPlayerDelegate {
                 self.isPlayingBinding.wrappedValue = false
                 self.isBufferingBinding.wrappedValue = false
                 self.hasErrorBinding.wrappedValue = true
+            case .esAdded:
+                self.controller.loadSubtitleTracks()
             @unknown default:
                 break
             }

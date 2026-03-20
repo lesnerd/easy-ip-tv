@@ -321,11 +321,13 @@ class PlayerViewModel: ObservableObject {
         }
         
         // Check for saved subtitle preference
-        if let preferredLanguage = streamService.subtitleLanguage {
-            // Find matching subtitle track
+        if let preferredCode = streamService.subtitleLanguage {
             for option in subtitleGroup.options {
                 let languageCode = option.extendedLanguageTag ?? option.locale?.identifier
-                if languageCode == preferredLanguage {
+                let matchesByCode = SubtitleLanguageMatcher.matches(trackLanguage: languageCode, preferredCode: preferredCode)
+                let matchesByName = SubtitleLanguageMatcher.nameMatches(trackName: option.displayName, preferredCode: preferredCode)
+                
+                if matchesByCode || matchesByName {
                     playerItem.select(option, in: subtitleGroup)
                     selectedSubtitle = SubtitleTrack(
                         id: option.displayName,
@@ -337,11 +339,11 @@ class PlayerViewModel: ObservableObject {
                 }
             }
             
-            // Try matching by app language
+            // Fallback: try matching by app language
             let appLanguage = LocalizationManager.shared.currentLanguage.rawValue
             for option in subtitleGroup.options {
                 let languageCode = option.extendedLanguageTag ?? option.locale?.identifier
-                if languageCode?.hasPrefix(appLanguage) == true {
+                if SubtitleLanguageMatcher.matches(trackLanguage: languageCode, preferredCode: appLanguage) {
                     playerItem.select(option, in: subtitleGroup)
                     selectedSubtitle = SubtitleTrack(
                         id: option.displayName,
@@ -386,12 +388,11 @@ class PlayerViewModel: ObservableObject {
         }
         
         if let existingPlayer = player {
-            // Reuse existing player - just swap the item (avoids NSView recreation on macOS)
             existingPlayer.replaceCurrentItem(with: playerItem)
         } else {
-            // First time - create new player
             player = AVPlayer(playerItem: playerItem)
         }
+        player?.allowsExternalPlayback = true
         
         setupObservers()
     }

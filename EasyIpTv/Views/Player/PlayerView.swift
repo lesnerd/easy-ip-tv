@@ -22,6 +22,7 @@ struct PlayerView: View {
     @State private var isScrubbing = false
     @State private var scrubProgress: CGFloat = 0
     @State private var seekedProgress: CGFloat? = nil
+    @State private var showVLCSubtitlePicker = false
     #if canImport(VLCKitSPM)
     @StateObject private var vlcController = VLCPlayerController()
     #endif
@@ -303,7 +304,8 @@ struct PlayerView: View {
                     currentTime: useVLCPlayer ? vlcFormattedTime(vlcCurrentTime) : playerViewModel.formattedCurrentTime,
                     duration: useVLCPlayer ? vlcFormattedTime(vlcDuration) : playerViewModel.formattedDuration,
                     progress: useVLCPlayer ? (vlcDuration > 0 ? vlcCurrentTime / vlcDuration : 0) : playerViewModel.progress,
-                    hasSubtitles: useVLCPlayer ? false : playerViewModel.availableSubtitles.count > 1,
+                    hasSubtitles: useVLCPlayer ? vlcController.subtitleTracks.count > 1 : playerViewModel.availableSubtitles.count > 1,
+                    programTitle: currentEPGProgram,
                     onPlayPause: {
                         #if canImport(VLCKitSPM)
                         if useVLCPlayer { vlcController.togglePlayback(); return }
@@ -338,6 +340,13 @@ struct PlayerView: View {
                         playerViewModel.showNavigator()
                     },
                     onShowSubtitles: {
+                        #if canImport(VLCKitSPM)
+                        if useVLCPlayer {
+                            vlcController.loadSubtitleTracks()
+                            showVLCSubtitlePicker = true
+                            return
+                        }
+                        #endif
                         playerViewModel.showSubtitles()
                     },
                     onDismiss: {
@@ -375,6 +384,23 @@ struct PlayerView: View {
                     }
                 )
             }
+            
+            // VLC subtitle picker overlay
+            #if canImport(VLCKitSPM)
+            if showVLCSubtitlePicker {
+                VLCSubtitlePickerOverlay(
+                    tracks: vlcController.subtitleTracks,
+                    selectedIndex: vlcController.currentSubtitleIndex,
+                    onSelect: { index in
+                        vlcController.selectSubtitle(index: index)
+                        showVLCSubtitlePicker = false
+                    },
+                    onDismiss: {
+                        showVLCSubtitlePicker = false
+                    }
+                )
+            }
+            #endif
             
             // Resume prompt overlay
             if playerViewModel.showResumePrompt {
@@ -732,6 +758,13 @@ struct PlayerView: View {
         activeChannel?.name ?? movie?.title ?? episode?.title ?? "Playing"
     }
     
+    private var currentEPGProgram: String? {
+        guard let ch = activeChannel else { return nil }
+        let key = ch.streamId.map { "\($0)" } ?? ch.epgChannelId ?? ch.tvgId
+        guard let key else { return nil }
+        return EPGService.shared.nowPlaying(for: key)?.title
+    }
+    
     private func vlcFormattedTime(_ seconds: Double) -> String {
         guard seconds.isFinite && seconds >= 0 else { return "0:00" }
         let totalSeconds = Int(seconds)
@@ -762,6 +795,24 @@ struct PlayerView: View {
                         .foregroundColor(.white)
                         .lineLimit(1)
                     Spacer()
+                    AirPlayButton()
+                        .frame(width: 32, height: 32)
+                    #if os(iOS)
+                    CastButton()
+                    #endif
+                    #if canImport(VLCKitSPM)
+                    if vlcController.subtitleTracks.count > 1 {
+                        Button {
+                            vlcController.loadSubtitleTracks()
+                            showVLCSubtitlePicker = true
+                            showVLCControlsTemporarily()
+                        } label: {
+                            Image(systemName: "captions.bubble")
+                                .font(.title2)
+                                .foregroundColor(.white)
+                        }
+                    }
+                    #endif
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 50)
@@ -939,6 +990,7 @@ struct PlayerControlsOverlay: View {
     let duration: String
     let progress: Double
     let hasSubtitles: Bool
+    var programTitle: String? = nil
     
     var onPlayPause: () -> Void = {}
     var onSeek: (Double) -> Void = { _ in }
@@ -982,6 +1034,10 @@ struct PlayerControlsOverlay: View {
                     .padding(.trailing, 16)
                 }
                 
+                AirPlayButton()
+                    .frame(width: 36, height: 36)
+                    .padding(.trailing, 12)
+                
                 VStack(alignment: .trailing, spacing: 4) {
                     Text(L10n.Player.nowPlaying)
                         .font(.caption)
@@ -989,6 +1045,11 @@ struct PlayerControlsOverlay: View {
                     Text(title)
                         .font(.headline)
                         .foregroundStyle(.white)
+                    if let programTitle {
+                        Text(programTitle)
+                            .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.7))
+                    }
                 }
             }
             .padding(controlPadding)

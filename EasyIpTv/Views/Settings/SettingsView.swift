@@ -174,6 +174,41 @@ struct SettingsView: View {
                     Label(L10n.Settings.quality, systemImage: "slider.horizontal.3")
                 }
                 
+                // Subtitle Language Section (Premium)
+                Section {
+                    if premiumManager.isPremium {
+                        Picker(selection: Binding(
+                            get: { streamService.subtitleLanguage ?? "" },
+                            set: { streamService.subtitleLanguage = $0.isEmpty ? nil : $0 }
+                        )) {
+                            Text(L10n.Player.off).tag("")
+                            ForEach(SubtitlePreferenceButton.languages, id: \.code) { lang in
+                                Text(lang.name).tag(lang.code)
+                            }
+                        } label: {
+                            Label(L10n.Settings.subtitleLanguage, systemImage: "captions.bubble")
+                        }
+                    } else {
+                        Button {
+                            showUpgrade = true
+                        } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(L10n.Settings.subtitleLanguage)
+                                        .font(.body)
+                                    Text("Auto-select subtitles for all content")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                PremiumLockBadge()
+                            }
+                        }
+                    }
+                } header: {
+                    Label(L10n.Settings.subtitleLanguage, systemImage: "captions.bubble")
+                }
+                
                 // Download Retention Section
                 Section {
                     if premiumManager.canChangeRetention {
