@@ -213,6 +213,11 @@ extension View {
                     .zIndex(999)
             }
         }
+        .onChange(of: isPresented.wrappedValue) { _, newValue in
+            if !newValue {
+                DispatchQueue.main.async { NSApp.activate(ignoringOtherApps: true) }
+            }
+        }
         #else
         self.fullScreenCover(isPresented: isPresented, content: content)
         #endif
@@ -231,6 +236,11 @@ extension View {
                     .background(Color.black)
                     .transition(.opacity)
                     .zIndex(999)
+            }
+        }
+        .onChange(of: item.wrappedValue == nil) { _, isNil in
+            if isNil {
+                DispatchQueue.main.async { NSApp.activate(ignoringOtherApps: true) }
             }
         }
         #else

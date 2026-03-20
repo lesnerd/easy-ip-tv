@@ -300,49 +300,63 @@ struct ShowDetailView: View {
     }
     
     var body: some View {
-        NavigationStack {
-            ZStack {
-                #if os(tvOS)
-                tvOSLayout
-                #else
-                adaptiveLayout
-                #endif
-                
-                if showDownloadInterstitial {
-                    InterstitialAdOverlay(
-                        onDismiss: {
-                            showDownloadInterstitial = false
-                            if let ep = pendingDownloadEpisode, let sn = pendingDownloadSeasonNumber {
-                                downloadManager.startDownload(episode: ep, showTitle: show.title, showId: show.id, seasonNumber: sn)
-                                pendingDownloadEpisode = nil
-                                pendingDownloadSeasonNumber = nil
-                            }
-                        },
-                        onUpgrade: {
-                            showDownloadInterstitial = false
+        ZStack {
+            #if os(tvOS)
+            tvOSLayout
+            #else
+            adaptiveLayout
+            #endif
+            
+            if showDownloadInterstitial {
+                InterstitialAdOverlay(
+                    onDismiss: {
+                        showDownloadInterstitial = false
+                        if let ep = pendingDownloadEpisode, let sn = pendingDownloadSeasonNumber {
+                            downloadManager.startDownload(episode: ep, showTitle: show.title, showId: show.id, seasonNumber: sn)
                             pendingDownloadEpisode = nil
                             pendingDownloadSeasonNumber = nil
-                            showUpgradeForDownload = true
                         }
-                    )
-                    .environmentObject(premiumManager)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .transition(.opacity)
-                    .zIndex(999)
-                }
-            }
-            #if !os(tvOS)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button { dismiss() } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.secondary)
+                    },
+                    onUpgrade: {
+                        showDownloadInterstitial = false
+                        pendingDownloadEpisode = nil
+                        pendingDownloadSeasonNumber = nil
+                        showUpgradeForDownload = true
                     }
-                }
+                )
+                .environmentObject(premiumManager)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .transition(.opacity)
+                .zIndex(999)
             }
+            
+            #if !os(tvOS)
+            closeButtonOverlay
             #endif
         }
+        #if os(macOS)
+        .frame(minWidth: 700, idealWidth: 850, minHeight: 500, idealHeight: 700)
+        #endif
     }
+    
+    #if !os(tvOS)
+    private var closeButtonOverlay: some View {
+        VStack {
+            HStack {
+                Spacer()
+                Button { dismiss() } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title2)
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .padding(12)
+            }
+            Spacer()
+        }
+    }
+    #endif
     
     #if os(tvOS)
     private var tvOSLayout: some View {
@@ -376,10 +390,19 @@ struct ShowDetailView: View {
                     
                     VStack(alignment: .leading, spacing: 16) {
                         showHeader
+                        #if os(macOS)
+                        VStack(alignment: .leading, spacing: 8) {
+                            favoriteButton
+                                .controlSize(.large)
+                            SubtitlePreferenceButton()
+                                .controlSize(.large)
+                        }
+                        #else
                         HStack(spacing: 12) {
                             favoriteButton
                             SubtitlePreferenceButton()
                         }
+                        #endif
                     }
                 }
                 

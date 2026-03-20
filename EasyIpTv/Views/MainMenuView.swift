@@ -24,7 +24,7 @@ struct MainMenuView: View {
             case .liveTV: return L10n.Navigation.liveTV
             case .movies: return L10n.Navigation.movies
             case .shows: return L10n.Navigation.shows
-            case .downloads: return "Downloads"
+            case .downloads: return L10n.Navigation.downloads
             case .settings: return L10n.Navigation.settings
             }
         }

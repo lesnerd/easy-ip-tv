@@ -113,6 +113,7 @@ enum L10n {
         static var liveTV: String { tr("Live TV") }
         static var movies: String { tr("Movies") }
         static var shows: String { tr("Shows") }
+        static var downloads: String { tr("Downloads") }
         static var settings: String { tr("Settings") }
     }
     

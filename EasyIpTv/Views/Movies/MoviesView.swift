@@ -271,28 +271,42 @@ struct MovieDetailView: View {
     }
     
     var body: some View {
-        NavigationStack {
-            ZStack {
-                #if os(tvOS)
-                tvOSDetailLayout
-                #else
-                adaptiveDetailLayout
-                #endif
-                
-                downloadInterstitialOverlay
-            }
+        ZStack {
+            #if os(tvOS)
+            tvOSDetailLayout
+            #else
+            adaptiveDetailLayout
+            #endif
+            
+            downloadInterstitialOverlay
+            
             #if !os(tvOS)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button { dismiss() } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
+            closeButtonOverlay
             #endif
         }
+        #if os(macOS)
+        .frame(minWidth: 700, idealWidth: 850, minHeight: 500, idealHeight: 700)
+        #endif
     }
+    
+    #if !os(tvOS)
+    private var closeButtonOverlay: some View {
+        VStack {
+            HStack {
+                Spacer()
+                Button { dismiss() } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title2)
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .padding(12)
+            }
+            Spacer()
+        }
+    }
+    #endif
     
     #if os(tvOS)
     private var tvOSDetailLayout: some View {
@@ -634,24 +648,30 @@ struct MovieDetailView: View {
                 }
             }
             
-            HStack(spacing: 24) {
-                Button { onPlay() } label: {
-                    Label(L10n.Player.play, systemImage: "play.fill")
-                }
-                .buttonStyle(.borderedProminent)
-                
+            Button { onPlay() } label: {
+                Label(L10n.Player.play, systemImage: "play.fill")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            
+            HStack(spacing: 12) {
                 Button { onToggleFavorite() } label: {
                     Label(
                         displayMovie.isFavorite ? L10n.Favorites.removeFromFavorites : L10n.Favorites.addToFavorites,
                         systemImage: displayMovie.isFavorite ? "heart.fill" : "heart"
                     )
+                    .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
+                .controlSize(.large)
+                .tint(displayMovie.isFavorite ? .red : nil)
                 
                 movieDownloadButton
-                
-                SubtitlePreferenceButton()
             }
+            
+            SubtitlePreferenceButton()
+                .controlSize(.large)
             
             if isLoadingInfo {
                 ProgressView()

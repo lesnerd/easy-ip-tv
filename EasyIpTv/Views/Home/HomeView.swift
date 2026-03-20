@@ -17,8 +17,13 @@ struct HomeView: View {
     @State private var selectedSeasonNumber: Int?
     @State private var showEpisodePlayer = false
     @State private var showUpgradeSheet = false
+    @State private var showPremiumUpgrade = false
     @State private var pendingAction: (() -> Void)?
     @State private var continueWatchingItems: [StorageService.ContinueWatchingItem] = []
+    #if os(macOS)
+    @State private var movieToPlay: Movie?
+    @State private var showToPlay: Show?
+    #endif
     
     var body: some View {
         NavigationStack {
@@ -87,8 +92,13 @@ struct HomeView: View {
                 await contentViewModel.loadTrendingContent()
             }
             .safeAreaInset(edge: .bottom) {
+                #if os(macOS)
+                BannerAdView { showPremiumUpgrade = true }
+                    .environmentObject(premiumManager)
+                #else
                 BannerAdView { showUpgradeSheet = true }
                     .environmentObject(premiumManager)
+                #endif
             }
         }
         .onAppear {
@@ -103,22 +113,71 @@ struct HomeView: View {
         .onChange(of: playingChannel) { _, value in
             if value == nil { reloadContinueWatching() }
         }
+        #if os(macOS)
+        .sheet(isPresented: $showPremiumUpgrade) {
+            UpgradePromptView()
+                .environmentObject(premiumManager)
+        }
+        #else
         .sheet(isPresented: $showUpgradeSheet, onDismiss: {
-            if let action = pendingAction {
-                pendingAction = nil
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                    action()
-                }
-            }
+            runPendingActionAfterDismiss()
         }) {
             UpgradePromptView()
                 .environmentObject(premiumManager)
         }
+        #endif
         .platformFullScreen(item: $playingChannel) { channel in
             PlayerView(channel: channel, onClose: { playingChannel = nil })
                 .id(channel.id)
                 .environmentObject(contentViewModel)
         }
+        #if os(macOS)
+        .sheet(item: $selectedMovie) { movie in
+            MovieDetailView(movie: movie) {
+                movieToPlay = movie
+                selectedMovie = nil
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    showMoviePlayer = true
+                }
+            } onToggleFavorite: {
+                contentViewModel.toggleFavorite(movie: movie)
+                favoritesViewModel.toggleFavorite(movie: movie)
+            }
+            .environmentObject(contentViewModel)
+        }
+        .platformFullScreen(isPresented: $showMoviePlayer) {
+            if let movie = movieToPlay ?? selectedMovie {
+                PlayerView(movie: movie, onClose: {
+                    showMoviePlayer = false
+                    movieToPlay = nil
+                })
+                .id(movie.id)
+            }
+        }
+        .sheet(item: $selectedShow) { show in
+            ShowDetailView(show: show) { episode, seasonNumber in
+                selectedEpisode = episode
+                selectedSeasonNumber = seasonNumber
+                showToPlay = show
+                selectedShow = nil
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    showEpisodePlayer = true
+                }
+            } onToggleFavorite: {
+                contentViewModel.toggleFavorite(show: show)
+                favoritesViewModel.toggleFavorite(show: show)
+            }
+        }
+        .platformFullScreen(isPresented: $showEpisodePlayer) {
+            if let episode = selectedEpisode {
+                PlayerView(episode: episode, showContext: showToPlay ?? selectedShow, seasonNumber: selectedSeasonNumber, onClose: {
+                    showEpisodePlayer = false
+                    showToPlay = nil
+                })
+                .id(episode.id)
+            }
+        }
+        #else
         .sheet(isPresented: $showMovieDetail) {
             if let movie = selectedMovie {
                 MovieDetailView(movie: movie) {
@@ -156,26 +215,56 @@ struct HomeView: View {
                     .id(episode.id)
             }
         }
+        #endif
     }
     
     // MARK: - Gate for free-tier users
     
     private func gatedAction(_ action: @escaping () -> Void) {
+        #if os(macOS)
+        // On macOS, let users browse freely — interstitial ads show on play
+        // (handled by MovieDetailView / ShowDetailView), avoiding the
+        // overlay-then-sheet timing bug unique to macOS SwiftUI.
+        action()
+        #else
         if premiumManager.isPremium {
             action()
         } else {
             pendingAction = action
             showUpgradeSheet = true
         }
+        #endif
     }
+    
+    private func runPendingActionAfterDismiss() {
+        guard let action = pendingAction else { return }
+        pendingAction = nil
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            action()
+        }
+    }
+    
+    private func openMovieDetail(_ movie: Movie) {
+        selectedMovie = movie
+        #if !os(macOS)
+        showMovieDetail = true
+        #endif
+    }
+    
+    private func openShowDetail(_ show: Show) {
+        selectedShow = show
+        #if !os(macOS)
+        showShowDetail = true
+        #endif
+    }
+    
     
     // MARK: - Hero Banner
     
     private func heroBanner(movie: Movie) -> some View {
         Button {
             gatedAction {
-                selectedMovie = movie
-                showMovieDetail = true
+                openMovieDetail(movie)
             }
         } label: {
             ZStack(alignment: .bottomLeading) {
@@ -289,8 +378,7 @@ struct HomeView: View {
                             showLock: !premiumManager.isPremium
                         ) {
                             gatedAction {
-                                selectedMovie = movie
-                                showMovieDetail = true
+                                openMovieDetail(movie)
                             }
                         }
                     }
@@ -319,8 +407,7 @@ struct HomeView: View {
                             showLock: !premiumManager.isPremium
                         ) {
                             gatedAction {
-                                selectedShow = show
-                                showShowDetail = true
+                                openShowDetail(show)
                             }
                         }
                     }
@@ -391,8 +478,7 @@ struct HomeView: View {
                     ForEach(favoritesViewModel.favoriteMovies) { movie in
                         MovieCard(movie: movie) {
                             gatedAction {
-                                selectedMovie = movie
-                                showMovieDetail = true
+                                openMovieDetail(movie)
                             }
                         } onLongPress: {
                             contentViewModel.toggleFavorite(movie: movie)
@@ -412,8 +498,7 @@ struct HomeView: View {
                     ForEach(favoritesViewModel.favoriteShows) { show in
                         ShowCard(show: show) {
                             gatedAction {
-                                selectedShow = show
-                                showShowDetail = true
+                                openShowDetail(show)
                             }
                         } onLongPress: {
                             contentViewModel.toggleFavorite(show: show)
@@ -435,22 +520,35 @@ struct HomeView: View {
     private func handleContinueWatching(_ item: StorageService.ContinueWatchingItem) {
         if item.contentType == "movie" {
             if let movie = contentViewModel.movie(withId: item.id) {
+                #if os(macOS)
+                movieToPlay = movie
+                #else
                 selectedMovie = movie
+                #endif
                 showMoviePlayer = true
             } else if let streamURL = item.streamURL {
-                selectedMovie = Movie(
+                let movie = Movie(
                     id: item.id, title: item.title,
                     posterURL: item.posterURL, streamURL: streamURL,
                     category: "", year: nil, duration: Int(item.duration / 60),
                     description: nil, rating: nil, director: nil,
                     cast: nil, genre: nil, backdropURL: nil, streamId: nil
                 )
+                #if os(macOS)
+                movieToPlay = movie
+                #else
+                selectedMovie = movie
+                #endif
                 showMoviePlayer = true
             }
         } else if let episodeId = item.episodeId {
             if let episode = contentViewModel.findEpisode(byId: episodeId) {
                 if let showId = item.showId {
+                    #if os(macOS)
+                    showToPlay = contentViewModel.show(withId: showId)
+                    #else
                     selectedShow = contentViewModel.show(withId: showId)
+                    #endif
                 }
                 selectedEpisode = episode
                 selectedSeasonNumber = item.seasonNumber
@@ -465,7 +563,11 @@ struct HomeView: View {
                     duration: Int(item.duration / 60)
                 )
                 if let showId = item.showId {
+                    #if os(macOS)
+                    showToPlay = contentViewModel.show(withId: showId)
+                    #else
                     selectedShow = contentViewModel.show(withId: showId)
+                    #endif
                 }
                 selectedSeasonNumber = item.seasonNumber
                 showEpisodePlayer = true

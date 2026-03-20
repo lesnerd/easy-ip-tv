@@ -36,7 +36,7 @@ struct DownloadsView: View {
                 }
             }
             #if !os(tvOS)
-            .navigationTitle("Downloads")
+            .navigationTitle(L10n.Navigation.downloads)
             #endif
         }
         .sheet(isPresented: $showUpgrade) {

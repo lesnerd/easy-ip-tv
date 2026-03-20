@@ -235,7 +235,7 @@ struct LiveTVView: View {
                     )
                 } else {
                     // Channel grid
-                    CategoryGrid(items: filteredChannels, columns: PlatformMetrics.gridColumns) { channel in
+                    CategoryGrid(items: filteredChannels, columns: PlatformMetrics.gridColumns, minItemWidth: PlatformMetrics.channelCardWidth) { channel in
                         ChannelCard(channel: channel, nowPlaying: nowPlayingText(for: channel), onTap: {
                             playChannel(channel)
                         }, onLongPress: {
@@ -346,7 +346,7 @@ struct LiveTVView: View {
                         .padding(.top, 100)
                 } else {
                     // Channel grid
-                    CategoryGrid(items: channels, columns: PlatformMetrics.gridColumns) { channel in
+                    CategoryGrid(items: channels, columns: PlatformMetrics.gridColumns, minItemWidth: PlatformMetrics.channelCardWidth) { channel in
                         ChannelCard(channel: channel, nowPlaying: nowPlayingText(for: channel), onTap: {
                             playChannel(channel)
                         }, onLongPress: {

@@ -218,21 +218,32 @@ struct CategoryRow<Content: View>: View {
 struct CategoryGrid<Item: Identifiable, ItemView: View>: View {
     let items: [Item]
     let columns: Int
+    let minItemWidth: CGFloat
     let itemView: (Item) -> ItemView
     
     init(
         items: [Item],
         columns: Int = PlatformMetrics.gridColumns,
+        minItemWidth: CGFloat = PlatformMetrics.posterCardWidth,
         @ViewBuilder itemView: @escaping (Item) -> ItemView
     ) {
         self.items = items
         self.columns = columns
+        self.minItemWidth = minItemWidth
         self.itemView = itemView
+    }
+    
+    private var gridColumns: [GridItem] {
+        #if os(macOS)
+        return [GridItem(.adaptive(minimum: minItemWidth, maximum: minItemWidth * 2), spacing: PlatformMetrics.horizontalSpacing)]
+        #else
+        return Array(repeating: GridItem(.flexible(), spacing: PlatformMetrics.horizontalSpacing), count: columns)
+        #endif
     }
     
     var body: some View {
         LazyVGrid(
-            columns: Array(repeating: GridItem(.flexible(), spacing: PlatformMetrics.horizontalSpacing), count: columns),
+            columns: gridColumns,
             spacing: PlatformMetrics.horizontalSpacing
         ) {
             ForEach(items) { item in
