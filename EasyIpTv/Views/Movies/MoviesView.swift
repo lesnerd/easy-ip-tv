@@ -271,14 +271,26 @@ struct MovieDetailView: View {
     }
     
     var body: some View {
-        ZStack {
-            #if os(tvOS)
-            tvOSDetailLayout
-            #else
-            adaptiveDetailLayout
+        NavigationStack {
+            ZStack {
+                #if os(tvOS)
+                tvOSDetailLayout
+                #else
+                adaptiveDetailLayout
+                #endif
+                
+                downloadInterstitialOverlay
+            }
+            #if !os(tvOS)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
             #endif
-            
-            downloadInterstitialOverlay
         }
     }
     

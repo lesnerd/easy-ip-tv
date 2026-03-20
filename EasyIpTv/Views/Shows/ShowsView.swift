@@ -300,35 +300,47 @@ struct ShowDetailView: View {
     }
     
     var body: some View {
-        ZStack {
-            #if os(tvOS)
-            tvOSLayout
-            #else
-            adaptiveLayout
-            #endif
-            
-            if showDownloadInterstitial {
-                InterstitialAdOverlay(
-                    onDismiss: {
-                        showDownloadInterstitial = false
-                        if let ep = pendingDownloadEpisode, let sn = pendingDownloadSeasonNumber {
-                            downloadManager.startDownload(episode: ep, showTitle: show.title, showId: show.id, seasonNumber: sn)
+        NavigationStack {
+            ZStack {
+                #if os(tvOS)
+                tvOSLayout
+                #else
+                adaptiveLayout
+                #endif
+                
+                if showDownloadInterstitial {
+                    InterstitialAdOverlay(
+                        onDismiss: {
+                            showDownloadInterstitial = false
+                            if let ep = pendingDownloadEpisode, let sn = pendingDownloadSeasonNumber {
+                                downloadManager.startDownload(episode: ep, showTitle: show.title, showId: show.id, seasonNumber: sn)
+                                pendingDownloadEpisode = nil
+                                pendingDownloadSeasonNumber = nil
+                            }
+                        },
+                        onUpgrade: {
+                            showDownloadInterstitial = false
                             pendingDownloadEpisode = nil
                             pendingDownloadSeasonNumber = nil
+                            showUpgradeForDownload = true
                         }
-                    },
-                    onUpgrade: {
-                        showDownloadInterstitial = false
-                        pendingDownloadEpisode = nil
-                        pendingDownloadSeasonNumber = nil
-                        showUpgradeForDownload = true
-                    }
-                )
-                .environmentObject(premiumManager)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .transition(.opacity)
-                .zIndex(999)
+                    )
+                    .environmentObject(premiumManager)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .transition(.opacity)
+                    .zIndex(999)
+                }
             }
+            #if !os(tvOS)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            #endif
         }
     }
     

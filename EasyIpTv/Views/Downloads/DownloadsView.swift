@@ -209,6 +209,16 @@ struct DownloadsView: View {
                 
                 Spacer()
                 
+                #if os(macOS)
+                Button {
+                    downloadManager.deleteDownload(id: item.id)
+                } label: {
+                    Image(systemName: "trash")
+                        .foregroundStyle(.red.opacity(0.7))
+                }
+                .buttonStyle(.plain)
+                #endif
+                
                 Image(systemName: "play.circle.fill")
                     .font(.title2)
                     .foregroundColor(.accentColor)
@@ -217,6 +227,13 @@ struct DownloadsView: View {
         .buttonStyle(.plain)
         #if !os(tvOS)
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            Button(role: .destructive) {
+                downloadManager.deleteDownload(id: item.id)
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
+        .contextMenu {
             Button(role: .destructive) {
                 downloadManager.deleteDownload(id: item.id)
             } label: {
