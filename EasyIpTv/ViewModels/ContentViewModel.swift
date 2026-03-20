@@ -517,40 +517,54 @@ class ContentViewModel: ObservableObject {
         let maxTrending = 20
         let categoriesToLoad = 5
         
-        // Trending Movies: load from first N VOD categories, sort by rating
+        // Load ALL categories first, then update @Published properties in one
+        // batch at the end. Updating mid-load causes SwiftUI to re-render the
+        // Home view (switching from LoadingView to ScrollView), which cancels
+        // the .task and aborts remaining network requests.
+        
+        // 1. Load movies
         let vodCats = Array(vodCategories.prefix(categoriesToLoad))
         for cat in vodCats {
             await loadMoviesForCategory(cat)
         }
-        let allMovies = vodCats.compactMap { movieCache[$0.name] }.flatMap { $0 }
-        let uniqueMovies = Array(Dictionary(grouping: allMovies, by: { $0.id }).compactMapValues(\.first).values)
-        trendingMovies = uniqueMovies
-            .sorted { ($0.rating ?? 0) > ($1.rating ?? 0) }
-            .prefix(maxTrending)
-            .map { $0 }
         
-        // Trending Shows: load from first N series categories, sort by rating
+        // 2. Load shows
         let seriesCats = Array(seriesCategories.prefix(categoriesToLoad))
         for cat in seriesCats {
             await loadShowsForCategory(cat)
         }
-        let allShows = seriesCats.compactMap { showCache[$0.name] }.flatMap { $0 }
-        let uniqueShows = Array(Dictionary(grouping: allShows, by: { $0.id }).compactMapValues(\.first).values)
-        trendingShows = uniqueShows
-            .sorted { ($0.rating ?? 0) > ($1.rating ?? 0) }
-            .prefix(maxTrending)
-            .map { $0 }
         
-        // Trending Live TV: load from first N live categories
+        // 3. Load channels
         let liveCats = Array(liveCategories.prefix(3))
         for cat in liveCats {
             await loadChannelsForCategory(cat)
         }
-        trendingChannels = liveCats
+        
+        // 4. Now compute and assign all trending data at once
+        let allMovies = vodCats.compactMap { movieCache[$0.name] }.flatMap { $0 }
+        let uniqueMovies = Array(Dictionary(grouping: allMovies, by: { $0.id }).compactMapValues(\.first).values)
+        let sortedMovies = uniqueMovies
+            .sorted { ($0.rating ?? 0) > ($1.rating ?? 0) }
+            .prefix(maxTrending)
+            .map { $0 }
+        
+        let allShows = seriesCats.compactMap { showCache[$0.name] }.flatMap { $0 }
+        let uniqueShows = Array(Dictionary(grouping: allShows, by: { $0.id }).compactMapValues(\.first).values)
+        let sortedShows = uniqueShows
+            .sorted { ($0.rating ?? 0) > ($1.rating ?? 0) }
+            .prefix(maxTrending)
+            .map { $0 }
+        
+        let sortedChannels = liveCats
             .compactMap { channelCache[$0.name] }
             .flatMap { $0 }
             .prefix(maxTrending)
             .map { $0 }
+        
+        // Single batch update — avoids mid-load re-render
+        trendingMovies = sortedMovies
+        trendingShows = sortedShows
+        trendingChannels = sortedChannels
         
         NSLog("[ContentViewModel] Loaded trending: %d movies, %d shows, %d channels",
               trendingMovies.count, trendingShows.count, trendingChannels.count)

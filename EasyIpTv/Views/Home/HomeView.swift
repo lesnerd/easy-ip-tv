@@ -79,18 +79,6 @@ struct HomeView: View {
             #if !os(tvOS)
             .navigationTitle(L10n.Navigation.home)
             #endif
-            .task {
-                favoritesViewModel.loadSavedFavorites()
-                // Wait until categories are loaded before loading trending
-                while contentViewModel.isLoading || (!contentViewModel.hasContent && contentViewModel.liveCategories.isEmpty && contentViewModel.vodCategories.isEmpty) {
-                    try? await Task.sleep(nanoseconds: 300_000_000)
-                    if !contentViewModel.isLoading && contentViewModel.liveCategories.isEmpty && contentViewModel.vodCategories.isEmpty {
-                        // No playlist configured or loading finished with no content
-                        break
-                    }
-                }
-                await contentViewModel.loadTrendingContent()
-            }
             .safeAreaInset(edge: .bottom) {
                 #if os(macOS)
                 BannerAdView { showPremiumUpgrade = true }
@@ -100,6 +88,16 @@ struct HomeView: View {
                     .environmentObject(premiumManager)
                 #endif
             }
+        }
+        .task {
+            favoritesViewModel.loadSavedFavorites()
+            while contentViewModel.isLoading || (!contentViewModel.hasContent && contentViewModel.liveCategories.isEmpty && contentViewModel.vodCategories.isEmpty && contentViewModel.seriesCategories.isEmpty) {
+                try? await Task.sleep(nanoseconds: 300_000_000)
+                if !contentViewModel.isLoading && contentViewModel.liveCategories.isEmpty && contentViewModel.vodCategories.isEmpty && contentViewModel.seriesCategories.isEmpty {
+                    break
+                }
+            }
+            await contentViewModel.loadTrendingContent()
         }
         .onAppear {
             reloadContinueWatching()
