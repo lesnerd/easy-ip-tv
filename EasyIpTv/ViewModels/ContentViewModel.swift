@@ -358,18 +358,18 @@ class ContentViewModel: ObservableObject {
             liveCategories = live.compactMap { cat -> CategoryInfo? in
                 guard let id = cat.categoryId, let name = cat.categoryName else { return nil }
                 return CategoryInfo(id: id, name: name)
-            }.sorted { categoryPriority($0.name) < categoryPriority($1.name) }
+            }.sorted(by: categorySortComparator)
             
             vodCategories = vod.compactMap { cat -> CategoryInfo? in
                 guard let id = cat.categoryId, let name = cat.categoryName else { return nil }
                 return CategoryInfo(id: id, name: name)
-            }.sorted { categoryPriority($0.name) < categoryPriority($1.name) }
+            }.sorted(by: categorySortComparator)
             
             if let series = series {
                 seriesCategories = series.compactMap { cat -> CategoryInfo? in
                     guard let id = cat.categoryId, let name = cat.categoryName else { return nil }
                     return CategoryInfo(id: id, name: name)
-                }.sorted { categoryPriority($0.name) < categoryPriority($1.name) }
+                }.sorted(by: categorySortComparator)
             }
             
             hasContent = !liveCategories.isEmpty || !vodCategories.isEmpty || !seriesCategories.isEmpty
@@ -416,20 +416,20 @@ class ContentViewModel: ObservableObject {
             liveCategories = live.compactMap { cat -> CategoryInfo? in
                 guard let id = cat.id, let name = cat.title else { return nil }
                 return CategoryInfo(id: id, name: name)
-            }.sorted { categoryPriority($0.name) < categoryPriority($1.name) }
+            }.sorted(by: categorySortComparator)
             
             if let vod = vod {
                 vodCategories = vod.compactMap { cat -> CategoryInfo? in
                     guard let id = cat.id, let name = cat.title else { return nil }
                     return CategoryInfo(id: id, name: name)
-                }.sorted { categoryPriority($0.name) < categoryPriority($1.name) }
+                }.sorted(by: categorySortComparator)
             }
             
             if let series = series {
                 seriesCategories = series.compactMap { cat -> CategoryInfo? in
                     guard let id = cat.id, let name = cat.title else { return nil }
                     return CategoryInfo(id: id, name: name)
-                }.sorted { categoryPriority($0.name) < categoryPriority($1.name) }
+                }.sorted(by: categorySortComparator)
             }
             
             hasContent = !liveCategories.isEmpty || !vodCategories.isEmpty || !seriesCategories.isEmpty
@@ -454,7 +454,7 @@ class ContentViewModel: ObservableObject {
             
             liveCategories = channelGroups.keys.map { name in
                 CategoryInfo(id: name, name: name, itemCount: channelGroups[name]?.count)
-            }.sorted { categoryPriority($0.name) < categoryPriority($1.name) }
+            }.sorted(by: categorySortComparator)
             
             // Group movies by category
             let movieGroups = Dictionary(grouping: content.movies) { $0.category }
@@ -465,13 +465,15 @@ class ContentViewModel: ObservableObject {
             
             vodCategories = movieGroups.keys.map { name in
                 CategoryInfo(id: name, name: name, itemCount: movieGroups[name]?.count)
-            }.sorted { categoryPriority($0.name) < categoryPriority($1.name) }
+            }.sorted(by: categorySortComparator)
             
-            // Set featured from first loaded content
-            if let firstChannels = channelGroups.values.first {
+            // Set featured from first (highest-priority) sorted category
+            if let firstCat = liveCategories.first,
+               let firstChannels = channelGroups[firstCat.name] {
                 featuredChannels = Array(firstChannels.prefix(Self.maxFeaturedItems))
             }
-            if let firstMovies = movieGroups.values.first {
+            if let firstCat = vodCategories.first,
+               let firstMovies = movieGroups[firstCat.name] {
                 featuredMovies = Array(firstMovies.prefix(Self.maxFeaturedItems))
             }
             
@@ -1027,11 +1029,38 @@ class ContentViewModel: ObservableObject {
     
     /// Re-sorts all category arrays based on current language priority
     private func resortCategories() {
-        // Use .sorted() to create new arrays, ensuring @Published fires properly
-        liveCategories = liveCategories.sorted { categoryPriority($0.name) < categoryPriority($1.name) }
-        vodCategories = vodCategories.sorted { categoryPriority($0.name) < categoryPriority($1.name) }
-        seriesCategories = seriesCategories.sorted { categoryPriority($0.name) < categoryPriority($1.name) }
+        liveCategories = liveCategories.sorted(by: categorySortComparator)
+        vodCategories = vodCategories.sorted(by: categorySortComparator)
+        seriesCategories = seriesCategories.sorted(by: categorySortComparator)
+        
+        #if DEBUG
+        logSortedCategories("Live", liveCategories)
+        logSortedCategories("VOD", vodCategories)
+        logSortedCategories("Series", seriesCategories)
+        #endif
     }
+    
+    private func categorySortComparator(_ a: CategoryInfo, _ b: CategoryInfo) -> Bool {
+        let pa = categoryPriority(a.name)
+        let pb = categoryPriority(b.name)
+        if pa != pb { return pa < pb }
+        return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
+    }
+    
+    #if DEBUG
+    private func logSortedCategories(_ label: String, _ cats: [CategoryInfo]) {
+        guard !cats.isEmpty else { return }
+        NSLog("[Priority] --- %@ categories (%d) ---", label, cats.count)
+        for (i, cat) in cats.prefix(15).enumerated() {
+            let lang = IPTVLanguage.detect(from: cat.name)?.displayName ?? "undetected"
+            let pri = categoryPriority(cat.name)
+            NSLog("[Priority] %d. \"%@\" → lang=%@ pri=%d", i, cat.name, lang, pri)
+        }
+        if cats.count > 15 {
+            NSLog("[Priority] ... and %d more", cats.count - 15)
+        }
+    }
+    #endif
     
     /// Refreshes all content
     func refresh() async {

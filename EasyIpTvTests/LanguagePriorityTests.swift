@@ -215,4 +215,254 @@ final class LanguagePriorityTests: XCTestCase {
         XCTAssertTrue(lang.matches("Best Hungarian Channels"))
         XCTAssertFalse(lang.matches("Sports"))
     }
+    
+    // MARK: - Bracket/Dash/Paren Short Code Patterns
+    
+    func testShortCodeBracketPatterns() {
+        let lang = IPTVLanguage(id: "test", displayName: "Test", flag: "T", keywords: ["ar"])
+        
+        XCTAssertTrue(lang.matches("[AR] Movies"))
+        XCTAssertTrue(lang.matches("Movies [AR]"))
+        XCTAssertTrue(lang.matches("Sports [AR] HD"))
+    }
+    
+    func testShortCodeParenPatterns() {
+        let lang = IPTVLanguage(id: "test", displayName: "Test", flag: "T", keywords: ["ar"])
+        
+        XCTAssertTrue(lang.matches("(AR) Movies"))
+        XCTAssertTrue(lang.matches("Movies (AR)"))
+        XCTAssertTrue(lang.matches("Sports (AR) Live"))
+    }
+    
+    func testShortCodeDashPatterns() {
+        let lang = IPTVLanguage(id: "test", displayName: "Test", flag: "T", keywords: ["ar"])
+        
+        XCTAssertTrue(lang.matches("Movies AR-HD"))
+        XCTAssertTrue(lang.matches("Movies-AR-Sports"))
+        XCTAssertTrue(lang.matches("HD -AR- Movies"))
+    }
+    
+    func testShortCodePipePrefix() {
+        XCTAssertEqual(IPTVLanguage.detect(from: "UK| PRIME ᴿᴬᵂ ⁶⁰ᶠᵖˢ")?.id, "uk")
+        XCTAssertEqual(IPTVLanguage.detect(from: "DE| GENERAL HD/4K")?.id, "germany")
+        XCTAssertEqual(IPTVLanguage.detect(from: "TR| SPORT HD")?.id, "turkey")
+        XCTAssertEqual(IPTVLanguage.detect(from: "FR| CANAL+ HD")?.id, "france")
+        XCTAssertEqual(IPTVLanguage.detect(from: "IL| NEWS HD")?.id, "israel")
+    }
+    
+    // MARK: - Arabic Script Detection
+    
+    func testDetectArabicWithoutDefiniteArticle() {
+        // عربية (without ال) appears in real IPTV providers
+        XCTAssertEqual(IPTVLanguage.detect(from: "أفلام عربية فائقة الوضوح")?.id, "arabic")
+        XCTAssertEqual(IPTVLanguage.detect(from: "مسلسلات عربية فائقة الوضوح")?.id, "arabic")
+        XCTAssertEqual(IPTVLanguage.detect(from: "أفلام عربية حديثه")?.id, "arabic")
+        XCTAssertEqual(IPTVLanguage.detect(from: "أفلام عربية كلاسيك")?.id, "arabic")
+    }
+    
+    func testDetectArabicCountryNames() {
+        XCTAssertEqual(IPTVLanguage.detect(from: "أفلام مصرية")?.id, "arabic")
+        XCTAssertEqual(IPTVLanguage.detect(from: "مسلسلات مصريه")?.id, "arabic")
+        XCTAssertEqual(IPTVLanguage.detect(from: "مسلسلات خليجية")?.id, "arabic")
+        XCTAssertEqual(IPTVLanguage.detect(from: "أفلام مغربية")?.id, "arabic")
+        XCTAssertEqual(IPTVLanguage.detect(from: "أفلام تونسيه")?.id, "arabic")
+        XCTAssertEqual(IPTVLanguage.detect(from: "أفلام جزائرية")?.id, "arabic")
+        XCTAssertEqual(IPTVLanguage.detect(from: "مسلسلات سورية لبنانية")?.id, "arabic")
+        XCTAssertEqual(IPTVLanguage.detect(from: "مسلسلات عراقية")?.id, "arabic")
+        XCTAssertEqual(IPTVLanguage.detect(from: "مسلسلات يمنيه")?.id, "arabic")
+        XCTAssertEqual(IPTVLanguage.detect(from: "مسلسلات أردني فلسطيني")?.id, "arabic")
+        XCTAssertEqual(IPTVLanguage.detect(from: "مسلسلات بدوية")?.id, "arabic")
+        XCTAssertEqual(IPTVLanguage.detect(from: "أفلام شامية")?.id, "arabic")
+        XCTAssertEqual(IPTVLanguage.detect(from: "رمضان أطفال 2026")?.id, "arabic")
+        XCTAssertEqual(IPTVLanguage.detect(from: "مسرحيات مصرية")?.id, "arabic")
+    }
+    
+    func testDetectTurkishInArabicScript() {
+        // تركية should detect as Turkish, not Arabic
+        XCTAssertEqual(IPTVLanguage.detect(from: "مسلسلات تركية مترجمة")?.id, "turkey")
+        XCTAssertEqual(IPTVLanguage.detect(from: "مسلسلات تركية فائقة الوضوح")?.id, "turkey")
+        XCTAssertEqual(IPTVLanguage.detect(from: "يعرض الآن تركي مدبلج")?.id, "turkey")
+    }
+    
+    func testDetectIndianInArabicScript() {
+        XCTAssertEqual(IPTVLanguage.detect(from: "مسلسلات هندية مدبلجة")?.id, "india")
+        XCTAssertEqual(IPTVLanguage.detect(from: "افلام هندية فائقة الوضوح")?.id, "india")
+    }
+    
+    func testDetectGermanInArabicScript() {
+        XCTAssertEqual(IPTVLanguage.detect(from: "مسلسلات ألمانية 2025")?.id, "germany")
+    }
+    
+    func testDetectRussianInArabicScript() {
+        XCTAssertEqual(IPTVLanguage.detect(from: "مسلسلات روسيه مترجمة")?.id, "russia")
+    }
+    
+    func testDetectNoLanguageForGenericNames() {
+        XCTAssertNil(IPTVLanguage.detect(from: "TOP MOVIES BLURAY (MULTI-SUBS)"))
+        XCTAssertNil(IPTVLanguage.detect(from: "JAMES BOND 007"))
+        XCTAssertNil(IPTVLanguage.detect(from: "4K| ᵁᴴᴰ ³⁸⁴⁰ᴾ"))
+    }
+    
+    // MARK: - New Short Code Coverage
+    
+    func testSerbiaShortCode() {
+        XCTAssertEqual(IPTVLanguage.detect(from: "SR| SPORT HD")?.id, "serbia")
+        XCTAssertEqual(IPTVLanguage.detect(from: "RS| NEWS")?.id, "serbia")
+    }
+    
+    func testKurdishShortCode() {
+        XCTAssertEqual(IPTVLanguage.detect(from: "KU| CHANNELS")?.id, "kurdish")
+    }
+    
+    func testBrazilShortCode() {
+        XCTAssertEqual(IPTVLanguage.detect(from: "BR| SPORT")?.id, "portugal")
+    }
+    
+    func testAfricaShortCode() {
+        XCTAssertEqual(IPTVLanguage.detect(from: "AFR| CHANNELS")?.id, "africa")
+    }
+    
+    // MARK: - Three-Tier Sorting: Preferred / Undetected / Deprioritized
+    
+    func testThreeTierSortOrder() {
+        let config = LanguagePriorityConfig(
+            preferred: ["uk", "israel"],
+            deprioritized: ["arabic"]
+        )
+        
+        let categories = [
+            "أفلام مصرية",                // Arabic (deprioritized, pri 97)
+            "TOP MOVIES BLURAY",           // Undetected (pri 50)
+            "UK| GENERAL HD",              // UK preferred (pri 0)
+            "مسلسلات خليجية",             // Arabic (deprioritized, pri 97)
+            "IL| NEWS HD",                 // Israel preferred (pri 1)
+            "JAMES BOND 007",             // Undetected (pri 50)
+            "رمضان أطفال 2026",           // Arabic (deprioritized, pri 97)
+        ]
+        
+        let sorted = categories.sorted {
+            let p0 = config.priority(for: $0)
+            let p1 = config.priority(for: $1)
+            if p0 != p1 { return p0 < p1 }
+            return $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
+        }
+        
+        // UK first (0), Israel second (1), undetected middle (50), Arabic last (97)
+        XCTAssertEqual(sorted[0], "UK| GENERAL HD")
+        XCTAssertEqual(sorted[1], "IL| NEWS HD")
+        
+        // Undetected in alphabetical order
+        XCTAssertTrue(sorted[2] == "JAMES BOND 007" || sorted[2] == "TOP MOVIES BLURAY")
+        XCTAssertTrue(sorted[3] == "JAMES BOND 007" || sorted[3] == "TOP MOVIES BLURAY")
+        
+        // All Arabic at end
+        let lastThree = Array(sorted.suffix(3))
+        for cat in lastThree {
+            XCTAssertEqual(config.priority(for: cat), 97, "\(cat) should be deprioritized")
+        }
+    }
+    
+    func testPreferredOrderIsPreserved() {
+        let config = LanguagePriorityConfig(
+            preferred: ["uk", "germany", "france"],
+            deprioritized: []
+        )
+        
+        let categories = [
+            "FR| CANAL+ HD",
+            "DE| GENERAL HD",
+            "UK| SKY SPORT",
+            "Sports Generic",
+        ]
+        
+        let sorted = categories.sorted {
+            let p0 = config.priority(for: $0)
+            let p1 = config.priority(for: $1)
+            if p0 != p1 { return p0 < p1 }
+            return $0 < $1
+        }
+        
+        XCTAssertEqual(sorted[0], "UK| SKY SPORT")    // Preferred index 0
+        XCTAssertEqual(sorted[1], "DE| GENERAL HD")   // Preferred index 1
+        XCTAssertEqual(sorted[2], "FR| CANAL+ HD")    // Preferred index 2
+        XCTAssertEqual(sorted[3], "Sports Generic")    // Undetected
+    }
+    
+    func testDeprioritizedOrderIsPreserved() {
+        let config = LanguagePriorityConfig(
+            preferred: [],
+            deprioritized: ["arabic", "turkey", "india"]
+        )
+        
+        XCTAssertEqual(config.priority(for: "Arabic Channels"), 97)
+        XCTAssertEqual(config.priority(for: "Turkey Sports"), 98)
+        XCTAssertEqual(config.priority(for: "Indian Movies"), 99)
+    }
+    
+    func testUndetectedCategoriesStayInMiddle() {
+        let config = LanguagePriorityConfig(
+            preferred: ["uk"],
+            deprioritized: ["arabic"]
+        )
+        
+        let pri = config.priority(for: "TOP MOVIES BLURAY")
+        XCTAssertEqual(pri, 50)
+        XCTAssertTrue(pri > 0, "Undetected should be after preferred")
+        XCTAssertTrue(pri < 97, "Undetected should be before deprioritized")
+    }
+    
+    func testAlphabeticalTiebreakerForSamePriority() {
+        let config = LanguagePriorityConfig(
+            preferred: ["uk"],
+            deprioritized: ["arabic"]
+        )
+        
+        let undetected = ["Zebra Movies", "Apple TV", "Movies HD"]
+        let sorted = undetected.sorted {
+            let p0 = config.priority(for: $0)
+            let p1 = config.priority(for: $1)
+            if p0 != p1 { return p0 < p1 }
+            return $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
+        }
+        
+        XCTAssertEqual(sorted[0], "Apple TV")
+        XCTAssertEqual(sorted[1], "Movies HD")
+        XCTAssertEqual(sorted[2], "Zebra Movies")
+    }
+    
+    func testRealWorldProviderCategorySorting() {
+        let config = LanguagePriorityConfig(
+            preferred: ["uk"],
+            deprioritized: ["arabic"]
+        )
+        
+        let categories = [
+            "أفلام عربية فائقة الوضوح",
+            "UK| GENERAL ᴴᴰ/ᴿᴬᵂ",
+            "TOP MOVIES BLURAY (MULTI-SUBS)",
+            "مسلسلات مصريه",
+            "UK| SKY CINEMA ᴴᴰ/ᴿᴬᵂ",
+            "JAMES BOND 007",
+            "رمضان أطفال 2026",
+        ]
+        
+        let sorted = categories.sorted {
+            let p0 = config.priority(for: $0)
+            let p1 = config.priority(for: $1)
+            if p0 != p1 { return p0 < p1 }
+            return $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
+        }
+        
+        // UK categories first
+        XCTAssertTrue(sorted[0].hasPrefix("UK|"))
+        XCTAssertTrue(sorted[1].hasPrefix("UK|"))
+        
+        // Undetected in middle
+        XCTAssertTrue(sorted[2] == "JAMES BOND 007" || sorted[2] == "TOP MOVIES BLURAY (MULTI-SUBS)")
+        
+        // Arabic categories at the end
+        for cat in sorted.suffix(3) {
+            XCTAssertEqual(config.priority(for: cat), 97, "\(cat) should be deprioritized")
+        }
+    }
 }
