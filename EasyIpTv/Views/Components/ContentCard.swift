@@ -196,85 +196,10 @@ struct ChannelCard: View {
         Button {
             onTap()
         } label: {
-            ZStack(alignment: .bottom) {
-                channelThumbnail
-                
-                LinearGradient(
-                    colors: [Color.black.opacity(0.9), Color.black.opacity(0.4), .clear],
-                    startPoint: .bottom,
-                    endPoint: .top
-                )
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 6) {
-                        if channel.hasCatchup {
-                            HStack(spacing: 3) {
-                                Image(systemName: "clock.arrow.circlepath")
-                                    .font(.system(size: 7))
-                                Text("Catchup")
-                                    .font(AppTypography.micro)
-                            }
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(AppTheme.catchupBadge.opacity(0.85), in: Capsule())
-                        }
-                        Spacer()
-                        if channel.isFavorite {
-                            Image(systemName: "heart.fill")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(AppTheme.tertiary)
-                        }
-                    }
-                    
-                    Text(channel.name)
-                        #if os(tvOS)
-                        .font(.system(size: 16, weight: .bold))
-                        #else
-                        .font(AppTypography.cardTitle)
-                        #endif
-                        .lineLimit(1)
-                        .foregroundColor(.white)
-                    
-                    if let nowPlaying {
-                        Text(nowPlaying)
-                            #if os(tvOS)
-                            .font(.system(size: 13))
-                            #else
-                            .font(AppTypography.caption)
-                            #endif
-                            .foregroundColor(.white.opacity(0.7))
-                            .lineLimit(1)
-                    } else {
-                        Text(channel.category)
-                            #if os(tvOS)
-                            .font(.system(size: 13))
-                            #else
-                            .font(AppTypography.caption)
-                            #endif
-                            .foregroundColor(.white.opacity(0.5))
-                            .lineLimit(1)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                #if os(tvOS)
-                .padding(14)
-                #else
-                .padding(10)
-                #endif
-            }
-            .background(Color(hex: 0x1A1A1E))
-            .cornerRadius(PlatformMetrics.cardCornerRadius)
-            .overlay(
-                RoundedRectangle(cornerRadius: PlatformMetrics.cardCornerRadius)
-                    .stroke(AppTheme.glassBorder(scheme), lineWidth: 0.5)
-            )
-            #if !os(tvOS)
-            .shadow(
-                color: isHovered ? AppTheme.primary.opacity(0.20) : Color.black.opacity(0.15),
-                radius: isHovered ? 12 : 4,
-                y: isHovered ? 4 : 2
-            )
+            #if os(macOS)
+            channelCardMacOS
+            #else
+            channelCardDefault
             #endif
         }
         .buttonStyle(CardButtonStyle())
@@ -305,37 +230,181 @@ struct ChannelCard: View {
         }
     }
     
+    #if os(macOS)
+    private var channelCardMacOS: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            channelThumbnail
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(channel.name)
+                    .font(.system(size: 12, weight: .semibold))
+                    .lineLimit(1)
+                    .foregroundColor(.white)
+
+                HStack(spacing: 4) {
+                    if let nowPlaying {
+                        Text(nowPlaying)
+                            .font(.system(size: 10))
+                            .foregroundColor(.white.opacity(0.7))
+                            .lineLimit(1)
+                    } else {
+                        Text(channel.category)
+                            .font(.system(size: 10))
+                            .foregroundColor(.white.opacity(0.5))
+                            .lineLimit(1)
+                    }
+                    Spacer(minLength: 0)
+                    if channel.hasCatchup {
+                        Text("Catchup")
+                            .font(.system(size: 8, weight: .medium))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(AppTheme.catchupBadge.opacity(0.85), in: Capsule())
+                    }
+                    if channel.isFavorite {
+                        Image(systemName: "heart.fill")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundColor(AppTheme.tertiary)
+                    }
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(height: 40)
+            .background(Color(hex: 0x1A1A1E))
+        }
+        .background(Color(hex: 0x1A1A1E))
+        .cornerRadius(PlatformMetrics.cardCornerRadius)
+        .overlay(
+            RoundedRectangle(cornerRadius: PlatformMetrics.cardCornerRadius)
+                .stroke(AppTheme.glassBorder(scheme), lineWidth: 0.5)
+        )
+        .shadow(
+            color: isHovered ? AppTheme.primary.opacity(0.20) : Color.black.opacity(0.15),
+            radius: isHovered ? 12 : 4,
+            y: isHovered ? 4 : 2
+        )
+    }
+    #endif
+    
+    private var channelCardDefault: some View {
+        ZStack(alignment: .bottom) {
+            channelThumbnail
+            
+            LinearGradient(
+                colors: [Color.black.opacity(0.9), Color.black.opacity(0.4), .clear],
+                startPoint: .bottom,
+                endPoint: .top
+            )
+            
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    if channel.hasCatchup {
+                        HStack(spacing: 3) {
+                            Image(systemName: "clock.arrow.circlepath")
+                                .font(.system(size: 7))
+                            Text("Catchup")
+                                .font(AppTypography.micro)
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(AppTheme.catchupBadge.opacity(0.85), in: Capsule())
+                    }
+                    Spacer()
+                    if channel.isFavorite {
+                        Image(systemName: "heart.fill")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(AppTheme.tertiary)
+                    }
+                }
+                
+                Text(channel.name)
+                    #if os(tvOS)
+                    .font(.system(size: 16, weight: .bold))
+                    #else
+                    .font(AppTypography.cardTitle)
+                    #endif
+                    .lineLimit(1)
+                    .foregroundColor(.white)
+                
+                if let nowPlaying {
+                    Text(nowPlaying)
+                        #if os(tvOS)
+                        .font(.system(size: 13))
+                        #else
+                        .font(AppTypography.caption)
+                        #endif
+                        .foregroundColor(.white.opacity(0.7))
+                        .lineLimit(1)
+                } else {
+                    Text(channel.category)
+                        #if os(tvOS)
+                        .font(.system(size: 13))
+                        #else
+                        .font(AppTypography.caption)
+                        #endif
+                        .foregroundColor(.white.opacity(0.5))
+                        .lineLimit(1)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            #if os(tvOS)
+            .padding(14)
+            #else
+            .padding(10)
+            #endif
+        }
+        .background(Color(hex: 0x1A1A1E))
+        .cornerRadius(PlatformMetrics.cardCornerRadius)
+        .overlay(
+            RoundedRectangle(cornerRadius: PlatformMetrics.cardCornerRadius)
+                .stroke(AppTheme.glassBorder(scheme), lineWidth: 0.5)
+        )
+        #if !os(tvOS)
+        .shadow(
+            color: isHovered ? AppTheme.primary.opacity(0.20) : Color.black.opacity(0.15),
+            radius: isHovered ? 12 : 4,
+            y: isHovered ? 4 : 2
+        )
+        #endif
+    }
+    
     @ViewBuilder
     private var channelThumbnail: some View {
-        CachedAsyncImage(url: channel.logoURL) { image in
-            image
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-        } placeholder: {
-            Rectangle()
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            AppTheme.primary.opacity(0.15),
-                            AppTheme.secondary.opacity(0.08)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .overlay {
-                    Text(channel.name.prefix(3).uppercased())
-                        #if os(tvOS)
-                        .font(.system(size: 28, weight: .black))
-                        #else
-                        .font(.system(size: 14, weight: .heavy))
-                        #endif
-                        .foregroundColor(.white.opacity(0.15))
+        Color.clear
+            .aspectRatio(16/9, contentMode: .fit)
+            .overlay(
+                CachedAsyncImage(url: channel.logoURL) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Rectangle()
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    AppTheme.primary.opacity(0.15),
+                                    AppTheme.secondary.opacity(0.08)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .overlay {
+                            Text(channel.name.prefix(3).uppercased())
+                                #if os(tvOS)
+                                .font(.system(size: 28, weight: .black))
+                                #else
+                                .font(.system(size: 14, weight: .heavy))
+                                #endif
+                                .foregroundColor(.white.opacity(0.15))
+                        }
                 }
-        }
-        .frame(maxWidth: .infinity)
-        .aspectRatio(16/9, contentMode: .fit)
-        .clipped()
+            )
+            .clipped()
     }
 }
 

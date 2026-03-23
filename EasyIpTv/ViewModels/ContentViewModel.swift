@@ -799,6 +799,9 @@ class ContentViewModel: ObservableObject {
             #if DEBUG
             print("Failed to load channels for category \(category.name): \(error)")
             #endif
+            if channelCache[category.name] == nil {
+                channelCache[category.name] = []
+            }
         }
         
         loadingCategoryIds.remove(category.id)
@@ -845,6 +848,9 @@ class ContentViewModel: ObservableObject {
             #if DEBUG
             print("Failed to load Stalker channels for \(category.name): \(error)")
             #endif
+            if channelCache[category.name] == nil {
+                channelCache[category.name] = []
+            }
         }
         
         loadingCategoryIds.remove(category.id)
@@ -1278,6 +1284,10 @@ class ContentViewModel: ObservableObject {
             touchCacheOrder(category, order: &channelCacheOrder)
         }
         return channelCache[category] ?? []
+    }
+    
+    func isCategoryLoaded(_ categoryName: String) -> Bool {
+        channelCache[categoryName] != nil
     }
     
     func movies(in category: String) -> [Movie] {

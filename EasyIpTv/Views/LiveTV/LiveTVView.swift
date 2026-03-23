@@ -60,11 +60,15 @@ struct LiveTVView: View {
     }
     
     private var filteredChannels: [Channel] {
-        var channels = contentViewModel.channels
-        if !searchText.isEmpty {
-            channels = channels.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+        let baseChannels: [Channel]
+        if filterMode == .all {
+            baseChannels = contentViewModel.allLoadedChannels
+        } else {
+            let categoryNames = Set(filteredCategories.map(\.name))
+            baseChannels = contentViewModel.allLoadedChannels.filter { categoryNames.contains($0.category) }
         }
-        return channels
+        guard !searchText.isEmpty else { return baseChannels }
+        return baseChannels.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
     }
     
     private var filteredCategories: [ContentViewModel.CategoryInfo] {
@@ -359,7 +363,10 @@ struct LiveTVView: View {
     // MARK: - Category Detail View
     
     private func categoryDetailView(category: ContentViewModel.CategoryInfo) -> some View {
-        let channels = contentViewModel.channels(in: category.name)
+        let allChannels = contentViewModel.channels(in: category.name)
+        let channels = searchText.isEmpty ? allChannels : allChannels.filter {
+            $0.name.localizedCaseInsensitiveContains(searchText)
+        }
         let allFavorites = contentViewModel.isCategoryAllFavorites(category)
         
         return ScrollView {
@@ -397,17 +404,29 @@ struct LiveTVView: View {
                     }
                 )
                 
-                if contentViewModel.isLoadingCategory {
+                if contentViewModel.loadingCategoryIds.contains(category.id) {
                     ProgressView()
                         .frame(maxWidth: .infinity, alignment: .center)
                         .padding(.top, 100)
-                } else if channels.isEmpty {
+                } else if allChannels.isEmpty && !contentViewModel.isCategoryLoaded(category.name) {
                     Color.clear.onAppear {
                         Task { await contentViewModel.loadChannelsForCategory(category) }
                     }
                     ProgressView()
                         .frame(maxWidth: .infinity, alignment: .center)
                         .padding(.top, 100)
+                } else if allChannels.isEmpty {
+                    EmptyStateView(
+                        icon: "tv",
+                        title: "No Channels",
+                        message: "No channels available in \(category.name)"
+                    )
+                } else if channels.isEmpty && !searchText.isEmpty {
+                    EmptyStateView(
+                        icon: "magnifyingglass",
+                        title: "No Results",
+                        message: "No channels found matching \"\(searchText)\" in \(category.name)"
+                    )
                 } else {
                     CategoryGrid(items: channels, columns: PlatformMetrics.gridColumns, minItemWidth: PlatformMetrics.channelCardWidth) { channel in
                         ChannelCard(channel: channel, nowPlaying: nowPlayingText(for: channel), onTap: {
@@ -628,6 +647,7 @@ private struct LiveCategoryRowView: View {
     @EnvironmentObject var contentViewModel: ContentViewModel
     @EnvironmentObject var favoritesViewModel: FavoritesViewModel
     @ObservedObject private var epgService = EPGService.shared
+    @Environment(\.colorScheme) private var scheme
     @State private var hasRequestedLoad = false
     
     var body: some View {
@@ -652,16 +672,29 @@ private struct LiveCategoryRowView: View {
                 }
             }
         ) {
-            if channels.isEmpty {
+            if channels.isEmpty && category.itemCount == 0 {
+                Text("No channels available")
+                    .font(AppTypography.caption)
+                    .foregroundColor(AppTheme.onSurfaceVariant(scheme))
+                    .frame(height: 100)
+                    .frame(maxWidth: .infinity)
+            } else if channels.isEmpty && !contentViewModel.isCategoryLoaded(category.name) && !hasRequestedLoad {
                 CategoryLoadingPlaceholder(isLoading: isLoading, label: "Load Channels") {
                     Task { await contentViewModel.loadChannelsForCategory(category) }
                 }
                 .onAppear {
-                    guard !hasRequestedLoad else { return }
                     hasRequestedLoad = true
                     Task { await contentViewModel.loadChannelsForCategory(category) }
                     contentViewModel.prefetchNearbyCategories(around: category, in: contentViewModel.liveCategories, contentType: "channels")
                 }
+            } else if channels.isEmpty && isLoading {
+                CategoryLoadingPlaceholder(isLoading: true, label: "Loading...") {}
+            } else if channels.isEmpty {
+                Text("No channels available")
+                    .font(AppTypography.caption)
+                    .foregroundColor(AppTheme.onSurfaceVariant(scheme))
+                    .frame(height: 100)
+                    .frame(maxWidth: .infinity)
             } else {
                 ForEach(channels.prefix(PlatformMetrics.rowItemLimit)) { channel in
                     ChannelCard(
