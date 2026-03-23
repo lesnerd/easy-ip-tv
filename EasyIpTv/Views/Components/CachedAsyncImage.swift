@@ -22,6 +22,20 @@ final class ImageCacheManager {
     /// Dedicated session with higher concurrency for image loading
     let session: URLSession
     
+    /// In-flight request deduplication: prevents multiple views from fetching the same URL
+    private var inFlightTasks: [URL: Task<PlatformImage?, Never>] = [:]
+    private let lock = NSLock()
+    
+    static var defaultMaxPixelSize: CGFloat {
+        #if os(tvOS)
+        return 400
+        #elseif os(macOS)
+        return 500
+        #else
+        return 400
+        #endif
+    }
+    
     private init() {
         urlCache = URLCache(
             memoryCapacity: 100 * 1024 * 1024,
@@ -30,9 +44,13 @@ final class ImageCacheManager {
         )
         
         let config = URLSessionConfiguration.default
+        #if os(tvOS)
+        config.httpMaximumConnectionsPerHost = 32
+        #else
         config.httpMaximumConnectionsPerHost = 10
-        config.timeoutIntervalForRequest = 8
-        config.timeoutIntervalForResource = 15
+        #endif
+        config.timeoutIntervalForRequest = 15
+        config.timeoutIntervalForResource = 30
         config.urlCache = urlCache
         config.requestCachePolicy = .returnCacheDataElseLoad
         config.httpAdditionalHeaders = [
@@ -40,8 +58,13 @@ final class ImageCacheManager {
         ]
         session = URLSession(configuration: config)
         
+        #if os(tvOS)
+        decodedCache.countLimit = 800
+        decodedCache.totalCostLimit = 200 * 1024 * 1024
+        #else
         decodedCache.countLimit = 500
         decodedCache.totalCostLimit = 100 * 1024 * 1024
+        #endif
         
         #if canImport(UIKit)
         NotificationCenter.default.addObserver(
@@ -54,26 +77,79 @@ final class ImageCacheManager {
         #endif
     }
     
-    /// Prefetch images concurrently into both disk and memory caches
-    func prefetch(urls: [URL], maxPixelSize: CGFloat = 400) {
-        for url in urls {
-            let nsURL = url as NSURL
-            if decodedCache.object(forKey: nsURL) != nil { continue }
-            Task.detached(priority: .utility) {
-                await Self.shared.fetchAndCache(url: url, maxPixelSize: maxPixelSize)
+    /// Prefetch images concurrently (fire-and-forget).
+    func prefetch(urls: [URL], maxPixelSize: CGFloat? = nil) {
+        let pixelSize = maxPixelSize ?? Self.defaultMaxPixelSize
+        let urlsToFetch = urls.filter { decodedCache.object(forKey: $0 as NSURL) == nil }
+        guard !urlsToFetch.isEmpty else { return }
+        
+        Task.detached(priority: .utility) {
+            await Self.shared._prefetchBatch(urls: urlsToFetch, maxPixelSize: pixelSize)
+        }
+    }
+    
+    /// Awaitable prefetch — caller can wait until all images are cached.
+    func prefetchAndWait(urls: [URL], maxPixelSize: CGFloat? = nil) async {
+        let pixelSize = maxPixelSize ?? Self.defaultMaxPixelSize
+        let urlsToFetch = urls.filter { decodedCache.object(forKey: $0 as NSURL) == nil }
+        guard !urlsToFetch.isEmpty else { return }
+        await _prefetchBatch(urls: urlsToFetch, maxPixelSize: pixelSize)
+    }
+    
+    private func _prefetchBatch(urls: [URL], maxPixelSize: CGFloat) async {
+        await withTaskGroup(of: Void.self) { group in
+            #if os(tvOS)
+            let maxConcurrent = 24
+            #else
+            let maxConcurrent = 8
+            #endif
+            var launched = 0
+            
+            for url in urls {
+                if launched >= maxConcurrent {
+                    await group.next()
+                }
+                launched += 1
+                group.addTask {
+                    await Self.shared.fetchAndCache(url: url, maxPixelSize: maxPixelSize)
+                }
             }
         }
     }
     
-    /// Fetch, downsample, and cache an image
+    /// Fetch, downsample, and cache an image with in-flight deduplication.
+    /// Even if the calling Task is cancelled, the underlying network request
+    /// continues so the result lands in cache for the next caller.
     @discardableResult
     func fetchAndCache(url: URL, maxPixelSize: CGFloat = 400) async -> PlatformImage? {
         let nsURL = url as NSURL
         if let cached = decodedCache.object(forKey: nsURL) { return cached }
         
+        lock.lock()
+        if let existing = inFlightTasks[url] {
+            lock.unlock()
+            return await existing.value
+        }
+        
+        let task = Task<PlatformImage?, Never> {
+            await self._doFetch(url: url, maxPixelSize: maxPixelSize)
+        }
+        inFlightTasks[url] = task
+        lock.unlock()
+        
+        let result = await task.value
+        
+        lock.lock()
+        inFlightTasks.removeValue(forKey: url)
+        lock.unlock()
+        
+        return result
+    }
+    
+    private func _doFetch(url: URL, maxPixelSize: CGFloat) async -> PlatformImage? {
+        let nsURL = url as NSURL
         let request = URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad)
         
-        // Try URL cache (raw data) first
         if let cachedResponse = urlCache.cachedResponse(for: request),
            let image = Self.downsample(data: cachedResponse.data, maxPixelSize: maxPixelSize) {
             let cost = costOf(image)
@@ -81,19 +157,29 @@ final class ImageCacheManager {
             return image
         }
         
-        // Network fetch
         do {
             let (data, response) = try await session.data(for: request)
-            if let httpResponse = response as? HTTPURLResponse,
-               (200...299).contains(httpResponse.statusCode) {
-                urlCache.storeCachedResponse(CachedURLResponse(response: response, data: data), for: request)
+            
+            if let httpResponse = response as? HTTPURLResponse {
+                if (200...299).contains(httpResponse.statusCode) {
+                    urlCache.storeCachedResponse(CachedURLResponse(response: response, data: data), for: request)
+                } else {
+                    NSLog("[ImageCache] HTTP %d for %@", httpResponse.statusCode, url.absoluteString)
+                }
             }
+            
             if let image = Self.downsample(data: data, maxPixelSize: maxPixelSize) {
                 let cost = costOf(image)
                 decodedCache.setObject(image, forKey: nsURL, cost: cost)
                 return image
+            } else {
+                NSLog("[ImageCache] Failed to decode image (%d bytes) from %@", data.count, url.absoluteString)
             }
-        } catch {}
+        } catch is CancellationError {
+            // Silently ignore cancellation — the view disappeared
+        } catch {
+            NSLog("[ImageCache] Network error for %@: %@", url.absoluteString, error.localizedDescription)
+        }
         return nil
     }
     
@@ -113,7 +199,6 @@ final class ImageCacheManager {
             kCGImageSourceThumbnailMaxPixelSize: maxPixelSize
         ]
         guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, downsampleOptions as CFDictionary) else {
-            // Fallback: try full decode if thumbnail creation fails
             return PlatformImage(data: data)
         }
         
@@ -159,11 +244,12 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
     @State private var phase: AsyncImagePhase = .empty
     @State private var retryCount = 0
     @State private var loadTask: Task<Void, Never>?
+    @State private var hasAppeared = false
     
     init(
         url: URL?,
-        maxRetries: Int = 2,
-        retryDelay: TimeInterval = 0.5,
+        maxRetries: Int = 3,
+        retryDelay: TimeInterval = 1.0,
         @ViewBuilder content: @escaping (Image) -> Content,
         @ViewBuilder placeholder: @escaping () -> Placeholder
     ) {
@@ -189,17 +275,18 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
             }
         }
         .onAppear {
-            guard case .success = phase else {
-                reloadIfNeeded()
-                return
+            if case .success = phase { return }
+            if hasAppeared {
+                // Re-appearing after scroll — check cache, might be ready now
+                checkCacheOrReload()
+            } else {
+                hasAppeared = true
+                startInitialLoad()
             }
         }
         .onDisappear {
-            loadTask?.cancel()
-            loadTask = nil
-            if case .success = phase { } else {
-                phase = .empty
-            }
+            // Don't cancel — let the shared in-flight task finish and cache the result.
+            // Don't reset phase — avoids flicker when scrolling back.
         }
     }
     
@@ -213,10 +300,22 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
             }
     }
     
-    private func reloadIfNeeded() {
+    private func startInitialLoad() {
         guard loadTask == nil else { return }
         retryCount = 0
         loadImage()
+    }
+    
+    private func checkCacheOrReload() {
+        guard let url else { return }
+        let nsURL = url as NSURL
+        if let cached = ImageCacheManager.shared.decodedCache.object(forKey: nsURL) {
+            phase = .success(Self.swiftUIImage(from: cached))
+            return
+        }
+        if loadTask == nil {
+            loadImage()
+        }
     }
     
     private func loadImage() {
@@ -225,7 +324,6 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
             return
         }
         loadTask?.cancel()
-        phase = .empty
         loadTask = Task {
             await fetchImage(from: url)
         }
@@ -247,20 +345,20 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
         let manager = ImageCacheManager.shared
         let nsURL = url as NSURL
         
-        // 1. Check in-memory decoded cache (instant, no work)
         if let cached = manager.decodedCache.object(forKey: nsURL) {
             phase = .success(Self.swiftUIImage(from: cached))
+            loadTask = nil
             return
         }
         
-        // 2. Disk cache check + network fetch + downsampling (all off MainActor)
-        if let platformImg = await manager.fetchAndCache(url: url, maxPixelSize: 400) {
+        if let platformImg = await manager.fetchAndCache(url: url, maxPixelSize: ImageCacheManager.defaultMaxPixelSize) {
             guard !Task.isCancelled else { return }
             phase = .success(Self.swiftUIImage(from: platformImg))
         } else {
             guard !Task.isCancelled else { return }
             phase = .failure(ImageError.invalidData)
         }
+        loadTask = nil
     }
     
     private static func swiftUIImage(from platformImage: PlatformImage) -> Image {
@@ -333,18 +431,19 @@ struct ImagePlaceholder: View {
 }
 
 struct ShimmerPlaceholder: View {
+    @Environment(\.colorScheme) private var scheme
     @State private var isAnimating = false
     
     var body: some View {
         Rectangle()
-            .fill(Color.gray.opacity(0.3))
+            .fill(scheme == .dark ? Color(hex: 0x1F1F22) : Color(hex: 0xE8E8EB))
             .overlay {
                 Rectangle()
                     .fill(
                         LinearGradient(
                             colors: [
                                 Color.clear,
-                                Color.white.opacity(0.3),
+                                (scheme == .dark ? Color.white : Color.black).opacity(0.06),
                                 Color.clear
                             ],
                             startPoint: .leading,

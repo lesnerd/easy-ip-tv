@@ -19,10 +19,12 @@
 		A10001001111111100000010 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000010 /* Assets.xcassets */; };
 		A10001001111111100000011 /* M3UParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000011 /* M3UParser.swift */; };
 		A10001001111111100000012 /* StorageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000012 /* StorageService.swift */; };
+		A1CC10010000000100000001 /* iCloudSyncManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1CC10020000000100000001 /* iCloudSyncManager.swift */; };
 		A10001001111111100000013 /* StreamService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000013 /* StreamService.swift */; };
 		A10001001111111100000014 /* ContentViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000014 /* ContentViewModel.swift */; };
 		A10001001111111100000015 /* FavoritesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000015 /* FavoritesViewModel.swift */; };
 		A10001001111111100000016 /* PlayerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000016 /* PlayerViewModel.swift */; };
+		A10001001111111100000061 /* ScrubberState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000061 /* ScrubberState.swift */; };
 		A10001001111111100000017 /* CategoryHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000017 /* CategoryHeader.swift */; };
 		A10001001111111100000018 /* ContentCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000018 /* ContentCard.swift */; };
 		A10001001111111100000050 /* SubtitlePreferenceButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000050 /* SubtitlePreferenceButton.swift */; };
@@ -34,6 +36,7 @@
 		A10001001111111100000023 /* MoviesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000023 /* MoviesView.swift */; };
 		A10001001111111100000024 /* ChannelNavigatorOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000024 /* ChannelNavigatorOverlay.swift */; };
 		A10001001111111100000025 /* PlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000025 /* PlayerView.swift */; };
+		A10001001111111100000060 /* PlayerEPGOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000060 /* PlayerEPGOverlay.swift */; };
 		E4VLC00400000001 /* VLCPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4VLC00500000001 /* VLCPlayerView.swift */; };
 		A10001001111111100000026 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000026 /* SettingsView.swift */; };
 		A10001001111111100000027 /* ShowsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000027 /* ShowsView.swift */; };
@@ -62,6 +65,7 @@
 		T10001001111111100000013 /* ContentLoadingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T10002001111111100000013 /* ContentLoadingTests.swift */; };
 		T10001001111111100000014 /* UXFixesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T10002001111111100000014 /* UXFixesTests.swift */; };
 		T10001001111111100000015 /* FeatureExpansionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T10002001111111100000015 /* FeatureExpansionTests.swift */; };
+		T10001001111111100000016 /* ScrubberStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T10002001111111100000016 /* ScrubberStateTests.swift */; };
 		FE0001001111111100000001 /* EPGProgram.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE0002001111111100000001 /* EPGProgram.swift */; };
 		FE0001001111111100000002 /* EPGService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE0002001111111100000002 /* EPGService.swift */; };
 		FE0001001111111100000003 /* CastManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE0002001111111100000003 /* CastManager.swift */; };
@@ -69,6 +73,9 @@
 		FE0001001111111100000005 /* AirPlayButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE0002001111111100000005 /* AirPlayButton.swift */; };
 		FE0001001111111100000006 /* VLCSubtitlePickerOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE0002001111111100000006 /* VLCSubtitlePickerOverlay.swift */; };
 		FE0001001111111100000007 /* CatchupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE0002001111111100000007 /* CatchupView.swift */; };
+		A10001001111111100000051 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000051 /* AppTheme.swift */; };
+		A10001001111111100000052 /* GlassModifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000052 /* GlassModifiers.swift */; };
+		A10001001111111100000053 /* AppTypography.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10002001111111100000053 /* AppTypography.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXBuildFile (SPM) section */
@@ -99,10 +106,12 @@
 		A10002001111111100000010 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A10002001111111100000011 /* M3UParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = M3UParser.swift; sourceTree = "<group>"; };
 		A10002001111111100000012 /* StorageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageService.swift; sourceTree = "<group>"; };
+		A1CC10020000000100000001 /* iCloudSyncManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iCloudSyncManager.swift; sourceTree = "<group>"; };
 		A10002001111111100000013 /* StreamService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamService.swift; sourceTree = "<group>"; };
 		A10002001111111100000014 /* ContentViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentViewModel.swift; sourceTree = "<group>"; };
 		A10002001111111100000015 /* FavoritesViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesViewModel.swift; sourceTree = "<group>"; };
 		A10002001111111100000016 /* PlayerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerViewModel.swift; sourceTree = "<group>"; };
+		A10002001111111100000061 /* ScrubberState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrubberState.swift; sourceTree = "<group>"; };
 		A10002001111111100000017 /* CategoryHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryHeader.swift; sourceTree = "<group>"; };
 		A10002001111111100000018 /* ContentCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentCard.swift; sourceTree = "<group>"; };
 		A10002001111111100000050 /* SubtitlePreferenceButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubtitlePreferenceButton.swift; sourceTree = "<group>"; };
@@ -114,6 +123,7 @@
 		A10002001111111100000023 /* MoviesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoviesView.swift; sourceTree = "<group>"; };
 		A10002001111111100000024 /* ChannelNavigatorOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelNavigatorOverlay.swift; sourceTree = "<group>"; };
 		A10002001111111100000025 /* PlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerView.swift; sourceTree = "<group>"; };
+		A10002001111111100000060 /* PlayerEPGOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerEPGOverlay.swift; sourceTree = "<group>"; };
 		E4VLC00500000001 /* VLCPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VLCPlayerView.swift; sourceTree = "<group>"; };
 		A10002001111111100000026 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		A10002001111111100000027 /* ShowsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShowsView.swift; sourceTree = "<group>"; };
@@ -147,6 +157,7 @@
 		T10002001111111100000013 /* ContentLoadingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentLoadingTests.swift; sourceTree = "<group>"; };
 		T10002001111111100000014 /* UXFixesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UXFixesTests.swift; sourceTree = "<group>"; };
 		T10002001111111100000015 /* FeatureExpansionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureExpansionTests.swift; sourceTree = "<group>"; };
+		T10002001111111100000016 /* ScrubberStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrubberStateTests.swift; sourceTree = "<group>"; };
 		FE0002001111111100000001 /* EPGProgram.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EPGProgram.swift; sourceTree = "<group>"; };
 		FE0002001111111100000002 /* EPGService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EPGService.swift; sourceTree = "<group>"; };
 		FE0002001111111100000003 /* CastManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CastManager.swift; sourceTree = "<group>"; };
@@ -154,6 +165,9 @@
 		FE0002001111111100000005 /* AirPlayButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirPlayButton.swift; sourceTree = "<group>"; };
 		FE0002001111111100000006 /* VLCSubtitlePickerOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VLCSubtitlePickerOverlay.swift; sourceTree = "<group>"; };
 		FE0002001111111100000007 /* CatchupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatchupView.swift; sourceTree = "<group>"; };
+		A10002001111111100000051 /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTheme.swift; sourceTree = "<group>"; };
+		A10002001111111100000052 /* GlassModifiers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassModifiers.swift; sourceTree = "<group>"; };
+		A10002001111111100000053 /* AppTypography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTypography.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -196,6 +210,7 @@
 				A10005001111111100000006 /* Models */,
 				A10005001111111100000007 /* Resources */,
 				A10005001111111100000008 /* Services */,
+				A10005001111111100000018 /* Theme */,
 				A10005001111111100000009 /* ViewModels */,
 				A10005001111111100000010 /* Views */,
 			);
@@ -229,6 +244,7 @@
 				T10002001111111100000013 /* ContentLoadingTests.swift */,
 				T10002001111111100000014 /* UXFixesTests.swift */,
 				T10002001111111100000015 /* FeatureExpansionTests.swift */,
+				T10002001111111100000016 /* ScrubberStateTests.swift */,
 			);
 			path = EasyIpTvTests;
 			sourceTree = "<group>";
@@ -283,6 +299,7 @@
 				A10002001111111100000032 /* PremiumManager.swift */,
 				A10002001111111100000035 /* StalkerPortalService.swift */,
 				A10002001111111100000012 /* StorageService.swift */,
+				A1CC10020000000100000001 /* iCloudSyncManager.swift */,
 				A10002001111111100000013 /* StreamService.swift */,
 				A10002001111111100000029 /* XtreamCodesService.swift */,
 				FE0002001111111100000002 /* EPGService.swift */,
@@ -297,6 +314,7 @@
 				A10002001111111100000014 /* ContentViewModel.swift */,
 				A10002001111111100000015 /* FavoritesViewModel.swift */,
 				A10002001111111100000016 /* PlayerViewModel.swift */,
+				A10002001111111100000061 /* ScrubberState.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -384,6 +402,7 @@
 			isa = PBXGroup;
 			children = (
 				A10002001111111100000024 /* ChannelNavigatorOverlay.swift */,
+				A10002001111111100000060 /* PlayerEPGOverlay.swift */,
 				A10002001111111100000025 /* PlayerView.swift */,
 				E4VLC00500000001 /* VLCPlayerView.swift */,
 				FE0002001111111100000005 /* AirPlayButton.swift */,
@@ -407,6 +426,16 @@
 				A10002001111111100000027 /* ShowsView.swift */,
 			);
 			path = Shows;
+			sourceTree = "<group>";
+		};
+		A10005001111111100000018 /* Theme */ = {
+			isa = PBXGroup;
+			children = (
+				A10002001111111100000051 /* AppTheme.swift */,
+				A10002001111111100000052 /* GlassModifiers.swift */,
+				A10002001111111100000053 /* AppTypography.swift */,
+			);
+			path = Theme;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -521,11 +550,13 @@
 				A10001001111111100000009 /* Show.swift in Sources */,
 				A10001001111111100000011 /* M3UParser.swift in Sources */,
 				A10001001111111100000012 /* StorageService.swift in Sources */,
+				A1CC10010000000100000001 /* iCloudSyncManager.swift in Sources */,
 				A10001001111111100000013 /* StreamService.swift in Sources */,
 				A10001001111111100000029 /* XtreamCodesService.swift in Sources */,
 				A10001001111111100000014 /* ContentViewModel.swift in Sources */,
 				A10001001111111100000015 /* FavoritesViewModel.swift in Sources */,
 				A10001001111111100000016 /* PlayerViewModel.swift in Sources */,
+				A10001001111111100000061 /* ScrubberState.swift in Sources */,
 				A10001001111111100000017 /* CategoryHeader.swift in Sources */,
 				A10001001111111100000018 /* ContentCard.swift in Sources */,
 				A10001001111111100000050 /* SubtitlePreferenceButton.swift in Sources */,
@@ -537,6 +568,7 @@
 				A10001001111111100000022 /* MainMenuView.swift in Sources */,
 				A10001001111111100000023 /* MoviesView.swift in Sources */,
 				A10001001111111100000024 /* ChannelNavigatorOverlay.swift in Sources */,
+				A10001001111111100000060 /* PlayerEPGOverlay.swift in Sources */,
 				A10001001111111100000025 /* PlayerView.swift in Sources */,
 				E4VLC00400000001 /* VLCPlayerView.swift in Sources */,
 				A10001001111111100000026 /* SettingsView.swift in Sources */,
@@ -555,6 +587,9 @@
 				FE0001001111111100000005 /* AirPlayButton.swift in Sources */,
 				FE0001001111111100000006 /* VLCSubtitlePickerOverlay.swift in Sources */,
 				FE0001001111111100000007 /* CatchupView.swift in Sources */,
+				A10001001111111100000051 /* AppTheme.swift in Sources */,
+				A10001001111111100000052 /* GlassModifiers.swift in Sources */,
+				A10001001111111100000053 /* AppTypography.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -577,6 +612,7 @@
 				T10001001111111100000013 /* ContentLoadingTests.swift in Sources */,
 				T10001001111111100000014 /* UXFixesTests.swift in Sources */,
 				T10001001111111100000015 /* FeatureExpansionTests.swift in Sources */,
+				T10001001111111100000016 /* ScrubberStateTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

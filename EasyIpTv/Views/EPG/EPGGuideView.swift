@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// Electronic Program Guide -- Liquid Glass redesign
 struct EPGGuideView: View {
     let channels: [Channel]
     @ObservedObject var epgService = EPGService.shared
@@ -8,10 +9,18 @@ struct EPGGuideView: View {
     var onPlayChannel: ((Channel) -> Void)?
     var onPlayCatchup: ((Channel, EPGProgram) -> Void)?
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var scheme
     
     private let hourWidth: CGFloat = 200
-    private let channelRowHeight: CGFloat = 60
-    private let channelLabelWidth: CGFloat = 160
+    private let channelLabelWidth: CGFloat = 180
+    
+    private var channelRowHeight: CGFloat {
+        #if os(tvOS)
+        return 80
+        #else
+        return 64
+        #endif
+    }
     
     private var now: Date { Date() }
     
@@ -21,15 +30,19 @@ struct EPGGuideView: View {
     
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                if channels.isEmpty {
-                    ContentUnavailableView(
-                        "No EPG Data",
-                        systemImage: "tv.badge.ellipsis",
-                        description: Text("EPG data is not available for your current playlist.")
-                    )
-                } else {
-                    epgGrid
+            ZStack {
+                AppTheme.background(scheme).ignoresSafeArea()
+                
+                VStack(spacing: 0) {
+                    if channels.isEmpty {
+                        ContentUnavailableView(
+                            "No EPG Data",
+                            systemImage: "tv.badge.ellipsis",
+                            description: Text("EPG data is not available for your current playlist.")
+                        )
+                    } else {
+                        epgGrid
+                    }
                 }
             }
             .navigationTitle("TV Guide")
@@ -66,16 +79,22 @@ struct EPGGuideView: View {
         HStack(spacing: 0) {
             ForEach(0..<24, id: \.self) { hourOffset in
                 let date = Calendar.current.date(byAdding: .hour, value: hourOffset, to: timelineStart)!
-                Text(formatHour(date))
-                    .font(.caption2)
-                    .fontWeight(.medium)
-                    .foregroundColor(.secondary)
-                    .frame(width: hourWidth, alignment: .leading)
-                    .padding(.leading, 4)
+                
+                VStack(spacing: 2) {
+                    Text(formatHour(date))
+                        .font(AppTypography.label)
+                        .foregroundColor(AppTheme.onSurfaceVariant(scheme))
+                    
+                    Rectangle()
+                        .fill(AppTheme.outlineVariant(scheme))
+                        .frame(width: 1, height: 8)
+                }
+                .frame(width: hourWidth, alignment: .leading)
+                .padding(.leading, 4)
             }
         }
-        .frame(height: 24)
-        .background(Color.primary.opacity(0.05))
+        .frame(height: 32)
+        .background(AppTheme.surfaceContainerLow(scheme).opacity(0.80))
     }
     
     @ViewBuilder
@@ -84,80 +103,124 @@ struct EPGGuideView: View {
         let programs = epgService.upcoming(for: key)
         
         HStack(spacing: 0) {
-            HStack(spacing: 8) {
-                if let logoURL = channel.logoURL {
-                    CachedAsyncImage(url: logoURL) { image in
-                        image.resizable().aspectRatio(contentMode: .fit)
-                    } placeholder: {
-                        Image(systemName: "tv")
-                            .foregroundColor(.secondary)
-                    }
-                    .frame(width: 28, height: 28)
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
-                }
-                Text(channel.name)
-                    .font(.caption)
-                    .fontWeight(.medium)
-                    .lineLimit(2)
-            }
-            .frame(width: channelLabelWidth - 8, alignment: .leading)
-            .padding(.horizontal, 4)
+            channelLabel(for: channel)
             
             if programs.isEmpty {
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(Color.gray.opacity(0.15))
-                    .frame(width: hourWidth * 3, height: channelRowHeight - 4)
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(AppTheme.surfaceContainerHigh(scheme))
+                    .frame(width: hourWidth * 3, height: channelRowHeight - 6)
                     .overlay {
                         Text("No data")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
+                            .font(AppTypography.caption)
+                            .foregroundColor(AppTheme.onSurfaceVariant(scheme))
                     }
             } else {
                 HStack(spacing: 1) {
                     ForEach(programs.prefix(12)) { program in
-                        let duration = program.end.timeIntervalSince(program.start) / 3600.0
-                        let width = max(60, hourWidth * CGFloat(duration))
-                        
-                        Button {
-                            if program.isNowPlaying {
-                                onPlayChannel?(channel)
-                            } else if channel.hasCatchup, program.end < Date() {
-                                onPlayCatchup?(channel, program)
-                            }
-                        } label: {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(program.title)
-                                    .font(.caption2)
-                                    .fontWeight(.medium)
-                                    .lineLimit(1)
-                                Text(program.timeRange)
-                                    .font(.system(size: 9))
-                                    .foregroundColor(.secondary)
-                            }
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 4)
-                            .frame(width: width, height: channelRowHeight - 4, alignment: .topLeading)
-                            .background(
-                                RoundedRectangle(cornerRadius: 4)
-                                    .fill(program.isNowPlaying ? Color.accentColor.opacity(0.3) : Color.gray.opacity(0.15))
-                            )
-                            .overlay(alignment: .bottom) {
-                                if program.isNowPlaying {
-                                    GeometryReader { geo in
-                                        Rectangle()
-                                            .fill(Color.accentColor)
-                                            .frame(width: geo.size.width * program.progress, height: 2)
-                                    }
-                                    .frame(height: 2)
-                                }
-                            }
-                        }
-                        .buttonStyle(.plain)
+                        programBlock(channel: channel, program: program)
                     }
                 }
             }
         }
         .frame(height: channelRowHeight)
+    }
+    
+    private func channelLabel(for channel: Channel) -> some View {
+        HStack(spacing: 10) {
+            if let logoURL = channel.logoURL {
+                CachedAsyncImage(url: logoURL) { image in
+                    image.resizable().aspectRatio(contentMode: .fit)
+                } placeholder: {
+                    Image(systemName: "tv")
+                        .font(.system(size: 12))
+                        .foregroundColor(AppTheme.onSurfaceVariant(scheme))
+                }
+                .frame(width: 32, height: 32)
+                .background(AppTheme.surfaceContainerHigh(scheme))
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+            }
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(channel.name)
+                    .font(AppTypography.caption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(AppTheme.onSurface(scheme))
+                    .lineLimit(1)
+                
+                if let num = channel.channelNumber {
+                    Text("Ch \(num)")
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundColor(AppTheme.onSurfaceVariant(scheme))
+                }
+            }
+        }
+        .frame(width: channelLabelWidth - 12, alignment: .leading)
+        .padding(.horizontal, 6)
+        .background(AppTheme.surfaceContainerLow(scheme).opacity(0.60))
+    }
+    
+    private func programBlock(channel: Channel, program: EPGProgram) -> some View {
+        let duration = program.end.timeIntervalSince(program.start) / 3600.0
+        let width = max(60, hourWidth * CGFloat(duration))
+        let isNow = program.isNowPlaying
+        
+        return Button {
+            if isNow {
+                onPlayChannel?(channel)
+            } else if channel.hasCatchup, program.end < Date() {
+                onPlayCatchup?(channel, program)
+            }
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    if isNow {
+                        LivePulseIndicator(size: 4)
+                    }
+                    Text(program.title)
+                        .font(AppTypography.caption)
+                        .fontWeight(isNow ? .bold : .medium)
+                        .foregroundColor(
+                            isNow ? AppTheme.onSurface(scheme) : AppTheme.onSurfaceVariant(scheme)
+                        )
+                        .lineLimit(1)
+                }
+                
+                Text(program.timeRange)
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundColor(AppTheme.onSurfaceVariant(scheme).opacity(0.7))
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .frame(width: width, height: channelRowHeight - 6, alignment: .topLeading)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(
+                        isNow
+                            ? AppTheme.primary.opacity(0.15)
+                            : AppTheme.surfaceContainer(scheme)
+                    )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(
+                        isNow ? AppTheme.primary.opacity(0.30) : AppTheme.glassBorder(scheme),
+                        lineWidth: isNow ? 1 : 0.5
+                    )
+            )
+            .overlay(alignment: .bottom) {
+                if isNow {
+                    GlowProgressBar(
+                        progress: program.progress,
+                        height: 2,
+                        trackColor: AppTheme.primary.opacity(0.10),
+                        barColor: AppTheme.primary
+                    )
+                    .padding(.horizontal, 2)
+                    .padding(.bottom, 2)
+                }
+            }
+        }
+        .buttonStyle(.plain)
     }
     
     private func formatHour(_ date: Date) -> String {

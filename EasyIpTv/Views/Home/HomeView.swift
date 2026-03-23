@@ -6,6 +6,7 @@ struct HomeView: View {
     @EnvironmentObject var contentViewModel: ContentViewModel
     @EnvironmentObject var favoritesViewModel: FavoritesViewModel
     @EnvironmentObject var premiumManager: PremiumManager
+    @Environment(\.colorScheme) private var scheme
     
     @State private var selectedMovie: Movie?
     @State private var selectedShow: Show?
@@ -27,11 +28,12 @@ struct HomeView: View {
     
     var body: some View {
         NavigationStack {
+            ZStack {
+                LiquidGradientBackground(intensity: 0.20)
+                    .ignoresSafeArea()
+                
             Group {
-                if contentViewModel.isLoading && contentViewModel.trendingMovies.isEmpty {
-                    LoadingView()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if !contentViewModel.hasContent && contentViewModel.trendingMovies.isEmpty && continueWatchingItems.isEmpty && !favoritesViewModel.hasFavorites {
+                if !contentViewModel.hasContent && !contentViewModel.isLoading && contentViewModel.trendingMovies.isEmpty && continueWatchingItems.isEmpty && !favoritesViewModel.hasFavorites {
                     EmptyStateView(
                         icon: "tv",
                         title: L10n.Errors.noPlaylist,
@@ -41,12 +43,15 @@ struct HomeView: View {
                 } else {
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: PlatformMetrics.sectionSpacing) {
+                            Color.clear.frame(height: 0)
+                            
                             // Hero banner
                             if let hero = contentViewModel.trendingMovies.first {
                                 heroBanner(movie: hero)
+                                    .transition(.opacity)
                             }
                             
-                            // Continue Watching
+                            // Continue Watching (local data — instant)
                             if !continueWatchingItems.isEmpty {
                                 continueWatchingSection
                             }
@@ -54,28 +59,46 @@ struct HomeView: View {
                             // Trending Movies
                             if !contentViewModel.trendingMovies.isEmpty {
                                 trendingMoviesSection
+                                    .transition(.opacity)
                             }
                             
                             // Trending Series
                             if !contentViewModel.trendingShows.isEmpty {
                                 trendingSeriesSection
+                                    .transition(.opacity)
                             }
                             
                             // Trending Live TV
                             if !contentViewModel.trendingChannels.isEmpty {
                                 trendingLiveTVSection
+                                    .transition(.opacity)
                             }
                             
-                            // My Favorites
+                            // My Favorites (local data — instant)
                             if favoritesViewModel.hasFavorites {
                                 favoritesSection
                             }
+                            
+                            // Inline loading indicator while trending sections are still loading
+                            if contentViewModel.isLoading || (contentViewModel.hasContent && contentViewModel.trendingMovies.isEmpty) {
+                                HStack {
+                                    Spacer()
+                                    ProgressView()
+                                    Spacer()
+                                }
+                                .padding(.vertical, 40)
+                                .transition(.opacity)
+                            }
                         }
                         .padding(.vertical, PlatformMetrics.contentPadding)
+                        .animation(.easeInOut(duration: 0.35), value: contentViewModel.trendingMovies.count)
+                        .animation(.easeInOut(duration: 0.35), value: contentViewModel.trendingShows.count)
+                        .animation(.easeInOut(duration: 0.35), value: contentViewModel.trendingChannels.count)
                     }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } // ZStack
             #if !os(tvOS)
             .navigationTitle(L10n.Navigation.home)
             #endif
@@ -91,16 +114,17 @@ struct HomeView: View {
         }
         .task {
             favoritesViewModel.loadSavedFavorites()
-            while contentViewModel.isLoading || (!contentViewModel.hasContent && contentViewModel.liveCategories.isEmpty && contentViewModel.vodCategories.isEmpty && contentViewModel.seriesCategories.isEmpty) {
-                try? await Task.sleep(nanoseconds: 300_000_000)
-                if !contentViewModel.isLoading && contentViewModel.liveCategories.isEmpty && contentViewModel.vodCategories.isEmpty && contentViewModel.seriesCategories.isEmpty {
-                    break
-                }
-            }
-            await contentViewModel.loadTrendingContent()
         }
         .onAppear {
             reloadContinueWatching()
+            if contentViewModel.hasContent && contentViewModel.trendingMovies.isEmpty {
+                Task { await contentViewModel.loadTrendingContent() }
+            }
+        }
+        .onChange(of: contentViewModel.hasContent) { _, hasContent in
+            if hasContent && contentViewModel.trendingMovies.isEmpty {
+                Task { await contentViewModel.loadTrendingContent() }
+            }
         }
         .onChange(of: showMoviePlayer) { _, isPresented in
             if !isPresented { reloadContinueWatching() }
@@ -110,6 +134,9 @@ struct HomeView: View {
         }
         .onChange(of: playingChannel) { _, value in
             if value == nil { reloadContinueWatching() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: iCloudSyncManager.didSyncFromCloudNotification)) { _ in
+            reloadContinueWatching()
         }
         #if os(macOS)
         .sheet(isPresented: $showPremiumUpgrade) {
@@ -275,20 +302,23 @@ struct HomeView: View {
                         ShimmerPlaceholder()
                     }
                 } else {
-                    Rectangle().fill(Color.gray.opacity(0.3))
+                    Rectangle().fill(AppTheme.surfaceContainerHigh(scheme))
                 }
                 
                 LinearGradient(
-                    colors: [.clear, .black.opacity(0.85)],
-                    startPoint: .center,
-                    endPoint: .bottom
+                    colors: [
+                        AppTheme.background(scheme),
+                        AppTheme.background(scheme).opacity(0.6),
+                        .clear
+                    ],
+                    startPoint: .bottom,
+                    endPoint: .top
                 )
                 
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 10) {
                     Text(movie.title)
-                        .font(.title)
-                        .fontWeight(.bold)
-                        .foregroundColor(.white)
+                        .font(AppTypography.heroTitle)
+                        .foregroundColor(AppTheme.onSurface(scheme))
                     
                     HStack(spacing: 12) {
                         if let rating = movie.rating, rating > 0 {
@@ -296,31 +326,38 @@ struct HomeView: View {
                                 Image(systemName: "star.fill")
                                     .foregroundColor(.yellow)
                                 Text(String(format: "%.1f", rating))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(AppTheme.onSurface(scheme))
                             }
-                            .font(.subheadline)
+                            .font(AppTypography.label)
                         }
                         if let year = movie.year {
                             Text(String(year))
-                                .font(.subheadline)
-                                .foregroundColor(.white.opacity(0.8))
+                                .font(AppTypography.label)
+                                .foregroundColor(AppTheme.onSurfaceVariant(scheme))
                         }
                         if let genre = movie.genre {
                             Text(genre.components(separatedBy: ",").first ?? genre)
-                                .font(.subheadline)
-                                .foregroundColor(.white.opacity(0.8))
+                                .font(AppTypography.label)
+                                .foregroundColor(AppTheme.onSurfaceVariant(scheme))
                         }
                     }
                     
-                    if !premiumManager.isPremium {
-                        premiumBadge
+                    HStack(spacing: 12) {
+                        Button {} label: {
+                            Label(L10n.Player.play, systemImage: "play.fill")
+                        }
+                        .buttonStyle(PrimaryPillButtonStyle())
+                        .allowsHitTesting(false)
+                        
+                        if !premiumManager.isPremium {
+                            premiumBadge
+                        }
                     }
                 }
-                .padding()
-                .padding(.bottom, 8)
+                .padding(PlatformMetrics.detailPadding)
             }
             .frame(height: heroHeight)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .clipShape(RoundedRectangle(cornerRadius: PlatformMetrics.cardCornerRadius))
         }
         .buttonStyle(.plain)
         .padding(.horizontal, PlatformMetrics.contentPadding)
@@ -332,7 +369,7 @@ struct HomeView: View {
         #elseif os(macOS)
         return 350
         #else
-        return 220
+        return 280
         #endif
     }
     
@@ -586,21 +623,13 @@ struct HomeView: View {
     private func sectionHeader(title: String, icon: String) -> some View {
         HStack(spacing: 10) {
             Image(systemName: icon)
-                .font(.title3)
-                .foregroundStyle(.accent)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(AppTheme.primary)
             Text(title)
-                .font(sectionTitleFont)
-                .fontWeight(.bold)
+                .font(AppTypography.sectionTitle)
+                .foregroundColor(AppTheme.onSurface(scheme))
         }
         .padding(.horizontal, sectionPadding)
-    }
-    
-    private var sectionTitleFont: Font {
-        #if os(tvOS)
-        return .title
-        #else
-        return .title2
-        #endif
     }
     
     private func favoritesRow<Content: View>(
@@ -610,9 +639,10 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 Image(systemName: icon)
-                    .foregroundStyle(iconColor)
+                    .foregroundColor(iconColor)
                 Text(title)
-                    .font(.headline)
+                    .font(AppTypography.bodyMedium)
+                    .foregroundColor(AppTheme.onSurface(scheme))
             }
             .padding(.horizontal, sectionPadding)
             

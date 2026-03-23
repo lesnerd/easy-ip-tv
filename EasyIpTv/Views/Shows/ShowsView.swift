@@ -5,6 +5,7 @@ struct ShowsView: View {
     @EnvironmentObject var contentViewModel: ContentViewModel
     @EnvironmentObject var favoritesViewModel: FavoritesViewModel
     @EnvironmentObject var premiumManager: PremiumManager
+    @Environment(\.colorScheme) private var scheme
     
     @State private var selectedCategory: ContentViewModel.CategoryInfo?
     @State private var selectedShow: Show?
@@ -17,9 +18,11 @@ struct ShowsView: View {
     @State private var showInterstitial = false
     @State private var searchText = ""
     @State private var showSearchResults = false
+    @State private var continueWatchingRefreshId = UUID()
     
     private var continueWatchingItems: [StorageService.ContinueWatchingItem] {
-        StorageService.shared.getContinueWatching().filter { $0.contentType == "show" }
+        let _ = continueWatchingRefreshId
+        return StorageService.shared.getContinueWatching().filter { $0.contentType == "show" }
     }
     
     private var filteredShows: [Show] {
@@ -31,17 +34,22 @@ struct ShowsView: View {
     
     var body: some View {
         NavigationStack {
-            Group {
-                if contentViewModel.isLoading {
-                    LoadingView()
-                } else if !contentViewModel.hasContent {
-                    noContentView
-                } else if showSearchResults && !searchText.isEmpty {
-                    showSearchResultsView
-                } else if let category = selectedCategory {
-                    categoryDetailView(category: category)
-                } else {
-                    categoryListView
+            ZStack {
+                LiquidGradientBackground(intensity: 0.20)
+                    .ignoresSafeArea()
+                
+                Group {
+                    if contentViewModel.isLoading {
+                        LoadingView()
+                    } else if !contentViewModel.hasContent {
+                        noContentView
+                    } else if showSearchResults && !searchText.isEmpty {
+                        showSearchResultsView
+                    } else if let category = selectedCategory {
+                        categoryDetailView(category: category)
+                    } else {
+                        categoryListView
+                    }
                 }
             }
             #if !os(tvOS)
@@ -50,6 +58,9 @@ struct ShowsView: View {
             .searchable(text: $searchText, prompt: L10n.Actions.search)
             .onChange(of: searchText) { _, newValue in
                 showSearchResults = !newValue.isEmpty
+            }
+            .onReceive(NotificationCenter.default.publisher(for: iCloudSyncManager.didSyncFromCloudNotification)) { _ in
+                continueWatchingRefreshId = UUID()
             }
             .safeAreaInset(edge: .bottom) {
                 BannerAdView { showUpgrade = true }
@@ -114,11 +125,13 @@ struct ShowsView: View {
                     searchText = ""
                     showSearchResults = false
                 } label: {
-                    HStack {
+                    HStack(spacing: 6) {
                         Image(systemName: "chevron.left")
+                            .font(.system(size: 12, weight: .semibold))
                         Text(L10n.Content.categories)
+                            .font(AppTypography.bodyMedium)
                     }
-                    .font(.callout)
+                    .foregroundColor(AppTheme.primary)
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal)
@@ -209,15 +222,16 @@ struct ShowsView: View {
         
         return ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                // Back button
                 Button {
                     selectedCategory = nil
                 } label: {
-                    HStack {
+                    HStack(spacing: 6) {
                         Image(systemName: "chevron.left")
+                            .font(.system(size: 12, weight: .semibold))
                         Text(L10n.Content.categories)
+                            .font(AppTypography.bodyMedium)
                     }
-                    .font(.callout)
+                    .foregroundColor(AppTheme.primary)
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal)
@@ -383,30 +397,42 @@ struct ShowDetailView: View {
     #if !os(tvOS)
     private var adaptiveLayout: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: 0) {
+                #if os(macOS)
                 HStack(alignment: .top, spacing: 24) {
                     posterView
                         .frame(height: PlatformMetrics.showDetailPosterHeight)
                     
                     VStack(alignment: .leading, spacing: 16) {
                         showHeader
-                        #if os(macOS)
                         VStack(alignment: .leading, spacing: 8) {
                             favoriteButton
                                 .controlSize(.large)
                             SubtitlePreferenceButton()
                                 .controlSize(.large)
                         }
-                        #else
-                        HStack(spacing: 12) {
-                            favoriteButton
-                            SubtitlePreferenceButton()
-                        }
-                        #endif
                     }
                 }
+                .padding(.bottom, 24)
+                #else
+                posterView
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 280)
+                    .clipped()
+                    .padding(.bottom, 16)
+                
+                showHeader
+                    .padding(.bottom, 16)
+                
+                HStack(spacing: 12) {
+                    favoriteButton
+                    SubtitlePreferenceButton()
+                }
+                .padding(.bottom, 24)
+                #endif
                 
                 Divider()
+                    .padding(.bottom, 16)
                 
                 if isLoadingEpisodes {
                     ProgressView("Loading episodes...")
@@ -443,22 +469,20 @@ struct ShowDetailView: View {
     }
     
     private var showHeader: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 12) {
             Text(show.title)
-                .font(.title)
-                .fontWeight(.bold)
+                .font(AppTypography.screenTitle)
+                .foregroundColor(AppTheme.onSurface(.dark))
             
-            HStack(spacing: 16) {
+            HStack(spacing: 12) {
                 if let year = show.year {
-                    Text(String(year))
-                        .foregroundStyle(.secondary)
+                    detailPill(String(year))
                 }
                 
-                Text("\(show.seasons.count) Seasons")
-                    .foregroundStyle(.secondary)
-                
-                Text("\(show.totalEpisodes) Episodes")
-                    .foregroundStyle(.secondary)
+                if !show.seasons.isEmpty {
+                    detailPill("\(show.seasons.count) Seasons")
+                    detailPill("\(show.totalEpisodes) Episodes")
+                }
                 
                 if let rating = show.rating {
                     HStack(spacing: 4) {
@@ -466,17 +490,50 @@ struct ShowDetailView: View {
                             .foregroundColor(.yellow)
                         Text(String(format: "%.1f", rating))
                     }
+                    .font(AppTypography.label)
+                }
+                
+                if let genre = show.genre, !genre.isEmpty {
+                    detailPill(genre)
                 }
             }
-            .font(.callout)
             
-            if let description = show.description {
+            if let description = show.description, !description.isEmpty {
                 Text(description)
-                    .font(.body)
+                    .font(AppTypography.body)
                     .foregroundStyle(.secondary)
-                    .lineLimit(3)
+                    .lineLimit(4)
+            }
+            
+            if let cast = show.cast, !cast.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Starring")
+                        .font(AppTypography.label)
+                        .fontWeight(.bold)
+                    Text(cast)
+                        .font(AppTypography.body)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+            }
+            
+            if let director = show.director, !director.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Directed by")
+                        .font(AppTypography.label)
+                        .fontWeight(.bold)
+                    Text(director)
+                        .font(AppTypography.body)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
+    }
+    
+    private func detailPill(_ text: String) -> some View {
+        Text(text)
+            .font(AppTypography.label)
+            .foregroundStyle(.secondary)
     }
     
     private var favoriteButton: some View {
@@ -524,12 +581,23 @@ struct ShowDetailView: View {
                                 prefetchThumbnails(for: season)
                             } label: {
                                 Text(season.displayTitle)
+                                    #if os(tvOS)
+                                    .font(.system(size: 16, weight: selectedSeason?.id == season.id ? .bold : .medium))
+                                    .padding(.horizontal, 20)
+                                    .padding(.vertical, 10)
+                                    .foregroundColor(selectedSeason?.id == season.id ? .white : .white.opacity(0.6))
+                                    .background(
+                                        selectedSeason?.id == season.id ?
+                                        AppTheme.primary.opacity(0.8) : Color.white.opacity(0.1)
+                                    )
+                                    #else
                                     .padding(.horizontal, 16)
                                     .padding(.vertical, 8)
                                     .background(
                                         selectedSeason?.id == season.id ?
                                         Color.accentColor : Color.gray.opacity(0.3)
                                     )
+                                    #endif
                                     .cornerRadius(8)
                             }
                             .buttonStyle(.plain)
@@ -594,16 +662,18 @@ struct ShowDetailView: View {
     
     // tvOS uses combined layout
     private var detailContent: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            showHeader
-            HStack(spacing: 12) {
-                favoriteButton
-                SubtitlePreferenceButton()
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 24) {
+                showHeader
+                HStack(spacing: 12) {
+                    favoriteButton
+                    SubtitlePreferenceButton()
+                }
+                Divider()
+                seasonsAndEpisodes
             }
-            Divider()
-            seasonsAndEpisodes
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -625,6 +695,7 @@ struct EpisodeRowView: View {
     var onCancelDownload: (() -> Void)?
     
     @FocusState private var isFocused: Bool
+    @Environment(\.colorScheme) private var scheme
     
     var body: some View {
         Button {
@@ -632,8 +703,13 @@ struct EpisodeRowView: View {
         } label: {
             HStack(spacing: 16) {
                 Text("E\(episode.episodeNumber)")
+                    #if os(tvOS)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(.white.opacity(0.5))
+                    #else
                     .font(.headline)
                     .foregroundStyle(.secondary)
+                    #endif
                     .frame(width: 40)
                 
                 CachedAsyncImage(url: episode.thumbnailURL) { image in
@@ -642,6 +718,13 @@ struct EpisodeRowView: View {
                         .aspectRatio(contentMode: .fill)
                 } placeholder: {
                     ZStack {
+                        #if os(tvOS)
+                        Rectangle()
+                            .fill(Color.white.opacity(0.08))
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(.white.opacity(0.25))
+                        #else
                         LinearGradient(
                             colors: [Color.gray.opacity(0.4), Color.gray.opacity(0.2)],
                             startPoint: .topLeading,
@@ -654,30 +737,49 @@ struct EpisodeRowView: View {
                                 .font(.caption2.weight(.semibold))
                         }
                         .foregroundStyle(.secondary)
+                        #endif
                     }
                 }
+                #if os(tvOS)
+                .frame(width: 140, height: 80)
+                #else
                 .frame(width: 120, height: 68)
+                #endif
                 .clipShape(RoundedRectangle(cornerRadius: 6))
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(episode.title)
+                        #if os(tvOS)
+                        .font(.system(size: 16))
+                        .foregroundColor(.white)
+                        #else
                         .font(.callout)
+                        #endif
                         .lineLimit(1)
                     
                     HStack(spacing: 8) {
                         if let duration = episode.duration {
                             Text("\(duration) min")
+                                #if os(tvOS)
+                                .font(.system(size: 14))
+                                .foregroundColor(.white.opacity(0.5))
+                                #else
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+                                #endif
                         }
                         
                         if episode.watchProgress > 0 {
                             GeometryReader { geo in
                                 ZStack(alignment: .leading) {
                                     Rectangle()
+                                        #if os(tvOS)
+                                        .fill(Color.white.opacity(0.15))
+                                        #else
                                         .fill(Color.gray.opacity(0.3))
+                                        #endif
                                     Rectangle()
-                                        .fill(Color.accentColor)
+                                        .fill(AppTheme.primary)
                                         .frame(width: geo.size.width * episode.watchProgress)
                                 }
                             }
@@ -692,21 +794,44 @@ struct EpisodeRowView: View {
                 episodeDownloadIndicator
                 
                 Image(systemName: "play.circle.fill")
+                    #if os(tvOS)
+                    .font(.system(size: 28))
+                    .foregroundColor(.white.opacity(isFocused ? 0.9 : 0.4))
+                    #else
                     .font(.title2)
                     .foregroundStyle(.secondary)
+                    #endif
             }
+            #if os(tvOS)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.white.opacity(isFocused ? 0.12 : 0.05))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(
+                        isFocused ? AppTheme.primary.opacity(0.5) : Color.white.opacity(0.06),
+                        lineWidth: isFocused ? 1.5 : 0.5
+                    )
+            )
+            #else
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
             .background(
                 RoundedRectangle(cornerRadius: 8)
                     .fill(Color.gray.opacity(isFocused ? 0.2 : 0.1))
             )
+            #endif
         }
         .buttonStyle(.plain)
         .focused($isFocused)
         #if os(tvOS)
+        .tvOSFocusEffectDisabled()
         .scaleEffect(isFocused ? 1.02 : 1.0)
-        .animation(.easeInOut(duration: 0.15), value: isFocused)
+        .shadow(color: isFocused ? AppTheme.primary.opacity(0.2) : .clear, radius: 10)
+        .animation(.easeInOut(duration: 0.2), value: isFocused)
         #endif
     }
     
@@ -715,8 +840,12 @@ struct EpisodeRowView: View {
         switch downloadState {
         case .downloaded:
             Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(.green)
+                .foregroundColor(.green)
+                #if os(tvOS)
+                .font(.system(size: 24))
+                #else
                 .font(.title3)
+                #endif
         case .downloading(let progress):
             HStack(spacing: 4) {
                 ProgressView(value: progress)
@@ -727,7 +856,11 @@ struct EpisodeRowView: View {
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .font(.caption)
+                            #if os(tvOS)
+                            .foregroundColor(.white.opacity(0.5))
+                            #else
                             .foregroundStyle(.secondary)
+                            #endif
                     }
                     .buttonStyle(.plain)
                 }
@@ -738,8 +871,13 @@ struct EpisodeRowView: View {
                     onDownload()
                 } label: {
                     Image(systemName: "arrow.down.circle")
+                        #if os(tvOS)
+                        .font(.system(size: 24))
+                        .foregroundColor(.white.opacity(isFocused ? 0.8 : 0.4))
+                        #else
                         .font(.title3)
                         .foregroundColor(.accentColor)
+                        #endif
                 }
                 .buttonStyle(.plain)
             }
@@ -892,11 +1030,10 @@ private struct ShowCategoryRowView: View {
                     Task { await contentViewModel.loadShowsForCategory(category) }
                 }
                 .onAppear {
-                    #if !os(tvOS)
                     guard !hasRequestedLoad else { return }
                     hasRequestedLoad = true
                     Task { await contentViewModel.loadShowsForCategory(category) }
-                    #endif
+                    contentViewModel.prefetchNearbyCategories(around: category, in: contentViewModel.seriesCategories, contentType: "shows")
                 }
             } else {
                 ForEach(shows.prefix(PlatformMetrics.posterRowItemLimit)) { show in

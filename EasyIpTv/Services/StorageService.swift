@@ -337,6 +337,8 @@ class StorageService: ObservableObject {
             defaults.set(data, forKey: Keys.watchProgress)
             defaults.synchronize()
         }
+        
+        iCloudSyncManager.shared.pushWatchProgress(allProgress)
     }
     
     /// Gets watch progress for a content item
@@ -677,6 +679,8 @@ class StorageService: ObservableObject {
             defaults.set(data, forKey: Keys.continueWatching)
             defaults.synchronize()
         }
+        
+        iCloudSyncManager.shared.pushContinueWatching(items)
     }
     
     /// Gets continue watching items
@@ -696,6 +700,62 @@ class StorageService: ObservableObject {
         if let data = try? encoder.encode(items) {
             defaults.set(data, forKey: Keys.continueWatching)
             defaults.synchronize()
+        }
+        
+        iCloudSyncManager.shared.pushContinueWatching(items)
+    }
+    
+    // MARK: - iCloud Merge
+    
+    /// Merges data received from iCloud into local storage.
+    /// Called by iCloudSyncManager — does NOT re-trigger a push to avoid loops.
+    func mergeFromCloud(watchProgress cloudProgress: [String: Double],
+                        continueWatching cloudItems: [ContinueWatchingItem]) {
+        // Merge watch progress: keep whichever is further ahead
+        if !cloudProgress.isEmpty {
+            var localProgress = getWatchProgress()
+            var changed = false
+            for (contentId, cloudValue) in cloudProgress {
+                let localValue = localProgress[contentId] ?? 0
+                if cloudValue > localValue {
+                    localProgress[contentId] = cloudValue
+                    changed = true
+                }
+            }
+            if changed, let data = try? encoder.encode(localProgress) {
+                defaults.set(data, forKey: Keys.watchProgress)
+                defaults.synchronize()
+            }
+        }
+        
+        // Merge continue watching: combine, deduplicate by ID keeping latest timestamp
+        if !cloudItems.isEmpty {
+            var localItems = getContinueWatching()
+            var merged: [String: ContinueWatchingItem] = [:]
+            
+            for item in localItems {
+                merged[item.id] = item
+            }
+            for cloudItem in cloudItems {
+                if let existing = merged[cloudItem.id] {
+                    if cloudItem.timestamp > existing.timestamp {
+                        merged[cloudItem.id] = cloudItem
+                    }
+                } else {
+                    merged[cloudItem.id] = cloudItem
+                }
+            }
+            
+            let sortedItems = Array(
+                merged.values
+                    .sorted { $0.timestamp > $1.timestamp }
+                    .prefix(50)
+            )
+            
+            if let data = try? encoder.encode(sortedItems) {
+                defaults.set(data, forKey: Keys.continueWatching)
+                defaults.synchronize()
+            }
         }
     }
     

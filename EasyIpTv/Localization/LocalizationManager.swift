@@ -115,6 +115,7 @@ enum L10n {
         static var shows: String { tr("Shows") }
         static var downloads: String { tr("Downloads") }
         static var settings: String { tr("Settings") }
+        static var more: String { tr("More") }
     }
     
     // MARK: - Player

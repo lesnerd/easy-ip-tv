@@ -9,19 +9,16 @@ struct ChannelFilterMode: Equatable, Hashable {
     static let all = ChannelFilterMode(id: "all", title: "All", icon: "tv")
     static let other = ChannelFilterMode(id: "other", title: "Other", icon: "globe")
     
-    /// Builds filter modes from the user's preferred languages
     static func fromPriorities(_ config: LanguagePriorityConfig, categories: [ContentViewModel.CategoryInfo] = []) -> [ChannelFilterMode] {
         var modes: [ChannelFilterMode] = [.all]
         
         if !config.preferred.isEmpty {
-            // Use configured priorities
             for langId in config.preferred {
                 if let lang = IPTVLanguage.byId[langId] {
                     modes.append(ChannelFilterMode(id: lang.id, title: lang.displayName, icon: "flag"))
                 }
             }
         } else if !categories.isEmpty {
-            // No priorities configured: auto-detect languages from loaded categories
             var seen = Set<String>()
             for cat in categories {
                 if let lang = IPTVLanguage.detect(from: cat.name), !seen.contains(lang.id) {
@@ -36,12 +33,13 @@ struct ChannelFilterMode: Equatable, Hashable {
     }
 }
 
-/// Main Live TV view with category navigation and lazy loading
+/// Main Live TV view -- Liquid Glass redesign
 struct LiveTVView: View {
     @EnvironmentObject var contentViewModel: ContentViewModel
     @EnvironmentObject var favoritesViewModel: FavoritesViewModel
     @EnvironmentObject var premiumManager: PremiumManager
     @ObservedObject var epgService = EPGService.shared
+    @Environment(\.colorScheme) private var scheme
     
     @State private var selectedCategory: ContentViewModel.CategoryInfo?
     @State private var selectedChannel: Channel?
@@ -63,12 +61,9 @@ struct LiveTVView: View {
     
     private var filteredChannels: [Channel] {
         var channels = contentViewModel.channels
-        
-        // Apply search filter
         if !searchText.isEmpty {
             channels = channels.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
         }
-        
         return channels
     }
     
@@ -84,17 +79,22 @@ struct LiveTVView: View {
     
     var body: some View {
         NavigationStack {
-            Group {
-                if contentViewModel.isLoading {
-                    LoadingView()
-                } else if !contentViewModel.hasContent {
-                    noContentView
-                } else if let category = selectedCategory {
-                    categoryDetailView(category: category)
-                } else if showSearchResults && !searchText.isEmpty {
-                    searchResultsView
-                } else {
-                    categoryListView
+            ZStack {
+                LiquidGradientBackground(intensity: 0.25)
+                    .ignoresSafeArea()
+                
+                Group {
+                    if contentViewModel.isLoading {
+                        LoadingView()
+                    } else if !contentViewModel.hasContent {
+                        noContentView
+                    } else if let category = selectedCategory {
+                        categoryDetailView(category: category)
+                    } else if showSearchResults && !searchText.isEmpty {
+                        searchResultsView
+                    } else {
+                        categoryListView
+                    }
                 }
             }
             #if !os(tvOS)
@@ -134,7 +134,6 @@ struct LiveTVView: View {
                 InterstitialAdOverlay(
                     onDismiss: {
                         showInterstitial = false
-                        NSLog("[LiveTV] Interstitial dismissed — presenting channel %@", selectedChannel?.name ?? "nil")
                         playingChannel = selectedChannel
                     },
                     onUpgrade: {
@@ -173,7 +172,54 @@ struct LiveTVView: View {
         }
     }
     
-    // MARK: - Filter Menu
+    // MARK: - Filter Pills
+    
+    private var filterPills: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(filterModes, id: \.id) { mode in
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            filterMode = mode
+                        }
+                    } label: {
+                        Text(mode.title)
+                            .font(AppTypography.label)
+                            .foregroundColor(
+                                filterMode == mode
+                                    ? AppTheme.onPrimaryContainer
+                                    : AppTheme.onSurfaceVariant(scheme)
+                            )
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(
+                                filterMode == mode
+                                    ? AppTheme.primary
+                                    : AppTheme.surfaceContainerHigh(scheme),
+                                in: Capsule()
+                            )
+                            .overlay(
+                                Capsule()
+                                    .stroke(
+                                        filterMode == mode
+                                            ? Color.clear
+                                            : AppTheme.glassBorder(scheme),
+                                        lineWidth: 0.5
+                                    )
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            #if os(tvOS)
+            .padding(.horizontal, 50)
+            #else
+            .padding(.horizontal)
+            #endif
+        }
+    }
+    
+    // MARK: - Filter Menu (toolbar fallback)
     
     private var filterMenu: some View {
         Menu {
@@ -191,13 +237,18 @@ struct LiveTVView: View {
             HStack(spacing: 6) {
                 Image(systemName: filterMode.icon)
                 Text(filterMode.title)
+                    .font(AppTypography.label)
                 Image(systemName: "chevron.down")
-                    .font(.caption)
+                    .font(.system(size: 9, weight: .bold))
             }
+            .foregroundColor(AppTheme.onSurface(scheme))
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(Color.gray.opacity(0.2))
-            .cornerRadius(8)
+            .background(AppTheme.surfaceContainerHigh(scheme), in: Capsule())
+            .overlay(
+                Capsule()
+                    .stroke(AppTheme.glassBorder(scheme), lineWidth: 0.5)
+            )
         }
     }
     
@@ -206,21 +257,21 @@ struct LiveTVView: View {
     private var searchResultsView: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                // Back button
                 Button {
                     searchText = ""
                     showSearchResults = false
                 } label: {
-                    HStack {
+                    HStack(spacing: 6) {
                         Image(systemName: "chevron.left")
+                            .font(.system(size: 12, weight: .semibold))
                         Text(L10n.Content.categories)
+                            .font(AppTypography.bodyMedium)
                     }
-                    .font(.callout)
+                    .foregroundColor(AppTheme.primary)
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal)
                 
-                // Results header
                 CategoryHeader(
                     title: "\(L10n.Actions.search): \"\(searchText)\"",
                     icon: "magnifyingglass",
@@ -234,7 +285,6 @@ struct LiveTVView: View {
                         message: "No channels found matching \"\(searchText)\""
                     )
                 } else {
-                    // Channel grid
                     CategoryGrid(items: filteredChannels, columns: PlatformMetrics.gridColumns, minItemWidth: PlatformMetrics.channelCardWidth) { channel in
                         ChannelCard(channel: channel, nowPlaying: nowPlayingText(for: channel), onTap: {
                             playChannel(channel)
@@ -253,25 +303,13 @@ struct LiveTVView: View {
     private var categoryListView: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: PlatformMetrics.sectionSpacing) {
-                // Featured channels row (only in "all" mode)
+                filterPills
+                    .padding(.top, 4)
+                
                 if filterMode == .all && !contentViewModel.featuredChannels.isEmpty {
-                    CategoryRow(
-                        title: L10n.Content.featured,
-                        icon: "star.fill",
-                        itemCount: contentViewModel.featuredChannels.count
-                    ) {
-                        ForEach(contentViewModel.featuredChannels.prefix(PlatformMetrics.rowItemLimit)) { channel in
-                            ChannelCard(channel: channel, nowPlaying: nowPlayingText(for: channel), onTap: {
-                                playChannel(channel)
-                            }, onLongPress: {
-                                toggleFavorite(channel)
-                            }, onCatchup: channel.hasCatchup ? { catchupChannel = channel } : nil)
-                            .frame(width: PlatformMetrics.channelCardWidth)
-                        }
-                    }
+                    featuredSection
                 }
                 
-                // Category rows - auto-load on appear (macOS/iOS) or tap to load (tvOS)
                 ForEach(filteredCategories) { category in
                     LiveCategoryRowView(
                         category: category,
@@ -288,6 +326,36 @@ struct LiveTVView: View {
         }
     }
     
+    // MARK: - Featured Section
+    
+    private var featuredSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            CategoryHeader(
+                title: L10n.Content.featured,
+                icon: "star.fill",
+                itemCount: contentViewModel.featuredChannels.count
+            )
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: PlatformMetrics.horizontalSpacing) {
+                    ForEach(contentViewModel.featuredChannels.prefix(PlatformMetrics.rowItemLimit)) { channel in
+                        FeaturedChannelCard(
+                            channel: channel,
+                            nowPlaying: nowPlayingText(for: channel),
+                            onTap: { playChannel(channel) }
+                        )
+                    }
+                }
+                #if os(tvOS)
+                .padding(.horizontal, 50)
+                #else
+                .padding(.horizontal)
+                #endif
+            }
+            .platformFocusSection()
+        }
+    }
+    
     // MARK: - Category Detail View
     
     private func categoryDetailView(category: ContentViewModel.CategoryInfo) -> some View {
@@ -296,20 +364,20 @@ struct LiveTVView: View {
         
         return ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                // Back button
                 Button {
                     selectedCategory = nil
                 } label: {
-                    HStack {
+                    HStack(spacing: 6) {
                         Image(systemName: "chevron.left")
+                            .font(.system(size: 12, weight: .semibold))
                         Text(L10n.Content.categories)
+                            .font(AppTypography.bodyMedium)
                     }
-                    .font(.callout)
+                    .foregroundColor(AppTheme.primary)
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal)
                 
-                // Category header with favorite button
                 CategoryHeader(
                     title: category.name,
                     icon: "tv",
@@ -319,7 +387,6 @@ struct LiveTVView: View {
                     onToggleFavorite: {
                         let currentChannels = contentViewModel.channels(in: category.name)
                         let isCurrentlyAllFavorites = contentViewModel.isCategoryAllFavorites(category)
-                        
                         if isCurrentlyAllFavorites {
                             contentViewModel.removeCategoryFromFavorites(category)
                             favoritesViewModel.removeFavorites(channels: currentChannels)
@@ -335,17 +402,13 @@ struct LiveTVView: View {
                         .frame(maxWidth: .infinity, alignment: .center)
                         .padding(.top, 100)
                 } else if channels.isEmpty {
-                    // Auto-load when navigating to detail
                     Color.clear.onAppear {
-                        Task {
-                            await contentViewModel.loadChannelsForCategory(category)
-                        }
+                        Task { await contentViewModel.loadChannelsForCategory(category) }
                     }
                     ProgressView()
                         .frame(maxWidth: .infinity, alignment: .center)
                         .padding(.top, 100)
                 } else {
-                    // Channel grid
                     CategoryGrid(items: channels, columns: PlatformMetrics.gridColumns, minItemWidth: PlatformMetrics.channelCardWidth) { channel in
                         ChannelCard(channel: channel, nowPlaying: nowPlayingText(for: channel), onTap: {
                             playChannel(channel)
@@ -372,17 +435,12 @@ struct LiveTVView: View {
     // MARK: - Actions
     
     private func playChannel(_ channel: Channel) {
-        guard playingChannel == nil else {
-            NSLog("[LiveTV] playChannel ignored — player already presenting %@", playingChannel?.name ?? "?")
-            return
-        }
+        guard playingChannel == nil else { return }
         selectedChannel = channel
         AdManager.shared.recordPlay()
         if AdManager.shared.showInterstitialIfNeeded(premiumManager: premiumManager) {
-            NSLog("[LiveTV] Interstitial gate — showing ad overlay before channel %@", channel.name)
             showInterstitial = true
         } else {
-            NSLog("[LiveTV] Presenting player for channel %@", channel.name)
             playingChannel = channel
         }
     }
@@ -412,9 +470,154 @@ struct LiveTVView: View {
     }
 }
 
-// MARK: - Live Category Row View (handles auto-loading)
+// MARK: - Featured Channel Card (large hero-style card)
 
-/// A category row that auto-loads its content when it appears on screen
+struct FeaturedChannelCard: View {
+    let channel: Channel
+    var nowPlaying: String? = nil
+    var onTap: () -> Void = {}
+    
+    @Environment(\.colorScheme) private var scheme
+    @State private var isHovered = false
+    @ObservedObject private var epgService = EPGService.shared
+    
+    private var cardWidth: CGFloat {
+        #if os(tvOS)
+        return 420
+        #elseif os(macOS)
+        return 360
+        #else
+        return 300
+        #endif
+    }
+    
+    private var currentProgram: EPGProgram? {
+        let key = channel.streamId.map { "\($0)" } ?? channel.epgChannelId ?? channel.tvgId
+        guard let key else { return nil }
+        return epgService.nowPlaying(for: key)
+    }
+    
+    var body: some View {
+        Button { onTap() } label: {
+            ZStack(alignment: .bottomLeading) {
+                CachedAsyncImage(url: channel.logoURL) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Rectangle()
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    AppTheme.primary.opacity(0.2),
+                                    AppTheme.secondary.opacity(0.1)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .overlay {
+                            Text(channel.name.prefix(3).uppercased())
+                                #if os(tvOS)
+                                .font(.system(size: 40, weight: .black))
+                                #else
+                                .font(.system(size: 24, weight: .black))
+                                #endif
+                                .foregroundColor(.white.opacity(0.12))
+                        }
+                }
+                .frame(width: cardWidth, height: cardWidth * 9 / 16)
+                .clipped()
+                
+                LinearGradient(
+                    colors: [
+                        Color.black.opacity(0.9),
+                        Color.black.opacity(0.4),
+                        .clear
+                    ],
+                    startPoint: .bottom,
+                    endPoint: .top
+                )
+                
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 6) {
+                        LiveBadge()
+                        if channel.hasCatchup {
+                            Text("Catchup")
+                                .font(AppTypography.micro)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(AppTheme.catchupBadge.opacity(0.85), in: Capsule())
+                        }
+                    }
+                    
+                    Text(channel.name)
+                        #if os(tvOS)
+                        .font(.system(size: 22, weight: .bold))
+                        #else
+                        .font(AppTypography.sectionTitle)
+                        #endif
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                    
+                    if let program = currentProgram {
+                        Text(program.title)
+                            #if os(tvOS)
+                            .font(.system(size: 16))
+                            #else
+                            .font(AppTypography.bodyMedium)
+                            #endif
+                            .foregroundColor(.white.opacity(0.8))
+                            .lineLimit(1)
+                        
+                        GlowProgressBar(
+                            progress: program.progress,
+                            height: 3,
+                            trackColor: Color.white.opacity(0.15),
+                            barColor: AppTheme.primary
+                        )
+                        .padding(.top, 2)
+                    } else if let nowPlaying {
+                        Text(nowPlaying)
+                            #if os(tvOS)
+                            .font(.system(size: 16))
+                            #else
+                            .font(AppTypography.bodyMedium)
+                            #endif
+                            .foregroundColor(.white.opacity(0.8))
+                            .lineLimit(1)
+                    }
+                }
+                .padding(16)
+            }
+            .frame(width: cardWidth, height: cardWidth * 9 / 16)
+            .background(Color(hex: 0x1A1A1E))
+            .cornerRadius(PlatformMetrics.cardCornerRadius)
+            .overlay(
+                RoundedRectangle(cornerRadius: PlatformMetrics.cardCornerRadius)
+                    .stroke(AppTheme.glassBorder(scheme), lineWidth: 0.5)
+            )
+            #if !os(tvOS)
+            .shadow(
+                color: isHovered ? AppTheme.primary.opacity(0.30) : Color.black.opacity(0.2),
+                radius: isHovered ? 20 : 8,
+                y: isHovered ? 6 : 3
+            )
+            #endif
+        }
+        .buttonStyle(CardButtonStyle())
+        .tvOSFocusEffectDisabled()
+        #if !os(tvOS)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.2)) { isHovered = hovering }
+        }
+        #endif
+    }
+}
+
+// MARK: - Live Category Row View
+
 private struct LiveCategoryRowView: View {
     let category: ContentViewModel.CategoryInfo
     var onPlayChannel: (Channel) -> Void
@@ -440,7 +643,6 @@ private struct LiveCategoryRowView: View {
             onToggleFavorite: {
                 let currentChannels = contentViewModel.channels(in: category.name)
                 let isCurrentlyAllFavorites = contentViewModel.isCategoryAllFavorites(category)
-                
                 if isCurrentlyAllFavorites {
                     contentViewModel.removeCategoryFromFavorites(category)
                     favoritesViewModel.removeFavorites(channels: currentChannels)
@@ -451,16 +653,14 @@ private struct LiveCategoryRowView: View {
             }
         ) {
             if channels.isEmpty {
-                // Loading placeholder
                 CategoryLoadingPlaceholder(isLoading: isLoading, label: "Load Channels") {
                     Task { await contentViewModel.loadChannelsForCategory(category) }
                 }
                 .onAppear {
-                    #if !os(tvOS)
                     guard !hasRequestedLoad else { return }
                     hasRequestedLoad = true
                     Task { await contentViewModel.loadChannelsForCategory(category) }
-                    #endif
+                    contentViewModel.prefetchNearbyCategories(around: category, in: contentViewModel.liveCategories, contentType: "channels")
                 }
             } else {
                 ForEach(channels.prefix(PlatformMetrics.rowItemLimit)) { channel in
@@ -488,13 +688,13 @@ private struct LiveCategoryRowView: View {
     }
 }
 
-// MARK: - Reusable Loading / See All Components
+// MARK: - Reusable Components
 
-/// Placeholder shown while a category is loading
 struct CategoryLoadingPlaceholder: View {
     let isLoading: Bool
     let label: String
     var onTap: () -> Void = {}
+    @Environment(\.colorScheme) private var scheme
     
     var body: some View {
         #if os(tvOS)
@@ -504,6 +704,7 @@ struct CategoryLoadingPlaceholder: View {
             placeholderContent
         }
         .buttonStyle(CardButtonStyle())
+        .tvOSFocusEffectDisabled()
         #else
         placeholderContent
         #endif
@@ -525,10 +726,10 @@ struct CategoryLoadingPlaceholder: View {
     }
 }
 
-/// "See All" button at the end of a row
 struct SeeAllButton: View {
     var height: CGFloat = 169
     var onTap: () -> Void = {}
+    @Environment(\.colorScheme) private var scheme
     
     var body: some View {
         Button {
@@ -538,14 +739,19 @@ struct SeeAllButton: View {
                 Image(systemName: "ellipsis")
                     .font(.title2)
                 Text(L10n.Content.seeAll)
-                    .font(.callout)
+                    .font(AppTypography.label)
             }
-            .foregroundStyle(.secondary)
+            .foregroundColor(AppTheme.onSurfaceVariant(scheme))
             .frame(width: 120, height: height)
-            .background(Color.gray.opacity(0.15))
-            .cornerRadius(12)
+            .background(AppTheme.surfaceContainerHigh(scheme))
+            .cornerRadius(PlatformMetrics.cardCornerRadius)
+            .overlay(
+                RoundedRectangle(cornerRadius: PlatformMetrics.cardCornerRadius)
+                    .stroke(AppTheme.glassBorder(scheme), lineWidth: 0.5)
+            )
         }
         .buttonStyle(CardButtonStyle())
+        .tvOSFocusEffectDisabled()
     }
 }
 

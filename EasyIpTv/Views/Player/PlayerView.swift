@@ -19,9 +19,7 @@ struct PlayerView: View {
     @State private var showVLCControls = false
     @State private var vlcControlsTimer: Timer?
     @State private var hasRestoredVLCPosition = false
-    @State private var isScrubbing = false
-    @State private var scrubProgress: CGFloat = 0
-    @State private var seekedProgress: CGFloat? = nil
+    @StateObject private var scrubber = ScrubberState()
     @State private var showVLCSubtitlePicker = false
     #if canImport(VLCKitSPM)
     @StateObject private var vlcController = VLCPlayerController()
@@ -105,6 +103,7 @@ struct PlayerView: View {
     @State private var vlcPlaybackFailed = false
     @State private var avplayerFallbackAttempted = false
     @State private var currentLiveChannel: Channel?
+    @State private var showPlayerEPG = false
     
     private var isLiveTV: Bool { channel != nil }
     private var activeChannel: Channel? { currentLiveChannel ?? channel }
@@ -241,17 +240,24 @@ struct PlayerView: View {
             
             // Controls overlay
             #if os(iOS)
-            // iOS: compact channel bar for live TV
-            if isLiveTV {
+            if isLiveTV && !showPlayerEPG {
                 VStack {
                     Spacer()
-                    HStack(spacing: 32) {
+                    HStack(spacing: 24) {
                         Button { previousChannel() } label: {
                             Image(systemName: "chevron.down.circle.fill")
                                 .font(.title2)
                         }
                         Button { playerViewModel.showNavigator() } label: {
                             Image(systemName: "list.bullet")
+                                .font(.title2)
+                        }
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                showPlayerEPG = true
+                            }
+                        } label: {
+                            Image(systemName: "list.bullet.rectangle.fill")
                                 .font(.title2)
                         }
                         Button { nextChannel() } label: {
@@ -261,9 +267,13 @@ struct PlayerView: View {
                     }
                     .foregroundStyle(.white.opacity(0.9))
                     .padding(.vertical, 12)
-                    .padding(.horizontal, 24)
-                    .background(.ultraThinMaterial.opacity(0.8), in: Capsule())
-                    .padding(.bottom, 16)
+                    .padding(.horizontal, 28)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .overlay(
+                        Capsule().stroke(Color.white.opacity(0.10), lineWidth: 0.5)
+                    )
+                    .shadow(color: AppTheme.primary.opacity(0.20), radius: 15)
+                    .padding(.bottom, 20)
                 }
             }
             // iOS: VLC controls overlay (VOD and live TV when VLC is active)
@@ -274,7 +284,7 @@ struct PlayerView: View {
             }
             
             // iOS: Close button — rendered on top of controls overlay so it's always tappable
-            if useVLCPlayer ? showVLCControls : true {
+            if !showPlayerEPG && (useVLCPlayer ? showVLCControls : true) {
                 VStack {
                     HStack {
                         Button {
@@ -294,8 +304,73 @@ struct PlayerView: View {
                 .transition(.opacity)
                 .animation(.easeInOut(duration: 0.25), value: showVLCControls)
             }
+            #elseif os(tvOS)
+            // tvOS: different overlay for live TV vs VOD
+            if playerViewModel.showControls || (useVLCPlayer && showVLCControls) {
+                if isLiveTV {
+                    TVOSLiveOverlay(
+                        channel: activeChannel,
+                        programTitle: currentEPGProgram,
+                        nearbyChannels: activeChannel.map { contentViewModel.nearbyChannels(around: $0, count: 8) } ?? [],
+                        onChannelUp: { nextChannel() },
+                        onChannelDown: { previousChannel() },
+                        onSelectChannel: { playChannel($0) },
+                        onShowEPG: {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                showPlayerEPG = true
+                            }
+                        },
+                        onDismiss: { dismiss() }
+                    )
+                } else {
+                    PlayerControlsOverlay(
+                        title: useVLCPlayer ? vlcContentTitle : playerViewModel.currentTitle,
+                        isPlaying: useVLCPlayer ? vlcIsPlaying : playerViewModel.isPlaying,
+                        isLive: false,
+                        currentTime: useVLCPlayer ? vlcFormattedTime(vlcCurrentTime) : playerViewModel.formattedCurrentTime,
+                        duration: useVLCPlayer ? vlcFormattedTime(vlcDuration) : playerViewModel.formattedDuration,
+                        progress: useVLCPlayer ? (vlcDuration > 0 ? vlcCurrentTime / vlcDuration : 0) : playerViewModel.progress,
+                        hasSubtitles: useVLCPlayer ? vlcController.subtitleTracks.count > 1 : playerViewModel.availableSubtitles.count > 1,
+                        onPlayPause: {
+                            #if canImport(VLCKitSPM)
+                            if useVLCPlayer { vlcController.togglePlayback(); return }
+                            #endif
+                            playerViewModel.togglePlayback()
+                        },
+                        onSeek: { position in
+                            #if canImport(VLCKitSPM)
+                            if useVLCPlayer { vlcController.seek(to: Float(position)); return }
+                            #endif
+                            playerViewModel.seek(to: position)
+                        },
+                        onSeekForward: {
+                            #if canImport(VLCKitSPM)
+                            if useVLCPlayer { vlcController.seekForward(seconds: 15); return }
+                            #endif
+                            playerViewModel.seekForward()
+                        },
+                        onSeekBackward: {
+                            #if canImport(VLCKitSPM)
+                            if useVLCPlayer { vlcController.seekBackward(seconds: 15); return }
+                            #endif
+                            playerViewModel.seekBackward()
+                        },
+                        onShowSubtitles: {
+                            #if canImport(VLCKitSPM)
+                            if useVLCPlayer {
+                                vlcController.loadSubtitleTracks()
+                                showVLCSubtitlePicker = true
+                                return
+                            }
+                            #endif
+                            playerViewModel.showSubtitles()
+                        },
+                        onDismiss: { dismiss() }
+                    )
+                }
+            }
             #else
-            // macOS/tvOS: full custom controls overlay
+            // macOS: full custom controls overlay
             if playerViewModel.showControls || (useVLCPlayer && showVLCControls) {
                 PlayerControlsOverlay(
                     title: useVLCPlayer ? vlcContentTitle : playerViewModel.currentTitle,
@@ -339,6 +414,11 @@ struct PlayerView: View {
                     onShowNavigator: {
                         playerViewModel.showNavigator()
                     },
+                    onShowEPG: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            showPlayerEPG = true
+                        }
+                    },
                     onShowSubtitles: {
                         #if canImport(VLCKitSPM)
                         if useVLCPlayer {
@@ -367,6 +447,40 @@ struct PlayerView: View {
                     },
                     onDismiss: {
                         playerViewModel.hideNavigator()
+                    }
+                )
+            }
+            
+            // EPG guide overlay
+            if showPlayerEPG, let currentCh = activeChannel {
+                PlayerEPGOverlay(
+                    channels: contentViewModel.channels,
+                    currentChannel: playerViewModel.currentChannel ?? currentCh,
+                    onSelectChannel: { newChannel in
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            showPlayerEPG = false
+                        }
+                        playChannel(newChannel)
+                    },
+                    onPlayCatchup: { channel, program in
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            showPlayerEPG = false
+                        }
+                        guard let archiveURL = contentViewModel.buildArchiveURL(for: channel, program: program) else { return }
+                        let archiveChannel = Channel(
+                            id: channel.id,
+                            name: "\(channel.name) - \(program.title)",
+                            logoURL: channel.logoURL,
+                            streamURL: archiveURL,
+                            category: channel.category,
+                            streamId: channel.streamId
+                        )
+                        playChannel(archiveChannel)
+                    },
+                    onDismiss: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            showPlayerEPG = false
+                        }
                     }
                 )
             }
@@ -443,7 +557,11 @@ struct PlayerView: View {
             handleMoveCommand(direction)
         }
         .onExitCommand {
-            if playerViewModel.showChannelNavigator {
+            if showPlayerEPG {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    showPlayerEPG = false
+                }
+            } else if playerViewModel.showChannelNavigator {
                 playerViewModel.hideNavigator()
             } else if playerViewModel.showControls || showVLCControls {
                 dismiss()
@@ -518,11 +636,9 @@ struct PlayerView: View {
             }
         }
         .onChange(of: vlcCurrentTime) { _, _ in
-            guard let target = seekedProgress, vlcDuration > 0, !isScrubbing else { return }
+            guard vlcDuration > 0 else { return }
             let currentProgress = CGFloat(vlcCurrentTime / vlcDuration)
-            if abs(currentProgress - target) < 0.02 {
-                seekedProgress = nil
-            }
+            scrubber.onPlaybackProgressUpdate(currentProgress: currentProgress, threshold: 0.04)
         }
         .onChange(of: playerViewModel.playbackFailed) { _, failed in
             guard failed, !useVLCPlayer, !avplayerFallbackAttempted else { return }
@@ -862,7 +978,7 @@ struct PlayerView: View {
                     vlcProgressBar
                     
                     HStack {
-                        Text(vlcFormattedTime(isScrubbing ? scrubProgress * vlcDuration : (seekedProgress != nil ? seekedProgress! * vlcDuration : vlcCurrentTime)))
+                        Text(vlcFormattedTime(scrubber.displayProgress(liveProgress: vlcDuration > 0 ? CGFloat(vlcCurrentTime / vlcDuration) : 0) * vlcDuration))
                             .font(.caption)
                             .foregroundColor(.white.opacity(0.8))
                             .monospacedDigit()
@@ -883,28 +999,22 @@ struct PlayerView: View {
     private var vlcProgressBar: some View {
         GeometryReader { geo in
             let liveProgress = vlcDuration > 0 ? CGFloat(vlcCurrentTime / vlcDuration) : 0
-            let displayProgress: CGFloat = if isScrubbing {
-                scrubProgress
-            } else if let seeked = seekedProgress {
-                seeked
-            } else {
-                liveProgress
-            }
+            let displayProgress = scrubber.displayProgress(liveProgress: liveProgress)
             
             ZStack(alignment: .leading) {
                 Capsule()
                     .fill(Color.white.opacity(0.3))
-                    .frame(height: isScrubbing ? 8 : 6)
+                    .frame(height: scrubber.isScrubbing ? 8 : 6)
                 
                 Capsule()
                     .fill(Color.white)
-                    .frame(width: max(0, geo.size.width * displayProgress), height: isScrubbing ? 8 : 6)
+                    .frame(width: max(0, geo.size.width * displayProgress), height: scrubber.isScrubbing ? 8 : 6)
                 
                 Circle()
                     .fill(Color.white)
-                    .frame(width: isScrubbing ? 28 : 22, height: isScrubbing ? 28 : 22)
+                    .frame(width: scrubber.isScrubbing ? 28 : 22, height: scrubber.isScrubbing ? 28 : 22)
                     .shadow(color: .black.opacity(0.3), radius: 4)
-                    .offset(x: max(0, geo.size.width * displayProgress - (isScrubbing ? 14 : 11)))
+                    .offset(x: max(0, geo.size.width * displayProgress - (scrubber.isScrubbing ? 14 : 11)))
             }
             .frame(maxHeight: .infinity)
             .contentShape(Rectangle())
@@ -912,21 +1022,19 @@ struct PlayerView: View {
                 DragGesture(minimumDistance: 0)
                     .onChanged { value in
                         let fraction = CGFloat(max(0, min(1, value.location.x / geo.size.width)))
-                        if !isScrubbing { isScrubbing = true }
-                        scrubProgress = fraction
+                        scrubber.onScrubChanged(fraction: fraction)
                         showVLCControlsTemporarily()
                     }
                     .onEnded { value in
                         let fraction = CGFloat(max(0, min(1, value.location.x / geo.size.width)))
-                        seekedProgress = fraction
-                        isScrubbing = false
+                        scrubber.onScrubEnded(fraction: fraction)
                         #if canImport(VLCKitSPM)
                         vlcController.seek(to: Float(fraction))
                         #endif
                         showVLCControlsTemporarily()
                     }
             )
-            .animation(.easeInOut(duration: 0.15), value: isScrubbing)
+            .animation(.easeInOut(duration: 0.15), value: scrubber.isScrubbing)
         }
         .frame(height: 44)
     }
@@ -936,14 +1044,12 @@ struct PlayerView: View {
     private func handleMoveCommand(_ direction: MoveCommandDirection) {
         switch direction {
         case .up:
-            if isLiveTV && !playerViewModel.showChannelNavigator {
-                playerViewModel.showNavigator()
+            if isLiveTV {
+                nextChannel()
             }
         case .down:
-            if playerViewModel.showChannelNavigator {
-                playerViewModel.hideNavigator()
-            } else if isLiveTV {
-                playerViewModel.showNavigator()
+            if isLiveTV {
+                previousChannel()
             }
         case .left:
             if !isLiveTV {
@@ -973,9 +1079,7 @@ struct PlayerView: View {
             break
         }
         
-        if !playerViewModel.showChannelNavigator {
-            playerViewModel.showControlsTemporarily()
-        }
+        playerViewModel.showControlsTemporarily()
     }
     #endif
 }
@@ -999,8 +1103,11 @@ struct PlayerControlsOverlay: View {
     var onChannelUp: () -> Void = {}
     var onChannelDown: () -> Void = {}
     var onShowNavigator: () -> Void = {}
+    var onShowEPG: () -> Void = {}
     var onShowSubtitles: () -> Void = {}
     var onDismiss: () -> Void = {}
+    
+    @StateObject private var scrubber = ScrubberState()
     
     private var controlPadding: CGFloat {
         PlatformMetrics.usesFocusScaling ? 40 : 20
@@ -1058,30 +1165,63 @@ struct PlayerControlsOverlay: View {
             
             // Bottom controls
             VStack(spacing: 20) {
-                // Progress bar (for VOD content)
                 if !isLive {
                     VStack(spacing: 8) {
-                        // Progress bar
                         GeometryReader { geo in
+                            let displayProgress = scrubber.displayProgress(liveProgress: CGFloat(progress))
+                            
                             ZStack(alignment: .leading) {
-                                Rectangle()
-                                    .fill(Color.white.opacity(0.3))
-                                Rectangle()
+                                RoundedRectangle(cornerRadius: scrubber.isScrubbing ? 4 : 2.5)
+                                    .fill(Color.white.opacity(0.15))
+                                    .frame(height: scrubber.isScrubbing ? 8 : 5)
+                                
+                                RoundedRectangle(cornerRadius: scrubber.isScrubbing ? 4 : 2.5)
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [AppTheme.primaryDim, AppTheme.primary],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                    )
+                                    .frame(width: max(0, geo.size.width * displayProgress), height: scrubber.isScrubbing ? 8 : 5)
+                                    .shadow(color: AppTheme.primary.opacity(0.80), radius: 4)
+                                
+                                Circle()
                                     .fill(Color.white)
-                                    .frame(width: geo.size.width * progress)
+                                    .frame(width: scrubber.isScrubbing ? 24 : 18, height: scrubber.isScrubbing ? 24 : 18)
+                                    .shadow(color: .black.opacity(0.3), radius: 4)
+                                    .offset(x: max(0, geo.size.width * displayProgress - (scrubber.isScrubbing ? 12 : 9)))
                             }
+                            .frame(maxHeight: .infinity)
+                            .contentShape(Rectangle())
+                            #if !os(tvOS)
+                            .gesture(
+                                DragGesture(minimumDistance: 0)
+                                    .onChanged { value in
+                                        let fraction = Double(max(0, min(1, value.location.x / geo.size.width)))
+                                        scrubber.onScrubChanged(fraction: CGFloat(fraction))
+                                    }
+                                    .onEnded { value in
+                                        let fraction = Double(max(0, min(1, value.location.x / geo.size.width)))
+                                        scrubber.onScrubEnded(fraction: CGFloat(fraction))
+                                        onSeek(fraction)
+                                    }
+                            )
+                            #endif
+                            .animation(.easeInOut(duration: 0.15), value: scrubber.isScrubbing)
                         }
-                        .frame(height: 6)
-                        .cornerRadius(3)
+                        .frame(height: 44)
+                        .onChange(of: progress) { _, newProgress in
+                            scrubber.onPlaybackProgressUpdate(currentProgress: CGFloat(newProgress))
+                        }
                         
-                        // Time labels
                         HStack {
                             Text(currentTime)
-                                .font(.caption)
+                                .font(AppTypography.caption)
                                 .foregroundStyle(.white.opacity(0.8))
                             Spacer()
                             Text(duration)
-                                .font(.caption)
+                                .font(AppTypography.caption)
                                 .foregroundStyle(.white.opacity(0.8))
                         }
                     }
@@ -1091,7 +1231,6 @@ struct PlayerControlsOverlay: View {
                 // Control buttons
                 HStack(spacing: PlatformMetrics.usesFocusScaling ? 60 : 40) {
                     if isLive {
-                        // Channel controls for live TV
                         Button {
                             onChannelDown()
                         } label: {
@@ -1112,6 +1251,19 @@ struct PlayerControlsOverlay: View {
                                 Image(systemName: "list.bullet")
                                     .font(.title)
                                 Text("Channels")
+                                    .font(.caption2)
+                            }
+                            .foregroundStyle(.white.opacity(0.8))
+                        }
+                        .buttonStyle(.plain)
+                        
+                        Button {
+                            onShowEPG()
+                        } label: {
+                            VStack(spacing: 4) {
+                                Image(systemName: "list.bullet.rectangle.fill")
+                                    .font(.title)
+                                Text("TV Guide")
                                     .font(.caption2)
                             }
                             .foregroundStyle(.white.opacity(0.8))
@@ -1164,19 +1316,263 @@ struct PlayerControlsOverlay: View {
             }
         }
         .background(
+            ZStack {
+                LinearGradient(
+                    colors: [
+                        Color.black.opacity(0.8),
+                        Color.clear,
+                        Color.clear,
+                        Color.black.opacity(0.8)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                #if os(tvOS)
+                VStack {
+                    Spacer()
+                    Rectangle()
+                        .fill(.ultraThinMaterial)
+                        .frame(height: 120)
+                        .mask(
+                            LinearGradient(
+                                colors: [.clear, .black],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                }
+                #endif
+            }
+        )
+    }
+}
+
+// MARK: - tvOS Live TV Overlay
+
+#if os(tvOS)
+struct TVOSLiveOverlay: View {
+    let channel: Channel?
+    let programTitle: String?
+    let nearbyChannels: [Channel]
+    var onChannelUp: () -> Void = {}
+    var onChannelDown: () -> Void = {}
+    var onSelectChannel: (Channel) -> Void = { _ in }
+    var onShowEPG: () -> Void = {}
+    var onDismiss: () -> Void = {}
+    
+    @ObservedObject private var epgService = EPGService.shared
+    @FocusState private var focusedChannelId: String?
+    @FocusState private var focusOnEPG: Bool
+    
+    private func currentProgram(for ch: Channel) -> EPGProgram? {
+        let key = ch.streamId.map { "\($0)" } ?? ch.epgChannelId ?? ch.tvgId
+        guard let key else { return nil }
+        return epgService.nowPlaying(for: key)
+    }
+    
+    var body: some View {
+        VStack {
+            // Top: channel info bar
+            HStack(spacing: 16) {
+                if let ch = channel {
+                    CachedAsyncImage(url: ch.logoURL) { image in
+                        image.resizable().aspectRatio(contentMode: .fit)
+                    } placeholder: {
+                        Text(ch.name.prefix(3).uppercased())
+                            .font(.system(size: 14, weight: .black))
+                            .foregroundColor(.white.opacity(0.4))
+                    }
+                    .frame(width: 48, height: 48)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 8) {
+                            Circle()
+                                .fill(Color.red)
+                                .frame(width: 8, height: 8)
+                            Text("LIVE")
+                                .font(.system(size: 12, weight: .black))
+                                .foregroundColor(.red)
+                            Text(ch.name)
+                                .font(.system(size: 22, weight: .bold))
+                                .foregroundColor(.white)
+                        }
+                        if let programTitle {
+                            Text(programTitle)
+                                .font(.system(size: 16))
+                                .foregroundColor(.white.opacity(0.7))
+                                .lineLimit(1)
+                        }
+                    }
+                }
+                
+                Spacer()
+                
+                Button {
+                    onDismiss()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 32))
+                        .foregroundColor(.white.opacity(0.5))
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 60)
+            .padding(.top, 40)
+            
+            Spacer()
+            
+            // Bottom: nearby channels strip + actions
+            VStack(spacing: 24) {
+                // Action buttons row
+                HStack(spacing: 40) {
+                    Button { onChannelDown() } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 18, weight: .semibold))
+                            Text("Ch -")
+                                .font(.system(size: 16, weight: .semibold))
+                        }
+                        .foregroundColor(.white.opacity(0.8))
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 10)
+                        .background(.ultraThinMaterial, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    
+                    Button { onShowEPG() } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "list.bullet.rectangle.fill")
+                                .font(.system(size: 18, weight: .semibold))
+                            Text("TV Guide")
+                                .font(.system(size: 16, weight: .semibold))
+                        }
+                        .foregroundColor(.white.opacity(0.8))
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 10)
+                        .background(.ultraThinMaterial, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .focused($focusOnEPG)
+                    
+                    Button { onChannelUp() } label: {
+                        HStack(spacing: 8) {
+                            Text("Ch +")
+                                .font(.system(size: 16, weight: .semibold))
+                            Image(systemName: "chevron.up")
+                                .font(.system(size: 18, weight: .semibold))
+                        }
+                        .foregroundColor(.white.opacity(0.8))
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 10)
+                        .background(.ultraThinMaterial, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+                
+                // Nearby channels
+                if !nearbyChannels.isEmpty {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("NEARBY CHANNELS")
+                            .font(.system(size: 12, weight: .heavy))
+                            .tracking(2)
+                            .foregroundColor(.white.opacity(0.4))
+                            .padding(.leading, 60)
+                        
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 16) {
+                                ForEach(nearbyChannels) { ch in
+                                    Button { onSelectChannel(ch) } label: {
+                                        tvosChannelPill(ch)
+                                    }
+                                    .buttonStyle(NearbyChannelButtonStyle())
+                                    .focused($focusedChannelId, equals: ch.id)
+                                }
+                            }
+                            .padding(.horizontal, 60)
+                        }
+                    }
+                }
+            }
+            .padding(.bottom, 50)
+        }
+        .background(
             LinearGradient(
-                colors: [
-                    Color.black.opacity(0.8),
-                    Color.clear,
-                    Color.clear,
-                    Color.black.opacity(0.8)
+                stops: [
+                    .init(color: Color.black.opacity(0.7), location: 0),
+                    .init(color: .clear, location: 0.25),
+                    .init(color: .clear, location: 0.6),
+                    .init(color: Color.black.opacity(0.85), location: 1.0)
                 ],
                 startPoint: .top,
                 endPoint: .bottom
             )
         )
+        .transition(.opacity)
+    }
+    
+    @ViewBuilder
+    private func tvosChannelPill(_ ch: Channel) -> some View {
+        HStack(spacing: 12) {
+            CachedAsyncImage(url: ch.logoURL) { image in
+                image.resizable().aspectRatio(contentMode: .fit)
+            } placeholder: {
+                Text(ch.name.prefix(2).uppercased())
+                    .font(.system(size: 11, weight: .black))
+                    .foregroundColor(.white.opacity(0.3))
+            }
+            .frame(width: 40, height: 40)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(ch.name)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                
+                if let prog = currentProgram(for: ch) {
+                    Text(prog.title)
+                        .font(.system(size: 12))
+                        .foregroundColor(.white.opacity(0.6))
+                        .lineLimit(1)
+                }
+            }
+            .frame(maxWidth: 140, alignment: .leading)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.white.opacity(0.08), lineWidth: 0.5)
+                )
+        )
     }
 }
+
+struct NearbyChannelButtonStyle: ButtonStyle {
+    @Environment(\.isFocused) var isFocused
+    
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(isFocused ? 1.08 : 1.0)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(
+                        isFocused ? AppTheme.primary.opacity(0.6) : Color.clear,
+                        lineWidth: 2
+                    )
+            )
+            .shadow(
+                color: isFocused ? AppTheme.primary.opacity(0.3) : .clear,
+                radius: 15
+            )
+            .animation(.easeInOut(duration: 0.2), value: isFocused)
+    }
+}
+#endif
 
 // MARK: - Resume Prompt Overlay
 

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Reusable card component for displaying content items
+/// Reusable card component for displaying content items -- Liquid Glass style
 struct ContentCard: View {
     let title: String
     let subtitle: String?
@@ -10,6 +10,7 @@ struct ContentCard: View {
     var onTap: () -> Void = {}
     var onLongPress: () -> Void = {}
     
+    @Environment(\.colorScheme) private var scheme
     @State private var isPressed = false
     @State private var isHovered = false
     @FocusState private var isFocused: Bool
@@ -37,7 +38,6 @@ struct ContentCard: View {
             onTap()
         } label: {
             VStack(alignment: .leading, spacing: 8) {
-                // Image
                 ZStack(alignment: .topTrailing) {
                     CachedAsyncImage(url: imageURL) { image in
                         image
@@ -48,47 +48,49 @@ struct ContentCard: View {
                     }
                     .frame(maxWidth: .infinity)
                     .aspectRatio(aspectRatio, contentMode: .fit)
-                    .background(Color.gray.opacity(0.15))
+                    .background(AppTheme.surfaceContainerHigh(scheme))
                     .clipped()
-                    .cornerRadius(10)
-                    #if !os(tvOS)
+                    .cornerRadius(PlatformMetrics.cardCornerRadius)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(isHovered ? Color.accentColor.opacity(0.6) : Color.clear, lineWidth: 2)
+                        RoundedRectangle(cornerRadius: PlatformMetrics.cardCornerRadius)
+                            .stroke(cardBorderColor, lineWidth: cardBorderWidth)
                     )
-                    .shadow(color: isHovered ? Color.accentColor.opacity(0.3) : Color.black.opacity(0.15), radius: isHovered ? 12 : 4, y: isHovered ? 4 : 2)
+                    #if !os(tvOS)
+                    .shadow(
+                        color: isHovered ? AppTheme.primary.opacity(0.25) : Color.black.opacity(0.2),
+                        radius: isHovered ? 16 : 6,
+                        y: isHovered ? 6 : 3
+                    )
                     #endif
                     
-                    // Favorite indicator
                     if isFavorite {
                         Image(systemName: "heart.fill")
-                            .font(.caption)
-                            .foregroundColor(.red)
-                            .padding(6)
-                            .background(.ultraThinMaterial)
-                            .clipShape(Circle())
-                            .padding(6)
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(AppTheme.tertiary)
+                            .padding(5)
+                            .background(.ultraThinMaterial, in: Circle())
+                            .overlay(Circle().stroke(Color.white.opacity(0.10), lineWidth: 0.5))
+                            .padding(8)
                     }
                 }
                 
-                // Text
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 3) {
                     Text(title)
-                        .font(.callout)
-                        .fontWeight(.medium)
+                        .font(AppTypography.cardTitle)
                         .lineLimit(2)
-                        .foregroundStyle(.primary)
+                        .foregroundColor(AppTheme.onSurface(scheme))
                     
                     if let subtitle = subtitle {
                         Text(subtitle)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .font(AppTypography.caption)
+                            .foregroundColor(AppTheme.onSurfaceVariant(scheme))
                             .lineLimit(1)
                     }
                 }
             }
         }
         .buttonStyle(CardButtonStyle())
+        .tvOSFocusEffectDisabled()
         .focused($isFocused)
         #if !os(tvOS)
         .onHover { hovering in
@@ -109,13 +111,29 @@ struct ContentCard: View {
         }
     }
     
+    private var cardBorderColor: Color {
+        #if os(tvOS)
+        return isFocused ? AppTheme.primary.opacity(0.50) : AppTheme.glassBorder(scheme)
+        #else
+        return isHovered ? AppTheme.primary.opacity(0.40) : AppTheme.glassBorder(scheme)
+        #endif
+    }
+    
+    private var cardBorderWidth: CGFloat {
+        #if os(tvOS)
+        return isFocused ? 2 : 1
+        #else
+        return isHovered ? 1.5 : 0.5
+        #endif
+    }
+    
     private var placeholderImage: some View {
         Rectangle()
-            .fill(Color.gray.opacity(0.2))
+            .fill(AppTheme.surfaceContainerHigh(scheme))
             .overlay {
                 Image(systemName: "photo")
                     .font(.title2)
-                    .foregroundStyle(.tertiary)
+                    .foregroundColor(AppTheme.onSurfaceVariant(scheme).opacity(0.4))
             }
     }
 }
@@ -129,13 +147,36 @@ struct CardButtonStyle: ButtonStyle {
             #if os(tvOS)
             .scaleEffect(isFocused ? 1.08 : 1.0)
             .offset(y: isFocused ? -8 : 0)
-            .shadow(color: .black.opacity(isFocused ? 0.4 : 0), radius: isFocused ? 30 : 0, y: isFocused ? 12 : 0)
-            .animation(.easeInOut(duration: 0.2), value: isFocused)
+            .overlay(
+                RoundedRectangle(cornerRadius: PlatformMetrics.cardCornerRadius)
+                    .stroke(
+                        isFocused ? AppTheme.primary.opacity(0.6) : Color.clear,
+                        lineWidth: 2.5
+                    )
+            )
+            .shadow(
+                color: isFocused ? AppTheme.primary.opacity(0.35) : .clear,
+                radius: isFocused ? 25 : 0,
+                y: isFocused ? 10 : 0
+            )
+            .brightness(isFocused ? 0.05 : 0)
+            .animation(.easeInOut(duration: 0.25), value: isFocused)
             #else
             .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
             .opacity(configuration.isPressed ? 0.85 : 1.0)
             .animation(.easeInOut(duration: 0.12), value: configuration.isPressed)
             #endif
+    }
+}
+
+extension View {
+    @ViewBuilder
+    func tvOSFocusEffectDisabled() -> some View {
+        #if os(tvOS)
+        self.focusEffectDisabled()
+        #else
+        self
+        #endif
     }
 }
 
@@ -148,40 +189,153 @@ struct ChannelCard: View {
     var onLongPress: () -> Void = {}
     var onCatchup: (() -> Void)? = nil
     
+    @Environment(\.colorScheme) private var scheme
+    @State private var isHovered = false
+    
     var body: some View {
-        ContentCard(
-            title: channel.name,
-            subtitle: nowPlaying ?? channel.category,
-            imageURL: channel.logoURL,
-            isFavorite: channel.isFavorite,
-            aspectRatio: 16/9,
-            onTap: onTap,
-            onLongPress: onLongPress
-        )
-        .overlay(alignment: .topLeading) {
-            if channel.hasCatchup {
-                if let onCatchup {
-                    Button {
-                        onCatchup()
-                    } label: {
-                        catchupBadge
+        Button {
+            onTap()
+        } label: {
+            ZStack(alignment: .bottom) {
+                channelThumbnail
+                
+                LinearGradient(
+                    colors: [Color.black.opacity(0.9), Color.black.opacity(0.4), .clear],
+                    startPoint: .bottom,
+                    endPoint: .top
+                )
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        if channel.hasCatchup {
+                            HStack(spacing: 3) {
+                                Image(systemName: "clock.arrow.circlepath")
+                                    .font(.system(size: 7))
+                                Text("Catchup")
+                                    .font(AppTypography.micro)
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(AppTheme.catchupBadge.opacity(0.85), in: Capsule())
+                        }
+                        Spacer()
+                        if channel.isFavorite {
+                            Image(systemName: "heart.fill")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(AppTheme.tertiary)
+                        }
                     }
-                    .buttonStyle(.plain)
-                } else {
-                    catchupBadge
+                    
+                    Text(channel.name)
+                        #if os(tvOS)
+                        .font(.system(size: 16, weight: .bold))
+                        #else
+                        .font(AppTypography.cardTitle)
+                        #endif
+                        .lineLimit(1)
+                        .foregroundColor(.white)
+                    
+                    if let nowPlaying {
+                        Text(nowPlaying)
+                            #if os(tvOS)
+                            .font(.system(size: 13))
+                            #else
+                            .font(AppTypography.caption)
+                            #endif
+                            .foregroundColor(.white.opacity(0.7))
+                            .lineLimit(1)
+                    } else {
+                        Text(channel.category)
+                            #if os(tvOS)
+                            .font(.system(size: 13))
+                            #else
+                            .font(AppTypography.caption)
+                            #endif
+                            .foregroundColor(.white.opacity(0.5))
+                            .lineLimit(1)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                #if os(tvOS)
+                .padding(14)
+                #else
+                .padding(10)
+                #endif
+            }
+            .background(Color(hex: 0x1A1A1E))
+            .cornerRadius(PlatformMetrics.cardCornerRadius)
+            .overlay(
+                RoundedRectangle(cornerRadius: PlatformMetrics.cardCornerRadius)
+                    .stroke(AppTheme.glassBorder(scheme), lineWidth: 0.5)
+            )
+            #if !os(tvOS)
+            .shadow(
+                color: isHovered ? AppTheme.primary.opacity(0.20) : Color.black.opacity(0.15),
+                radius: isHovered ? 12 : 4,
+                y: isHovered ? 4 : 2
+            )
+            #endif
+        }
+        .buttonStyle(CardButtonStyle())
+        .tvOSFocusEffectDisabled()
+        #if !os(tvOS)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isHovered = hovering
+            }
+        }
+        #endif
+        .contextMenu {
+            Button {
+                onLongPress()
+            } label: {
+                Label(
+                    channel.isFavorite ? L10n.Favorites.removeFromFavorites : L10n.Favorites.addToFavorites,
+                    systemImage: channel.isFavorite ? "heart.slash" : "heart"
+                )
+            }
+            if channel.hasCatchup, let onCatchup {
+                Button {
+                    onCatchup()
+                } label: {
+                    Label("Catchup", systemImage: "clock.arrow.circlepath")
                 }
             }
         }
     }
     
-    private var catchupBadge: some View {
-        Label("Catchup", systemImage: "clock.arrow.circlepath")
-            .font(.system(size: 9, weight: .semibold))
-            .foregroundColor(.white)
-            .padding(.horizontal, 5)
-            .padding(.vertical, 2)
-            .background(Color.orange.opacity(0.85), in: Capsule())
-            .padding(6)
+    @ViewBuilder
+    private var channelThumbnail: some View {
+        CachedAsyncImage(url: channel.logoURL) { image in
+            image
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+        } placeholder: {
+            Rectangle()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            AppTheme.primary.opacity(0.15),
+                            AppTheme.secondary.opacity(0.08)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .overlay {
+                    Text(channel.name.prefix(3).uppercased())
+                        #if os(tvOS)
+                        .font(.system(size: 28, weight: .black))
+                        #else
+                        .font(.system(size: 14, weight: .heavy))
+                        #endif
+                        .foregroundColor(.white.opacity(0.15))
+                }
+        }
+        .frame(maxWidth: .infinity)
+        .aspectRatio(16/9, contentMode: .fit)
+        .clipped()
     }
 }
 

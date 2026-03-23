@@ -7,21 +7,63 @@ struct EasyIpTvApp: App {
     @StateObject private var localizationManager = LocalizationManager.shared
     @StateObject private var premiumManager = PremiumManager()
     @StateObject private var downloadManager = DownloadManager.shared
+    #if os(tvOS)
+    @State private var showSplash = true
+    #endif
+    
+    private var sharedEnvironment: some View {
+        MainMenuView()
+            .environmentObject(contentViewModel)
+            .environmentObject(favoritesViewModel)
+            .environmentObject(localizationManager)
+            .environmentObject(premiumManager)
+            .environmentObject(downloadManager)
+            .environment(\.layoutDirection, localizationManager.currentLanguage.isRTL ? .rightToLeft : .leftToRight)
+            .id("root-\(localizationManager.currentLanguage.rawValue)")
+    }
     
     var body: some Scene {
         WindowGroup {
-            MainMenuView()
-                .environmentObject(contentViewModel)
-                .environmentObject(favoritesViewModel)
-                .environmentObject(localizationManager)
-                .environmentObject(premiumManager)
-                .environmentObject(downloadManager)
-                .environment(\.layoutDirection, localizationManager.currentLanguage.isRTL ? .rightToLeft : .leftToRight)
-                // Force full view rebuild when language changes so sidebar flips, titles update, etc.
-                .id("root-\(localizationManager.currentLanguage.rawValue)")
+            #if os(tvOS)
+            ZStack {
+                sharedEnvironment
+                    .opacity(showSplash ? 0 : 1)
+                
+                if showSplash {
+                    SplashLoadingView()
+                        .transition(.opacity)
+                }
+            }
+            .animation(.easeInOut(duration: 0.5), value: showSplash)
+            .task {
+                AdManager.shared.initialize()
+                downloadManager.performCleanup()
+                iCloudSyncManager.shared.startObserving()
+                
+                let deadline = Date().addingTimeInterval(7)
+                
+                await contentViewModel.loadContentIfNeeded()
+                favoritesViewModel.syncFavorites(
+                    channels: contentViewModel.allLoadedChannels,
+                    movies: contentViewModel.allLoadedMovies,
+                    shows: contentViewModel.allLoadedShows
+                )
+                
+                if contentViewModel.isContentReady {
+                    dismissSplash()
+                } else {
+                    while !contentViewModel.isContentReady && Date() < deadline {
+                        try? await Task.sleep(nanoseconds: 200_000_000)
+                    }
+                    dismissSplash()
+                }
+            }
+            #else
+            sharedEnvironment
                 .task {
                     AdManager.shared.initialize()
                     downloadManager.performCleanup()
+                    iCloudSyncManager.shared.startObserving()
                     
                     await contentViewModel.loadContentIfNeeded()
                     favoritesViewModel.syncFavorites(
@@ -30,11 +72,120 @@ struct EasyIpTvApp: App {
                         shows: contentViewModel.allLoadedShows
                     )
                 }
+            #endif
         }
         #if os(macOS)
         .defaultSize(width: 1200, height: 800)
         .windowStyle(.titleBar)
         .windowToolbarStyle(.unified(showsTitle: true))
+        #endif
+    }
+    
+    #if os(tvOS)
+    private func dismissSplash() {
+        withAnimation(.easeInOut(duration: 0.5)) {
+            showSplash = false
+        }
+    }
+    #endif
+}
+
+// MARK: - Splash Loading View
+
+struct SplashLoadingView: View {
+    @State private var progress: CGFloat = 0
+    @State private var pulseScale: CGFloat = 1.0
+    @State private var glowOpacity: Double = 0.3
+    
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+            
+            LiquidGradientBackground(intensity: 0.35)
+                .ignoresSafeArea()
+                .opacity(glowOpacity)
+            
+            VStack(spacing: 32) {
+                Spacer()
+                
+                Image(systemName: "play.tv.fill")
+                    #if os(tvOS)
+                    .font(.system(size: 80, weight: .thin))
+                    #else
+                    .font(.system(size: 56, weight: .thin))
+                    #endif
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [AppTheme.primary, AppTheme.secondary],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .scaleEffect(pulseScale)
+                
+                VStack(spacing: 8) {
+                    Text("Easy IPTV")
+                        #if os(tvOS)
+                        .font(.system(size: 42, weight: .bold, design: .rounded))
+                        #else
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        #endif
+                        .foregroundColor(.white)
+                    
+                    Text("Loading your content...")
+                        #if os(tvOS)
+                        .font(.system(size: 18))
+                        #else
+                        .font(.system(size: 14))
+                        #endif
+                        .foregroundColor(.white.opacity(0.5))
+                }
+                
+                // Progress bar
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.white.opacity(0.1))
+                    
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: [AppTheme.primary, AppTheme.secondary],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: max(0, progress * splashBarWidth))
+                        .shadow(color: AppTheme.primary.opacity(0.5), radius: 8)
+                }
+                #if os(tvOS)
+                .frame(width: splashBarWidth, height: 6)
+                #else
+                .frame(width: splashBarWidth, height: 4)
+                #endif
+                .cornerRadius(3)
+                
+                Spacer()
+                Spacer()
+            }
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+                pulseScale = 1.08
+                glowOpacity = 0.6
+            }
+            withAnimation(.easeInOut(duration: 6.5)) {
+                progress = 0.95
+            }
+        }
+    }
+    
+    private var splashBarWidth: CGFloat {
+        #if os(tvOS)
+        return 300
+        #elseif os(macOS)
+        return 240
+        #else
+        return 200
         #endif
     }
 }
@@ -46,11 +197,11 @@ enum PlatformMetrics {
     /// Card width for channel cards
     static var channelCardWidth: CGFloat {
         #if os(tvOS)
-        return 300
+        return 320
         #elseif os(macOS)
-        return 220
+        return 240
         #else
-        return 180 // iOS/iPadOS
+        return 200
         #endif
     }
     
@@ -61,7 +212,7 @@ enum PlatformMetrics {
         #elseif os(macOS)
         return 160
         #else
-        return 140 // iOS/iPadOS
+        return 140
         #endif
     }
     
@@ -72,7 +223,7 @@ enum PlatformMetrics {
         #elseif os(macOS)
         return 5
         #else
-        return 3 // iOS/iPadOS - adaptive
+        return 3
         #endif
     }
     
@@ -90,22 +241,22 @@ enum PlatformMetrics {
     /// Horizontal spacing between items
     static var horizontalSpacing: CGFloat {
         #if os(tvOS)
-        return 50
+        return 40
         #elseif os(macOS)
-        return 20
-        #else
         return 16
+        #else
+        return 12
         #endif
     }
     
     /// Vertical section spacing
     static var sectionSpacing: CGFloat {
         #if os(tvOS)
-        return 60
+        return 48
         #elseif os(macOS)
-        return 32
+        return 36
         #else
-        return 28
+        return 32
         #endif
     }
     
@@ -158,9 +309,9 @@ enum PlatformMetrics {
         #if os(tvOS)
         return 500
         #elseif os(macOS)
-        return 350
+        return 400
         #else
-        return 280
+        return 420
         #endif
     }
     
@@ -194,6 +345,30 @@ enum PlatformMetrics {
         return false
         #endif
     }
+    
+    /// Card corner radius
+    static var cardCornerRadius: CGFloat {
+        #if os(tvOS)
+        return 16
+        #else
+        return 12
+        #endif
+    }
+    
+    /// Sidebar width for macOS/iPad/tvOS
+    static var sidebarWidth: CGFloat {
+        #if os(tvOS)
+        return 280
+        #else
+        return 260
+        #endif
+    }
+    
+    /// Tab bar height (iOS custom tab)
+    static var tabBarHeight: CGFloat { 80 }
+    
+    /// Tab bar corner radius
+    static var tabBarCornerRadius: CGFloat { 24 }
 }
 
 // MARK: - Platform View Modifiers

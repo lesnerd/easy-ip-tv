@@ -146,14 +146,42 @@ actor XtreamCodesService {
         let streamIcon: String?
         let categoryId: String?
         let containerExtension: String?
+        let rating: String?
+        let coverBig: String?
         
         enum CodingKeys: String, CodingKey {
-            case num, name
+            case num, name, rating
             case streamType = "stream_type"
             case streamId = "stream_id"
             case streamIcon = "stream_icon"
             case categoryId = "category_id"
             case containerExtension = "container_extension"
+            case coverBig = "cover_big"
+        }
+        
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            num = try container.decodeIfPresent(Int.self, forKey: .num)
+            name = try container.decodeIfPresent(String.self, forKey: .name)
+            streamType = try container.decodeIfPresent(String.self, forKey: .streamType)
+            streamId = try container.decodeIfPresent(Int.self, forKey: .streamId)
+            streamIcon = try container.decodeIfPresent(String.self, forKey: .streamIcon)
+            categoryId = try container.decodeIfPresent(String.self, forKey: .categoryId)
+            containerExtension = try container.decodeIfPresent(String.self, forKey: .containerExtension)
+            coverBig = try container.decodeIfPresent(String.self, forKey: .coverBig)
+            if let ratingStr = try? container.decodeIfPresent(String.self, forKey: .rating) {
+                rating = ratingStr
+            } else if let ratingNum = try? container.decodeIfPresent(Double.self, forKey: .rating) {
+                rating = String(ratingNum)
+            } else {
+                rating = nil
+            }
+        }
+        
+        var bestImageURL: String? {
+            if let icon = streamIcon, !icon.isEmpty { return icon }
+            if let cover = coverBig, !cover.isEmpty { return cover }
+            return nil
         }
     }
     

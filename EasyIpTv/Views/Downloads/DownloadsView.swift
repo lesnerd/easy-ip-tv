@@ -4,6 +4,7 @@ struct DownloadsView: View {
     @EnvironmentObject var downloadManager: DownloadManager
     @EnvironmentObject var premiumManager: PremiumManager
     @EnvironmentObject var contentViewModel: ContentViewModel
+    @Environment(\.colorScheme) private var scheme
     
     @State private var showUpgrade = false
     @State private var playingMovie: Movie?
@@ -61,22 +62,11 @@ struct DownloadsView: View {
     }
     
     private var emptyState: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "arrow.down.circle")
-                .font(.system(size: PlatformMetrics.usesFocusScaling ? 80 : 50))
-                .foregroundStyle(.secondary)
-            
-            Text("No Downloads")
-                .font(.title2)
-                .fontWeight(.semibold)
-            
-            Text("Movies and episodes you download will appear here for offline viewing.")
-                .font(.body)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 400)
-        }
-        .padding()
+        EmptyStateView(
+            icon: "arrow.down.circle",
+            title: "No Downloads",
+            message: "Movies and episodes you download will appear here for offline viewing."
+        )
     }
     
     private var downloadsList: some View {

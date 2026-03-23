@@ -1,71 +1,84 @@
 import SwiftUI
 
-/// Compact channel row for lists and navigation
+/// Compact channel row for lists and navigation -- Liquid Glass style
 struct ChannelRowView: View {
     let channel: Channel
     let isSelected: Bool
     var onSelect: () -> Void = {}
     
+    @Environment(\.colorScheme) private var scheme
     @FocusState private var isFocused: Bool
     
     var body: some View {
         Button {
             onSelect()
         } label: {
-            HStack(spacing: 16) {
-                // Channel number
+            HStack(spacing: 14) {
                 if let number = channel.channelNumber {
                     Text("\(number)")
-                        .font(.headline)
-                        .foregroundStyle(.secondary)
-                        .frame(width: 40, alignment: .trailing)
+                        .font(AppTypography.bodyMedium)
+                        .foregroundColor(AppTheme.onSurfaceVariant(scheme))
+                        .frame(width: 36, alignment: .trailing)
                 }
                 
-                // Channel logo
                 CachedAsyncImage(url: channel.logoURL) { image in
                     image
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                 } placeholder: {
                     Image(systemName: "tv")
-                        .font(.title2)
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 14))
+                        .foregroundColor(AppTheme.onSurfaceVariant(scheme))
                 }
-                .frame(width: 60, height: 40)
-                .background(Color.gray.opacity(0.1))
-                .cornerRadius(6)
+                .frame(width: 48, height: 36)
+                .background(AppTheme.surfaceContainerHigh(scheme))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
                 
-                // Channel name
                 Text(channel.name)
-                    .font(.body)
+                    .font(AppTypography.bodyMedium)
+                    .foregroundColor(AppTheme.onSurface(scheme))
                     .lineLimit(1)
                 
                 Spacer()
                 
-                // Favorite indicator
                 if channel.isFavorite {
                     Image(systemName: "heart.fill")
-                        .foregroundColor(.red)
-                        .font(.caption)
+                        .font(.system(size: 11))
+                        .foregroundColor(AppTheme.tertiary)
                 }
                 
-                // Selection indicator
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.accentColor)
+                        .font(.system(size: 14))
+                        .foregroundColor(AppTheme.primary)
                 }
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.vertical, 10)
             .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(isSelected ? Color.accentColor.opacity(0.2) : Color.clear)
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(
+                        isSelected
+                            ? AppTheme.primary.opacity(0.12)
+                            : AppTheme.surfaceContainerLow(scheme).opacity(0.01)
+                    )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(
+                        isSelected ? AppTheme.primary.opacity(0.30) : Color.clear,
+                        lineWidth: 1
+                    )
             )
         }
         .buttonStyle(.plain)
         .focused($isFocused)
         #if os(tvOS)
         .scaleEffect(isFocused ? 1.02 : 1.0)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(isFocused ? Color.white.opacity(0.10) : Color.clear)
+        )
         .animation(.easeInOut(duration: 0.15), value: isFocused)
         #endif
     }
@@ -77,10 +90,11 @@ struct ChannelListView: View {
     let channels: [Channel]
     let selectedChannel: Channel?
     var onSelect: (Channel) -> Void = { _ in }
+    @Environment(\.colorScheme) private var scheme
     
     var body: some View {
         ScrollView {
-            LazyVStack(spacing: 4) {
+            LazyVStack(spacing: 2) {
                 ForEach(channels) { channel in
                     ChannelRowView(
                         channel: channel,
@@ -103,28 +117,28 @@ struct MiniChannelNavigator: View {
     var onSelect: (Channel) -> Void = { _ in }
     var onDismiss: () -> Void = {}
     
+    @Environment(\.colorScheme) private var scheme
     @FocusState private var focusedChannelId: String?
     
     var body: some View {
         VStack(spacing: 0) {
-            // Header
             HStack {
                 Text(L10n.Content.allChannels)
-                    .font(.headline)
+                    .font(AppTypography.sectionTitle)
+                    .foregroundColor(AppTheme.onSurface(scheme))
                 Spacer()
                 Button {
                     onDismiss()
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.title2)
-                        .foregroundStyle(.secondary)
+                        .foregroundColor(AppTheme.onSurfaceVariant(scheme))
                 }
                 .buttonStyle(.plain)
             }
             .padding()
             .background(.ultraThinMaterial)
             
-            // Channel list
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 2) {
@@ -148,8 +162,7 @@ struct MiniChannelNavigator: View {
             }
         }
         .frame(width: PlatformMetrics.usesFocusScaling ? 500 : 400)
-        .background(.ultraThinMaterial)
-        .cornerRadius(16)
+        .glassPanel(cornerRadius: 16)
     }
 }
 

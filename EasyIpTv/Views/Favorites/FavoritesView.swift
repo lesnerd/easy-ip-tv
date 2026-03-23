@@ -17,9 +17,11 @@ struct FavoritesView: View {
     @State private var showEpisodePlayer = false
     @State private var showUpgradeSheet = false
     @State private var searchText = ""
+    @State private var continueWatchingRefreshId = UUID()
     
     private var continueWatchingItems: [StorageService.ContinueWatchingItem] {
-        StorageService.shared.getContinueWatching()
+        let _ = continueWatchingRefreshId
+        return StorageService.shared.getContinueWatching()
     }
     
     private var recentlyWatchedItems: [StorageService.WatchedItem] {
@@ -66,6 +68,9 @@ struct FavoritesView: View {
             .searchable(text: $searchText, prompt: L10n.Actions.search)
             .onAppear {
                 favoritesViewModel.loadSavedFavorites()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: iCloudSyncManager.didSyncFromCloudNotification)) { _ in
+                continueWatchingRefreshId = UUID()
             }
             .safeAreaInset(edge: .bottom) {
                 BannerAdView { showUpgradeSheet = true }

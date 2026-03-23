@@ -1,155 +1,396 @@
 import SwiftUI
 
-/// Overlay for navigating channels while watching live TV - appears at bottom of screen
+/// Full-screen channel browser overlay -- Liquid Glass style.
+/// Appears over the player when the user taps the channel list button.
 struct ChannelNavigatorOverlay: View {
     let channels: [Channel]
     let currentChannel: Channel
     var onSelectChannel: (Channel) -> Void = { _ in }
     var onDismiss: () -> Void = {}
     
+    @ObservedObject private var epgService = EPGService.shared
     @FocusState private var focusedChannelId: String?
     @State private var selectedCategory: String?
+    @State private var searchText = ""
     
     private var categories: [String] {
         Array(Set(channels.map { $0.category })).sorted()
     }
     
     private var filteredChannels: [Channel] {
+        var result = channels
         if let category = selectedCategory {
-            return channels.filter { $0.category == category }
+            result = result.filter { $0.category == category }
         }
-        return channels
+        if !searchText.isEmpty {
+            result = result.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+        }
+        return result
     }
     
-    private var stripSpacing: CGFloat {
+    private var horizontalPad: CGFloat {
         #if os(tvOS)
-        return 40
+        return 60
         #elseif os(macOS)
-        return 20
+        return 40
         #else
-        return 16
+        return 20
         #endif
     }
     
     var body: some View {
-        VStack {
+        ZStack {
+            Color.black.opacity(0.70)
+                .ignoresSafeArea()
+                .onTapGesture { onDismiss() }
+            
+            VStack(spacing: 0) {
+                nowPlayingBanner
+                
+                filterBar
+                
+                channelList
+            }
+            #if os(macOS)
+            .frame(maxWidth: 800)
+            #endif
+        }
+        .transition(.opacity.combined(with: .move(edge: .bottom)))
+    }
+    
+    // MARK: - Now Playing Banner
+    
+    private var nowPlayingBanner: some View {
+        let program = currentProgram(for: currentChannel)
+        
+        return HStack(spacing: 16) {
+            CachedAsyncImage(url: currentChannel.logoURL) { image in
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+            } placeholder: {
+                Image(systemName: "tv")
+                    .font(.system(size: 20))
+                    .foregroundColor(.white.opacity(0.4))
+            }
+            .frame(width: 56, height: 42)
+            .background(Color.white.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    LivePulseIndicator(size: 5)
+                    
+                    if let num = currentChannel.channelNumber {
+                        Text("Ch \(num)")
+                            .font(AppTypography.caption)
+                            .foregroundColor(.white.opacity(0.5))
+                    }
+                    
+                    Text(currentChannel.name)
+                        .font(AppTypography.cardTitle)
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                }
+                
+                if let program {
+                    Text(program.title)
+                        .font(AppTypography.caption)
+                        .foregroundColor(.white.opacity(0.7))
+                        .lineLimit(1)
+                    
+                    GlowProgressBar(
+                        progress: program.progress,
+                        height: 3,
+                        trackColor: Color.white.opacity(0.12),
+                        barColor: AppTheme.primary
+                    )
+                    .frame(maxWidth: 220)
+                }
+            }
+            
             Spacer()
             
-            // Bottom channel strip
-            VStack(spacing: 0) {
-                // Header bar with category pills and close button
-                HStack(alignment: .center) {
-                    // Close button (leading)
+            Button {
+                onDismiss()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 11, weight: .bold))
+                    Text("Back")
+                        .font(AppTypography.label)
+                }
+                .foregroundColor(AppTheme.onPrimaryContainer)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 9)
+                .background(AppTheme.primary, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            
+            Button {
+                onDismiss()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 24))
+                    .foregroundColor(.white.opacity(0.5))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, horizontalPad)
+        .padding(.vertical, 14)
+        .background(
+            Color.white.opacity(0.06)
+                .background(.ultraThinMaterial)
+        )
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color.white.opacity(0.06))
+                .frame(height: 0.5)
+        }
+    }
+    
+    // MARK: - Filter Bar (categories + search)
+    
+    private var filterBar: some View {
+        VStack(spacing: 12) {
+            #if !os(tvOS)
+            HStack(spacing: 10) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 14))
+                    .foregroundColor(.white.opacity(0.4))
+                
+                TextField("Search channels...", text: $searchText)
+                    .font(AppTypography.body)
+                    .foregroundColor(.white)
+                    #if os(iOS)
+                    .textInputAutocapitalization(.never)
+                    #endif
+                    .autocorrectionDisabled()
+                
+                if !searchText.isEmpty {
                     Button {
-                        onDismiss()
+                        searchText = ""
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.title2)
-                            .foregroundStyle(.white.opacity(0.7))
+                            .font(.system(size: 14))
+                            .foregroundColor(.white.opacity(0.4))
                     }
                     .buttonStyle(.plain)
-                    
-                    Spacer()
-                    
-                    // Current channel info
-                    HStack(spacing: 8) {
-                        Circle()
-                            .fill(Color.green)
-                            .frame(width: 8, height: 8)
-                        Text(currentChannel.name)
-                            .font(.callout)
-                            .fontWeight(.medium)
-                            .foregroundStyle(.white)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(Color.white.opacity(0.08), in: Capsule())
+            .padding(.horizontal, horizontalPad)
+            #endif
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    CategoryPill(
+                        title: L10n.Content.allChannels,
+                        isSelected: selectedCategory == nil
+                    ) {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            selectedCategory = nil
+                        }
                     }
                     
-                    Spacer()
-                    
-                    // Placeholder for symmetry
-                    Color.clear
-                        .frame(width: 30, height: 30)
-                }
-                .padding(.horizontal, PlatformMetrics.contentPadding + 10)
-                .padding(.top, 16)
-                .padding(.bottom, 12)
-                
-                // Category pill bar
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 10) {
+                    ForEach(categories, id: \.self) { category in
                         CategoryPill(
-                            title: L10n.Content.allChannels,
-                            isSelected: selectedCategory == nil
+                            title: category,
+                            isSelected: selectedCategory == category
                         ) {
                             withAnimation(.easeInOut(duration: 0.2)) {
-                                selectedCategory = nil
-                            }
-                        }
-                        
-                        ForEach(categories, id: \.self) { category in
-                            CategoryPill(
-                                title: category,
-                                isSelected: selectedCategory == category
-                            ) {
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    selectedCategory = category
-                                }
-                            }
-                        }
-                    }
-                    .padding(.horizontal, PlatformMetrics.contentPadding + 10)
-                }
-                .platformFocusSection()
-                .padding(.bottom, 16)
-                
-                // Horizontal channel strip
-                ScrollViewReader { proxy in
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        LazyHStack(spacing: stripSpacing) {
-                            ForEach(filteredChannels) { channel in
-                                ChannelStripCard(
-                                    channel: channel,
-                                    isCurrentChannel: channel.id == currentChannel.id,
-                                    isFocused: focusedChannelId == channel.id
-                                ) {
-                                    onSelectChannel(channel)
-                                }
-                                .focused($focusedChannelId, equals: channel.id)
-                                .id(channel.id)
-                            }
-                        }
-                        .padding(.horizontal, PlatformMetrics.contentPadding + 10)
-                        .padding(.bottom, PlatformMetrics.contentPadding)
-                    }
-                    .onAppear {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            focusedChannelId = currentChannel.id
-                            withAnimation {
-                                proxy.scrollTo(currentChannel.id, anchor: .center)
-                            }
-                        }
-                    }
-                    .onChange(of: selectedCategory) { _, _ in
-                        // Reset focus when category changes
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            if let first = filteredChannels.first {
-                                focusedChannelId = first.id
-                                withAnimation {
-                                    proxy.scrollTo(first.id, anchor: .leading)
-                                }
+                                selectedCategory = category
                             }
                         }
                     }
                 }
-                .platformFocusSection()
+                .padding(.horizontal, horizontalPad)
             }
+            .platformFocusSection()
+        }
+        .padding(.vertical, 12)
+    }
+    
+    // MARK: - Channel List
+    
+    private var channelList: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 2) {
+                    ForEach(filteredChannels) { channel in
+                        NavigatorChannelRow(
+                            channel: channel,
+                            isCurrent: channel.id == currentChannel.id,
+                            program: currentProgram(for: channel)
+                        ) {
+                            onSelectChannel(channel)
+                        }
+                        .focused($focusedChannelId, equals: channel.id)
+                        .id(channel.id)
+                    }
+                }
+                .padding(.horizontal, horizontalPad)
+                .padding(.bottom, 40)
+            }
+            .onAppear {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    focusedChannelId = currentChannel.id
+                    withAnimation {
+                        proxy.scrollTo(currentChannel.id, anchor: .center)
+                    }
+                }
+            }
+            .onChange(of: selectedCategory) { _, _ in
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    if let first = filteredChannels.first {
+                        focusedChannelId = first.id
+                        withAnimation {
+                            proxy.scrollTo(first.id, anchor: .top)
+                        }
+                    }
+                }
+            }
+        }
+        .platformFocusSection()
+    }
+    
+    // MARK: - EPG Helper
+    
+    private func currentProgram(for channel: Channel) -> EPGProgram? {
+        let key = channel.streamId.map { "\($0)" } ?? channel.epgChannelId ?? channel.tvgId
+        guard let key else { return nil }
+        return epgService.nowPlaying(for: key)
+    }
+}
+
+// MARK: - Navigator Channel Row
+
+private struct NavigatorChannelRow: View {
+    let channel: Channel
+    let isCurrent: Bool
+    let program: EPGProgram?
+    var onSelect: () -> Void = {}
+    
+    @FocusState private var isFocused: Bool
+    @State private var isHovered = false
+    
+    var body: some View {
+        Button {
+            onSelect()
+        } label: {
+            HStack(spacing: 14) {
+                if let number = channel.channelNumber {
+                    Text("\(number)")
+                        .font(AppTypography.caption)
+                        .foregroundColor(.white.opacity(0.4))
+                        .frame(width: 32, alignment: .trailing)
+                }
+                
+                CachedAsyncImage(url: channel.logoURL) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                } placeholder: {
+                    Image(systemName: "tv")
+                        .font(.system(size: 12))
+                        .foregroundColor(.white.opacity(0.3))
+                }
+                .frame(width: 44, height: 32)
+                .background(Color.white.opacity(0.06))
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        Text(channel.name)
+                            .font(AppTypography.bodyMedium)
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+                        
+                        if isCurrent {
+                            LiveBadge()
+                        }
+                    }
+                    
+                    if let program {
+                        HStack(spacing: 8) {
+                            Text(program.title)
+                                .font(AppTypography.caption)
+                                .foregroundColor(.white.opacity(0.5))
+                                .lineLimit(1)
+                            
+                            Text(program.timeRange)
+                                .font(.system(size: 9, weight: .medium))
+                                .foregroundColor(.white.opacity(0.3))
+                        }
+                    }
+                }
+                
+                Spacer()
+                
+                if let program {
+                    GlowProgressBar(
+                        progress: program.progress,
+                        height: 3,
+                        trackColor: Color.white.opacity(0.08),
+                        barColor: isCurrent ? AppTheme.primary : Color.white.opacity(0.30)
+                    )
+                    .frame(width: 50)
+                }
+                
+                if channel.isFavorite {
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: 10))
+                        .foregroundColor(AppTheme.tertiary)
+                }
+                
+                if isCurrent {
+                    Image(systemName: "speaker.wave.2.fill")
+                        .font(.system(size: 12))
+                        .foregroundColor(AppTheme.primary)
+                } else {
+                    Image(systemName: "play.circle")
+                        .font(.system(size: 16))
+                        .foregroundColor(.white.opacity(isHovered ? 0.8 : 0.2))
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
             .background(
-                LinearGradient(
-                    colors: [Color.clear, Color.black.opacity(0.9), Color.black.opacity(0.98)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(rowBackground)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(
+                        isCurrent ? AppTheme.primary.opacity(0.35) : Color.clear,
+                        lineWidth: isCurrent ? 1 : 0
+                    )
             )
         }
-        .transition(.move(edge: .bottom))
+        .buttonStyle(.plain)
+        .focused($isFocused)
+        #if !os(tvOS)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) { isHovered = hovering }
+        }
+        #endif
+        #if os(tvOS)
+        .scaleEffect(isFocused ? 1.02 : 1.0)
+        .animation(.easeInOut(duration: 0.15), value: isFocused)
+        #endif
+    }
+    
+    private var rowBackground: Color {
+        if isCurrent {
+            return AppTheme.primary.opacity(0.12)
+        }
+        #if os(tvOS)
+        return isFocused ? Color.white.opacity(0.10) : Color.white.opacity(0.03)
+        #else
+        return isHovered ? Color.white.opacity(0.08) : Color.white.opacity(0.03)
+        #endif
     }
 }
 
@@ -168,13 +409,12 @@ struct CategoryPill: View {
             onSelect()
         } label: {
             Text(title)
-                .font(.subheadline)
-                .fontWeight(isSelected ? .semibold : .regular)
+                .font(AppTypography.label)
                 .lineLimit(1)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
                 .background(pillBackground)
-                .foregroundStyle(isSelected ? .white : .white.opacity(0.7))
+                .foregroundStyle(isSelected ? AppTheme.onPrimaryContainer : .white.opacity(0.7))
                 .clipShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -192,118 +432,14 @@ struct CategoryPill: View {
     @ViewBuilder
     private var pillBackground: some View {
         if isSelected {
-            Capsule().fill(Color.white.opacity(0.3))
+            Capsule().fill(AppTheme.primary)
         } else {
             #if os(tvOS)
-            Capsule().fill(isFocused ? Color.white.opacity(0.2) : Color.white.opacity(0.1))
+            Capsule().fill(isFocused ? Color.white.opacity(0.18) : Color.white.opacity(0.08))
             #else
-            Capsule().fill(isHovered ? Color.white.opacity(0.2) : Color.white.opacity(0.1))
+            Capsule().fill(isHovered ? Color.white.opacity(0.18) : Color.white.opacity(0.08))
             #endif
         }
-    }
-}
-
-// MARK: - Channel Strip Card (for bottom strip)
-
-struct ChannelStripCard: View {
-    let channel: Channel
-    let isCurrentChannel: Bool
-    let isFocused: Bool
-    var onSelect: () -> Void = {}
-    
-    private var cardSize: CGSize {
-        #if os(tvOS)
-        return CGSize(width: 240, height: 140)
-        #elseif os(macOS)
-        return CGSize(width: 160, height: 96)
-        #else
-        return CGSize(width: 140, height: 84)
-        #endif
-    }
-    
-    var body: some View {
-        Button {
-            onSelect()
-        } label: {
-            VStack(spacing: 10) {
-                // Channel logo
-                ZStack {
-                    RoundedRectangle(cornerRadius: 14)
-                        .fill(Color.gray.opacity(0.3))
-                    
-                    CachedAsyncImage(url: channel.logoURL) { image in
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .padding(14)
-                    } placeholder: {
-                        Image(systemName: "tv")
-                            .font(.system(size: 30))
-                            .foregroundStyle(.white.opacity(0.5))
-                    }
-                    
-                    // Currently playing indicator
-                    if isCurrentChannel {
-                        VStack {
-                            HStack {
-                                Spacer()
-                                Circle()
-                                    .fill(Color.green)
-                                    .frame(width: 12, height: 12)
-                                    .overlay(
-                                        Circle()
-                                            .stroke(Color.black, lineWidth: 2)
-                                    )
-                                    .padding(8)
-                            }
-                            Spacer()
-                        }
-                    }
-                    
-                    // Favorite indicator
-                    if channel.isFavorite {
-                        VStack {
-                            HStack {
-                                Image(systemName: "heart.fill")
-                                    .font(.caption)
-                                    .foregroundColor(.red)
-                                    .padding(8)
-                                Spacer()
-                            }
-                            Spacer()
-                        }
-                    }
-                }
-                .frame(width: cardSize.width, height: cardSize.height)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14)
-                        .stroke(isCurrentChannel ? Color.green : (isFocused ? Color.white : Color.clear), lineWidth: 3)
-                )
-                #if os(tvOS)
-                .shadow(color: isFocused ? .black.opacity(0.5) : .clear, radius: 20, y: 10)
-                #endif
-                
-                // Channel info
-                VStack(spacing: 4) {
-                    if let number = channel.channelNumber {
-                        Text("\(number)")
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.6))
-                    }
-                    Text(channel.name)
-                        .font(.callout)
-                        .fontWeight(.medium)
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                        .frame(width: cardSize.width)
-                }
-            }
-        }
-        .buttonStyle(.plain)
-        #if os(tvOS)
-        .scaleEffect(isFocused ? 1.1 : 1.0)
-        .animation(.easeInOut(duration: 0.15), value: isFocused)
-        #endif
     }
 }
 

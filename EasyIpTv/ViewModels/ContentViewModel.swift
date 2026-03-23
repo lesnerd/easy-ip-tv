@@ -27,13 +27,13 @@ class ContentViewModel: ObservableObject {
     @Published var trendingMovies: [Movie] = []
     @Published var trendingShows: [Show] = []
     @Published var trendingChannels: [Channel] = []
-    private var hasTrendingLoaded = false
     
     @Published var isLoading: Bool = false
     @Published var isLoadingCategory: Bool = false
     @Published var loadingCategoryIds: Set<String> = []
     @Published var error: Error?
     @Published var hasContent: Bool = false
+    @Published var isContentReady: Bool = false
     
     @Published var selectedCategory: String?
     @Published var searchText: String = ""
@@ -61,7 +61,11 @@ class ContentViewModel: ObservableObject {
     /// Max items for search results
     static let maxSearchResults = 100
     /// Max number of categories to keep in memory per content type
+    #if os(tvOS)
+    static let maxCachedCategories = 50
+    #else
     static let maxCachedCategories = 30
+    #endif
     
     // MARK: - Private Properties
     
@@ -286,6 +290,7 @@ class ContentViewModel: ObservableObject {
         guard !playlistURLs.isEmpty else {
             hasContent = false
             hasLoadedOnce = true
+            isContentReady = true
             return
         }
         
@@ -309,16 +314,49 @@ class ContentViewModel: ObservableObject {
             
             // Re-sort after all categories loaded to apply saved language priorities
             resortCategories()
-            
-            // Load featured content AFTER sorting so it picks from the highest-priority category
-            if currentPlaylistType == .xtreamCodes {
-                await loadFeaturedContent()
-            }
         }
         
         hasLoadedOnce = true
         isLoading = false
         isLoadingInProgress = false
+        
+        if hasContent {
+            #if os(tvOS)
+            async let trending: Void = loadTrendingContent()
+            async let featured: Void = loadFeaturedContent()
+            _ = await (trending, featured)
+            
+            // Await actual image downloads for home screen content
+            var homeImageURLs: [URL] = []
+            homeImageURLs.append(contentsOf: trendingMovies.compactMap(\.posterURL))
+            homeImageURLs.append(contentsOf: trendingShows.compactMap(\.posterURL))
+            homeImageURLs.append(contentsOf: trendingChannels.compactMap(\.logoURL))
+            homeImageURLs.append(contentsOf: featuredMovies.compactMap(\.posterURL))
+            homeImageURLs.append(contentsOf: featuredChannels.compactMap(\.logoURL))
+            
+            if !homeImageURLs.isEmpty {
+                NSLog("[Preload] Awaiting %d home screen images...", homeImageURLs.count)
+                await ImageCacheManager.shared.prefetchAndWait(urls: homeImageURLs)
+                NSLog("[Preload] Home screen images ready")
+            }
+            
+            isContentReady = true
+            
+            // Continue background preloading after splash dismisses
+            Task { await preloadVisibleCategories() }
+            #else
+            isContentReady = true
+            Task {
+                async let trending: Void = loadTrendingContent()
+                async let featured: Void = loadFeaturedContent()
+                _ = await (trending, featured)
+                
+                await preloadVisibleCategories()
+            }
+            #endif
+        } else {
+            isContentReady = true
+        }
     }
     
     // MARK: - Xtream Codes Loading
@@ -492,91 +530,180 @@ class ContentViewModel: ObservableObject {
     
     // MARK: - Featured Content
     
-    /// Loads a small subset of featured content for the home screen
+    /// Loads a small subset of featured content for the home screen (parallel)
     private func loadFeaturedContent() async {
         guard let credentials = cachedCredentials else { return }
         
-        // Load just first category of each type for featured section
-        if let firstLive = liveCategories.first {
-            await loadChannelsForCategory(firstLive)
-            featuredChannels = Array(channelCache[firstLive.name]?.prefix(Self.maxFeaturedItems) ?? [])
+        await withTaskGroup(of: Void.self) { group in
+            if let firstLive = liveCategories.first {
+                group.addTask {
+                    await self.loadChannelsForCategory(firstLive)
+                }
+            }
+            if let firstVod = vodCategories.first {
+                group.addTask {
+                    await self.loadMoviesForCategory(firstVod)
+                }
+            }
         }
         
+        if let firstLive = liveCategories.first {
+            featuredChannels = Array(channelCache[firstLive.name]?.prefix(Self.maxFeaturedItems) ?? [])
+        }
         if let firstVod = vodCategories.first {
-            await loadMoviesForCategory(firstVod)
             featuredMovies = Array(movieCache[firstVod.name]?.prefix(Self.maxFeaturedItems) ?? [])
         }
     }
     
     // MARK: - Trending Content
     
-    /// Loads trending content by aggregating from top categories and sorting by rating
+    /// Loads trending content with concurrent network requests.
+    /// Movies, shows, and channels load in parallel; each section publishes
+    /// to the UI as soon as its data is ready.
     func loadTrendingContent() async {
-        guard !hasTrendingLoaded else { return }
         guard !vodCategories.isEmpty || !seriesCategories.isEmpty || !liveCategories.isEmpty else { return }
-        hasTrendingLoaded = true
         
         let maxTrending = 20
-        let categoriesToLoad = 5
+        #if os(tvOS)
+        let categoriesToLoad = 6
+        #else
+        let categoriesToLoad = 3
+        #endif
         
-        // Load ALL categories first, then update @Published properties in one
-        // batch at the end. Updating mid-load causes SwiftUI to re-render the
-        // Home view (switching from LoadingView to ScrollView), which cancels
-        // the .task and aborts remaining network requests.
+        let needsMovies = trendingMovies.isEmpty && !vodCategories.isEmpty
+        let needsShows = trendingShows.isEmpty && !seriesCategories.isEmpty
+        let needsChannels = trendingChannels.isEmpty && !liveCategories.isEmpty
         
-        // 1. Load movies
-        let vodCats = Array(vodCategories.prefix(categoriesToLoad))
-        for cat in vodCats {
-            await loadMoviesForCategory(cat)
+        guard needsMovies || needsShows || needsChannels else { return }
+        
+        let vodCats = needsMovies ? Array(vodCategories.prefix(categoriesToLoad)) : []
+        let seriesCats = needsShows ? Array(seriesCategories.prefix(categoriesToLoad)) : []
+        let liveCats = needsChannels ? Array(liveCategories.prefix(categoriesToLoad)) : []
+        
+        // Fire ALL category fetches concurrently — network I/O overlaps
+        await withTaskGroup(of: Void.self) { group in
+            for cat in vodCats {
+                group.addTask { await self.loadMoviesForCategory(cat) }
+            }
+            for cat in seriesCats {
+                group.addTask { await self.loadShowsForCategory(cat) }
+            }
+            for cat in liveCats {
+                group.addTask { await self.loadChannelsForCategory(cat) }
+            }
+            
+            var publishedMovies = !needsMovies
+            var publishedShows = !needsShows
+            var publishedChannels = !needsChannels
+            
+            for await _ in group {
+                if !publishedMovies && vodCats.allSatisfy({ self.movieCache[$0.name] != nil }) {
+                    publishedMovies = true
+                    let all = vodCats.compactMap { self.movieCache[$0.name] }.flatMap { $0 }
+                    let unique = Array(Dictionary(grouping: all, by: \.id).compactMapValues(\.first).values)
+                    self.trendingMovies = unique
+                        .sorted { ($0.rating ?? 0) > ($1.rating ?? 0) }
+                        .prefix(maxTrending).map { $0 }
+                    ImageCacheManager.shared.prefetch(urls: self.trendingMovies.compactMap(\.posterURL))
+                }
+                if !publishedShows && seriesCats.allSatisfy({ self.showCache[$0.name] != nil }) {
+                    publishedShows = true
+                    let all = seriesCats.compactMap { self.showCache[$0.name] }.flatMap { $0 }
+                    let unique = Array(Dictionary(grouping: all, by: \.id).compactMapValues(\.first).values)
+                    self.trendingShows = unique
+                        .sorted { ($0.rating ?? 0) > ($1.rating ?? 0) }
+                        .prefix(maxTrending).map { $0 }
+                    ImageCacheManager.shared.prefetch(urls: self.trendingShows.compactMap(\.posterURL))
+                }
+                if !publishedChannels && liveCats.allSatisfy({ self.channelCache[$0.name] != nil }) {
+                    publishedChannels = true
+                    self.trendingChannels = liveCats
+                        .compactMap { self.channelCache[$0.name] }.flatMap { $0 }
+                        .prefix(maxTrending).map { $0 }
+                    ImageCacheManager.shared.prefetch(urls: self.trendingChannels.compactMap(\.logoURL))
+                }
+            }
         }
-        
-        // 2. Load shows
-        let seriesCats = Array(seriesCategories.prefix(categoriesToLoad))
-        for cat in seriesCats {
-            await loadShowsForCategory(cat)
-        }
-        
-        // 3. Load channels
-        let liveCats = Array(liveCategories.prefix(3))
-        for cat in liveCats {
-            await loadChannelsForCategory(cat)
-        }
-        
-        // 4. Now compute and assign all trending data at once
-        let allMovies = vodCats.compactMap { movieCache[$0.name] }.flatMap { $0 }
-        let uniqueMovies = Array(Dictionary(grouping: allMovies, by: { $0.id }).compactMapValues(\.first).values)
-        let sortedMovies = uniqueMovies
-            .sorted { ($0.rating ?? 0) > ($1.rating ?? 0) }
-            .prefix(maxTrending)
-            .map { $0 }
-        
-        let allShows = seriesCats.compactMap { showCache[$0.name] }.flatMap { $0 }
-        let uniqueShows = Array(Dictionary(grouping: allShows, by: { $0.id }).compactMapValues(\.first).values)
-        let sortedShows = uniqueShows
-            .sorted { ($0.rating ?? 0) > ($1.rating ?? 0) }
-            .prefix(maxTrending)
-            .map { $0 }
-        
-        let sortedChannels = liveCats
-            .compactMap { channelCache[$0.name] }
-            .flatMap { $0 }
-            .prefix(maxTrending)
-            .map { $0 }
-        
-        // Single batch update — avoids mid-load re-render
-        trendingMovies = sortedMovies
-        trendingShows = sortedShows
-        trendingChannels = sortedChannels
         
         NSLog("[ContentViewModel] Loaded trending: %d movies, %d shows, %d channels",
               trendingMovies.count, trendingShows.count, trendingChannels.count)
+    }
+    
+    // MARK: - Preloading
+    
+    /// Pre-loads the first N categories of each content type so they're cached
+    /// before the user scrolls to them. Runs concurrently.
+    private func preloadVisibleCategories() async {
+        #if os(tvOS)
+        let preloadCount = 8
+        #else
+        let preloadCount = 5
+        #endif
         
-        // Prefetch poster images for trending content
-        var prefetchURLs: [URL] = []
-        prefetchURLs.append(contentsOf: trendingMovies.compactMap(\.posterURL))
-        prefetchURLs.append(contentsOf: trendingShows.compactMap(\.posterURL))
-        prefetchURLs.append(contentsOf: trendingChannels.compactMap(\.logoURL))
-        ImageCacheManager.shared.prefetch(urls: prefetchURLs)
+        let vodToPreload = vodCategories.prefix(preloadCount).filter { movieCache[$0.name] == nil }
+        let seriesToPreload = seriesCategories.prefix(preloadCount).filter { showCache[$0.name] == nil }
+        let liveToPreload = liveCategories.prefix(preloadCount).filter { channelCache[$0.name] == nil }
+        
+        guard !vodToPreload.isEmpty || !seriesToPreload.isEmpty || !liveToPreload.isEmpty else { return }
+        
+        NSLog("[Preload] Starting preload: %d vod, %d series, %d live categories",
+              vodToPreload.count, seriesToPreload.count, liveToPreload.count)
+        
+        await withTaskGroup(of: Void.self) { group in
+            for cat in vodToPreload {
+                group.addTask { await self.loadMoviesForCategory(cat) }
+            }
+            for cat in seriesToPreload {
+                group.addTask { await self.loadShowsForCategory(cat) }
+            }
+            for cat in liveToPreload {
+                group.addTask { await self.loadChannelsForCategory(cat) }
+            }
+        }
+        
+        // Prefetch images for pre-loaded content
+        let movieURLs = vodToPreload.flatMap { movieCache[$0.name] ?? [] }.compactMap(\.posterURL)
+        let showURLs = seriesToPreload.flatMap { showCache[$0.name] ?? [] }.compactMap(\.posterURL)
+        let channelURLs = liveToPreload.flatMap { channelCache[$0.name] ?? [] }.compactMap(\.logoURL)
+        
+        let allURLs = Array((movieURLs + showURLs + channelURLs).prefix(200))
+        if !allURLs.isEmpty {
+            ImageCacheManager.shared.prefetch(urls: allURLs, maxPixelSize: ImageCacheManager.defaultMaxPixelSize)
+        }
+        
+        NSLog("[Preload] Completed preload")
+    }
+    
+    /// Look-ahead: when a category at `index` loads, also trigger loading for
+    /// the next few categories so they're ready by the time the user scrolls.
+    func prefetchNearbyCategories(around category: CategoryInfo, in list: [CategoryInfo], contentType: String) {
+        guard let idx = list.firstIndex(where: { $0.id == category.id }) else { return }
+        
+        let lookAhead = 3
+        let endIdx = min(idx + lookAhead + 1, list.count)
+        guard endIdx > idx + 1 else { return }
+        
+        let upcoming = Array(list[(idx + 1)..<endIdx])
+        
+        Task {
+            for cat in upcoming {
+                switch contentType {
+                case "movies":
+                    if movieCache[cat.name] == nil {
+                        await loadMoviesForCategory(cat)
+                    }
+                case "shows":
+                    if showCache[cat.name] == nil {
+                        await loadShowsForCategory(cat)
+                    }
+                case "channels":
+                    if channelCache[cat.name] == nil {
+                        await loadChannelsForCategory(cat)
+                    }
+                default: break
+                }
+            }
+        }
     }
     
     /// Check if a specific category is currently loading
@@ -654,7 +781,11 @@ class ContentViewModel: ObservableObject {
             evictChannelCache(keepCount: Self.maxCachedCategories)
             self.channels = processedChannels
             
-            // Fetch EPG data for these channels in the background
+            let logoURLs = processedChannels.prefix(PlatformMetrics.rowItemLimit + 5).compactMap(\.logoURL)
+            if !logoURLs.isEmpty {
+                ImageCacheManager.shared.prefetch(urls: logoURLs, maxPixelSize: ImageCacheManager.defaultMaxPixelSize)
+            }
+            
             Task {
                 await EPGService.shared.fetchBatchEPG(
                     for: processedChannels,
@@ -759,13 +890,15 @@ class ContentViewModel: ObservableObject {
                         extension: ext
                       ) else { return nil }
                 
-                let posterURL = stream.streamIcon.flatMap { URL(string: $0) }
+                let posterURL = stream.bestImageURL.flatMap { URL(string: $0) }
+                let rating = stream.rating.flatMap { Double($0) }
                 return Movie(
                     id: "\(streamId)",
                     title: name,
                     posterURL: posterURL,
                     streamURL: streamURL,
                     category: category.name,
+                    rating: rating,
                     streamId: streamId
                 )
             }
@@ -782,6 +915,11 @@ class ContentViewModel: ObservableObject {
             touchCacheOrder(category.name, order: &movieCacheOrder)
             evictMovieCache(keepCount: Self.maxCachedCategories)
             self.movies = processedMovies
+            
+            let posterURLs = processedMovies.prefix(PlatformMetrics.posterRowItemLimit + 5).compactMap(\.posterURL)
+            if !posterURLs.isEmpty {
+                ImageCacheManager.shared.prefetch(urls: posterURLs, maxPixelSize: ImageCacheManager.defaultMaxPixelSize)
+            }
             
         } catch {
             #if DEBUG
@@ -848,6 +986,11 @@ class ContentViewModel: ObservableObject {
             touchCacheOrder(category.name, order: &showCacheOrder)
             evictShowCache(keepCount: Self.maxCachedCategories)
             self.shows = processedShows
+            
+            let posterURLs = processedShows.prefix(PlatformMetrics.posterRowItemLimit + 5).compactMap(\.posterURL)
+            if !posterURLs.isEmpty {
+                ImageCacheManager.shared.prefetch(urls: posterURLs, maxPixelSize: ImageCacheManager.defaultMaxPixelSize)
+            }
             
         } catch {
             #if DEBUG
@@ -924,13 +1067,33 @@ class ContentViewModel: ObservableObject {
                 }
             }
             
-            var updatedShow = show
-            updatedShow.seasons = seasons
+            let info = seriesInfo.info
+            let updatedDescription = info?.plot ?? show.description
+            let updatedRating: Double? = {
+                if let r = show.rating { return r }
+                if let rStr = info?.rating, let r = Double(rStr) { return r }
+                return nil
+            }()
+            
+            let updatedShow = Show(
+                id: show.id,
+                title: show.title,
+                posterURL: show.posterURL,
+                category: show.category,
+                year: show.year,
+                description: updatedDescription,
+                rating: updatedRating,
+                cast: info?.cast ?? show.cast,
+                director: info?.director ?? show.director,
+                genre: info?.genre ?? show.genre,
+                seasons: seasons,
+                isFavorite: show.isFavorite
+            )
             
             // Update the cache so the show persists across navigations
             for (categoryName, var cachedShows) in showCache {
                 if let index = cachedShows.firstIndex(where: { $0.id == show.id }) {
-                    cachedShows[index].seasons = seasons
+                    cachedShows[index] = updatedShow
                     showCache[categoryName] = cachedShows
                 }
             }

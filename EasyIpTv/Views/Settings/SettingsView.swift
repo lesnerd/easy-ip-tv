@@ -6,6 +6,7 @@ struct SettingsView: View {
     @EnvironmentObject var localizationManager: LocalizationManager
     @EnvironmentObject var premiumManager: PremiumManager
     @ObservedObject var streamService = StreamService.shared
+    @Environment(\.colorScheme) private var scheme
     
     @State private var showAddPlaylist = false
     @State private var showClearDataAlert = false
@@ -16,6 +17,13 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
+                #if os(tvOS)
+                Section {} header: {
+                    Text(L10n.Navigation.settings)
+                        .font(AppTypography.screenTitle)
+                }
+                #endif
+                
                 // Premium Section (shown for free users)
                 if !premiumManager.isPremium {
                     Section {
@@ -188,6 +196,9 @@ struct SettingsView: View {
                         } label: {
                             Label(L10n.Settings.subtitleLanguage, systemImage: "captions.bubble")
                         }
+                        #if os(tvOS)
+                        .pickerStyle(.navigationLink)
+                        #endif
                     } else {
                         Button {
                             showUpgrade = true

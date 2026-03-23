@@ -9,6 +9,9 @@ struct Show: Identifiable, Codable, Hashable {
     let year: Int?
     let description: String?
     let rating: Double?
+    let cast: String?
+    let director: String?
+    let genre: String?
     
     /// Seasons of the show
     var seasons: [Season]
@@ -24,6 +27,9 @@ struct Show: Identifiable, Codable, Hashable {
         year: Int? = nil,
         description: String? = nil,
         rating: Double? = nil,
+        cast: String? = nil,
+        director: String? = nil,
+        genre: String? = nil,
         seasons: [Season] = [],
         isFavorite: Bool = false
     ) {
@@ -34,6 +40,9 @@ struct Show: Identifiable, Codable, Hashable {
         self.year = year
         self.description = description
         self.rating = rating
+        self.cast = cast
+        self.director = director
+        self.genre = genre
         self.seasons = seasons
         self.isFavorite = isFavorite
     }
