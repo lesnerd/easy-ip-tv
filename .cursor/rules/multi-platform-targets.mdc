@@ -1,0 +1,22 @@
+---
+description: Enforce multi-platform correctness and meaningful testing across iOS, macOS, and tvOS targets
+alwaysApply: true
+---
+
+# Multi-Platform Targets & Testing
+
+This project ships on **iOS**, **macOS**, and **tvOS**. Every change must account for all three.
+
+## Platform Targeting
+
+- Before modifying any file, verify which targets it belongs to. Never add or remove target membership unintentionally.
+- Use `#if os(iOS)`, `#if os(macOS)`, `#if os(tvOS)`, or `#if targetEnvironment(...)` when behaviour must differ per platform.
+- When adding new files, include them in **all applicable targets** unless there is a clear platform-specific reason not to.
+- UI components must respect each platform's interaction model (touch, pointer, remote/focus).
+
+## Testing & Regression Prevention
+
+- **Test every target**: after any feature or bug fix, build and verify on iOS, macOS, and tvOS. Do not assume a change that works on one platform works on the others.
+- **Meaningful tests**: validate actual behaviour, not just compilation. Confirm UI renders, navigation works, and data flows correctly on each platform.
+- **Regression awareness**: when fixing a bug, verify the fix does not break existing functionality on any target. If a change is platform-specific, still smoke-test the other platforms.
+- **Conditional code**: any `#if os(...)` block must be tested on the included *and* excluded platforms to ensure both paths are correct.
