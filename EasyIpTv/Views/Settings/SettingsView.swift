@@ -301,6 +301,13 @@ struct SettingsView: View {
             #if os(macOS)
             .listStyle(.inset)
             #endif
+            #if !os(tvOS)
+            .scrollContentBackground(.hidden)
+            #endif
+            .background {
+                LiquidGradientBackground(intensity: 0.20)
+                    .ignoresSafeArea()
+            }
         }
         .sheet(isPresented: $showAddPlaylist) {
             AddSourceView { url in

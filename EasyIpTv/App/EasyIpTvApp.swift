@@ -108,19 +108,14 @@ struct SplashLoadingView: View {
             VStack(spacing: 32) {
                 Spacer()
                 
-                Image(systemName: "play.tv.fill")
+                appIconView
                     #if os(tvOS)
-                    .font(.system(size: 80, weight: .thin))
+                    .frame(width: 200, height: 200)
                     #else
-                    .font(.system(size: 56, weight: .thin))
+                    .frame(width: 120, height: 120)
                     #endif
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [AppTheme.primary, AppTheme.secondary],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                    .shadow(color: AppTheme.primary.opacity(0.4), radius: 20)
                     .scaleEffect(pulseScale)
                 
                 VStack(spacing: 8) {
@@ -177,6 +172,12 @@ struct SplashLoadingView: View {
                 progress = 0.95
             }
         }
+    }
+    
+    private var appIconView: some View {
+        Image("SplashIcon")
+            .resizable()
+            .aspectRatio(contentMode: .fit)
     }
     
     private var splashBarWidth: CGFloat {

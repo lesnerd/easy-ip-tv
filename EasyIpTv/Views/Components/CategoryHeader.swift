@@ -49,20 +49,22 @@ struct CategoryHeader: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
                     #if os(tvOS)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(isFocused ? Color.white.opacity(0.15) : Color.clear)
-                    )
                     .overlay(
                         RoundedRectangle(cornerRadius: 10)
-                            .stroke(isFocused ? AppTheme.primary.opacity(0.4) : Color.clear, lineWidth: 1.5)
+                            .stroke(isFocused ? AppTheme.primary : Color.clear, lineWidth: 2)
+                    )
+                    .shadow(
+                        color: isFocused ? AppTheme.primary.opacity(0.5) : .clear,
+                        radius: isFocused ? 10 : 0
                     )
                     #endif
                 }
                 .buttonStyle(.plain)
                 .focused($isFocused)
                 #if os(tvOS)
-                .scaleEffect(isFocused ? 1.02 : 1.0)
+                .focusEffectDisabled()
+                .scaleEffect(isFocused ? 1.03 : 1.0)
+                .brightness(isFocused ? 0.08 : 0)
                 .animation(.easeInOut(duration: 0.15), value: isFocused)
                 #endif
             } else {
@@ -84,6 +86,7 @@ struct CategoryHeader: View {
                     .foregroundColor(AppTheme.primary)
                 }
                 .buttonStyle(.plain)
+                .tvOSFocusEffectDisabled()
             }
         }
         #if os(tvOS)

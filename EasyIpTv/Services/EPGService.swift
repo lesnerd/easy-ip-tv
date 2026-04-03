@@ -38,12 +38,20 @@ class EPGService: ObservableObject {
         }
         
         do {
-            let programs = try await xtreamService.getShortEPG(
+            var programs = try await xtreamService.getFullEPG(
                 baseURL: baseURL,
                 username: username,
                 password: password,
                 streamId: streamId
             )
+            if programs.isEmpty {
+                programs = try await xtreamService.getShortEPG(
+                    baseURL: baseURL,
+                    username: username,
+                    password: password,
+                    streamId: streamId
+                )
+            }
             programsByChannel[key] = programs
             lastFetchTime[key] = Date()
         } catch {
@@ -69,7 +77,14 @@ class EPGService: ObservableObject {
         }
     }
     
-    func fetchBatchEPG(for channels: [Channel], baseURL: String, username: String, password: String) async {
+    func invalidateCache(for channels: [Channel]) {
+        for ch in channels {
+            guard let sid = ch.streamId else { continue }
+            lastFetchTime.removeValue(forKey: "\(sid)")
+        }
+    }
+    
+    func fetchBatchEPG(for channels: [Channel], baseURL: String, username: String, password: String, limit: Int = 20) async {
         let channelsToFetch = channels.filter { ch in
             guard let sid = ch.streamId else { return false }
             let key = "\(sid)"
@@ -78,7 +93,7 @@ class EPGService: ObservableObject {
                 return false
             }
             return true
-        }.prefix(20)
+        }.prefix(limit)
         
         await withTaskGroup(of: Void.self) { group in
             for channel in channelsToFetch {

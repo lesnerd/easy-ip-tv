@@ -51,11 +51,19 @@ struct ContentCard: View {
                     .background(AppTheme.surfaceContainerHigh(scheme))
                     .clipped()
                     .cornerRadius(PlatformMetrics.cardCornerRadius)
+                    #if os(tvOS)
+                    .scaleEffect(isFocused ? 1.08 : 1.0)
+                    .shadow(
+                        color: isFocused ? .black.opacity(0.5) : .clear,
+                        radius: isFocused ? 20 : 0,
+                        y: isFocused ? 10 : 0
+                    )
+                    .animation(.easeInOut(duration: 0.2), value: isFocused)
+                    #else
                     .overlay(
                         RoundedRectangle(cornerRadius: PlatformMetrics.cardCornerRadius)
                             .stroke(cardBorderColor, lineWidth: cardBorderWidth)
                     )
-                    #if !os(tvOS)
                     .shadow(
                         color: isHovered ? AppTheme.primary.opacity(0.25) : Color.black.opacity(0.2),
                         radius: isHovered ? 16 : 6,
@@ -89,7 +97,11 @@ struct ContentCard: View {
                 }
             }
         }
+        #if os(tvOS)
+        .buttonStyle(.plain)
+        #else
         .buttonStyle(CardButtonStyle())
+        #endif
         .tvOSFocusEffectDisabled()
         .focused($isFocused)
         #if !os(tvOS)
@@ -113,7 +125,7 @@ struct ContentCard: View {
     
     private var cardBorderColor: Color {
         #if os(tvOS)
-        return isFocused ? AppTheme.primary.opacity(0.50) : AppTheme.glassBorder(scheme)
+        return AppTheme.glassBorder(scheme)
         #else
         return isHovered ? AppTheme.primary.opacity(0.40) : AppTheme.glassBorder(scheme)
         #endif
@@ -121,7 +133,7 @@ struct ContentCard: View {
     
     private var cardBorderWidth: CGFloat {
         #if os(tvOS)
-        return isFocused ? 2 : 1
+        return 0.5
         #else
         return isHovered ? 1.5 : 0.5
         #endif
@@ -145,22 +157,14 @@ struct CardButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             #if os(tvOS)
-            .scaleEffect(isFocused ? 1.08 : 1.0)
-            .offset(y: isFocused ? -8 : 0)
-            .overlay(
-                RoundedRectangle(cornerRadius: PlatformMetrics.cardCornerRadius)
-                    .stroke(
-                        isFocused ? AppTheme.primary.opacity(0.6) : Color.clear,
-                        lineWidth: 2.5
-                    )
-            )
+            .scaleEffect(isFocused ? 1.05 : 1.0)
             .shadow(
-                color: isFocused ? AppTheme.primary.opacity(0.35) : .clear,
-                radius: isFocused ? 25 : 0,
-                y: isFocused ? 10 : 0
+                color: isFocused ? AppTheme.primary.opacity(0.4) : .clear,
+                radius: isFocused ? 12 : 0
             )
-            .brightness(isFocused ? 0.05 : 0)
-            .animation(.easeInOut(duration: 0.25), value: isFocused)
+            .brightness(isFocused ? 0.06 : 0)
+            .animation(.easeInOut(duration: 0.2), value: isFocused)
+            .zIndex(isFocused ? 1 : 0)
             #else
             .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
             .opacity(configuration.isPressed ? 0.85 : 1.0)
@@ -191,6 +195,7 @@ struct ChannelCard: View {
     
     @Environment(\.colorScheme) private var scheme
     @State private var isHovered = false
+    @FocusState private var isFocused: Bool
     
     var body: some View {
         Button {
@@ -202,8 +207,13 @@ struct ChannelCard: View {
             channelCardDefault
             #endif
         }
+        #if os(tvOS)
+        .buttonStyle(.plain)
+        #else
         .buttonStyle(CardButtonStyle())
+        #endif
         .tvOSFocusEffectDisabled()
+        .focused($isFocused)
         #if !os(tvOS)
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.2)) {
@@ -359,11 +369,19 @@ struct ChannelCard: View {
         }
         .background(Color(hex: 0x1A1A1E))
         .cornerRadius(PlatformMetrics.cardCornerRadius)
+        #if os(tvOS)
+        .scaleEffect(isFocused ? 1.08 : 1.0)
+        .shadow(
+            color: isFocused ? .black.opacity(0.5) : .clear,
+            radius: isFocused ? 20 : 0,
+            y: isFocused ? 10 : 0
+        )
+        .animation(.easeInOut(duration: 0.2), value: isFocused)
+        #else
         .overlay(
             RoundedRectangle(cornerRadius: PlatformMetrics.cardCornerRadius)
                 .stroke(AppTheme.glassBorder(scheme), lineWidth: 0.5)
         )
-        #if !os(tvOS)
         .shadow(
             color: isHovered ? AppTheme.primary.opacity(0.20) : Color.black.opacity(0.15),
             radius: isHovered ? 12 : 4,
@@ -374,37 +392,36 @@ struct ChannelCard: View {
     
     @ViewBuilder
     private var channelThumbnail: some View {
-        Color.clear
-            .aspectRatio(16/9, contentMode: .fit)
-            .overlay(
-                CachedAsyncImage(url: channel.logoURL) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Rectangle()
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    AppTheme.primary.opacity(0.15),
-                                    AppTheme.secondary.opacity(0.08)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .overlay {
-                            Text(channel.name.prefix(3).uppercased())
-                                #if os(tvOS)
-                                .font(.system(size: 28, weight: .black))
-                                #else
-                                .font(.system(size: 14, weight: .heavy))
-                                #endif
-                                .foregroundColor(.white.opacity(0.15))
-                        }
-                }
-            )
-            .clipped()
+        ZStack {
+            Rectangle()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(white: 0.12),
+                            Color(white: 0.08)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+            
+            CachedAsyncImage(url: channel.logoURL) { image in
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .padding(10)
+            } placeholder: {
+                Text(channel.name.prefix(3).uppercased())
+                    #if os(tvOS)
+                    .font(.system(size: 28, weight: .black))
+                    #else
+                    .font(.system(size: 14, weight: .heavy))
+                    #endif
+                    .foregroundColor(.white.opacity(0.15))
+            }
+        }
+        .aspectRatio(16/9, contentMode: .fit)
+        .clipped()
     }
 }
 

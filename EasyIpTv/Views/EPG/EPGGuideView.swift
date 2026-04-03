@@ -49,7 +49,9 @@ struct EPGGuideView: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
-            #if !os(tvOS)
+            #if os(tvOS)
+            .onExitCommand { dismiss() }
+            #else
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }
@@ -103,7 +105,7 @@ struct EPGGuideView: View {
         let programs = epgService.upcoming(for: key)
         
         HStack(spacing: 0) {
-            channelLabel(for: channel)
+            channelLabelButton(for: channel)
             
             if programs.isEmpty {
                 RoundedRectangle(cornerRadius: 6)
@@ -125,7 +127,19 @@ struct EPGGuideView: View {
         .frame(height: channelRowHeight)
     }
     
-    private func channelLabel(for channel: Channel) -> some View {
+    private func channelLabelButton(for channel: Channel) -> some View {
+        Button {
+            onPlayChannel?(channel)
+        } label: {
+            channelLabelContent(for: channel)
+        }
+        .buttonStyle(.plain)
+        #if os(tvOS)
+        .focusEffectDisabled()
+        #endif
+    }
+    
+    private func channelLabelContent(for channel: Channel) -> some View {
         HStack(spacing: 10) {
             if let logoURL = channel.logoURL {
                 CachedAsyncImage(url: logoURL) { image in

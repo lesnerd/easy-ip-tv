@@ -84,7 +84,7 @@ struct LiveTVView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                LiquidGradientBackground(intensity: 0.25)
+                LiquidGradientBackground(intensity: 0.20)
                     .ignoresSafeArea()
                 
                 Group {
@@ -108,6 +108,7 @@ struct LiveTVView: View {
             .onChange(of: searchText) { _, newValue in
                 showSearchResults = !newValue.isEmpty
             }
+            #if !os(tvOS)
             .toolbar {
                 ToolbarItem(placement: .automatic) {
                     Button {
@@ -120,6 +121,7 @@ struct LiveTVView: View {
                     filterMenu
                 }
             }
+            #endif
             .safeAreaInset(edge: .bottom) {
                 BannerAdView { showUpgrade = true }
                     .environmentObject(premiumManager)
@@ -156,6 +158,21 @@ struct LiveTVView: View {
             UpgradePromptView()
                 .environmentObject(premiumManager)
         }
+        #if os(tvOS)
+        .fullScreenCover(isPresented: $showEPGGuide) {
+            EPGGuideView(
+                channels: contentViewModel.channels,
+                onPlayChannel: { channel in
+                    showEPGGuide = false
+                    playChannel(channel)
+                },
+                onPlayCatchup: { channel, program in
+                    showEPGGuide = false
+                    playCatchup(channel: channel, program: program)
+                }
+            )
+        }
+        #else
         .sheet(isPresented: $showEPGGuide) {
             EPGGuideView(
                 channels: contentViewModel.channels,
@@ -169,6 +186,7 @@ struct LiveTVView: View {
                 }
             )
         }
+        #endif
         .sheet(item: $catchupChannel) { channel in
             CatchupView(channel: channel) { ch, program in
                 playCatchup(channel: ch, program: program)
@@ -181,7 +199,48 @@ struct LiveTVView: View {
     private var filterPills: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
+                #if os(tvOS)
+                Button {
+                    showEPGGuide = true
+                } label: {
+                    Label("TV Guide", systemImage: "list.bullet.rectangle.fill")
+                        .font(.system(size: 20, weight: .medium))
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 12)
+                        .foregroundColor(.white)
+                        .background(AppTheme.primary.opacity(0.85), in: Capsule())
+                }
+                .buttonStyle(FilterPillButtonStyle())
+                .focusEffectDisabled()
+                #endif
+                
                 ForEach(filterModes, id: \.id) { mode in
+                    #if os(tvOS)
+                    Text(mode.title)
+                        .font(.system(size: 20, weight: .medium))
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 12)
+                        .foregroundColor(
+                            filterMode == mode
+                                ? AppTheme.onPrimaryContainer
+                                : AppTheme.onSurfaceVariant(scheme)
+                        )
+                        .background(
+                            filterMode == mode
+                                ? AppTheme.primary
+                                : AppTheme.surfaceContainerHigh(scheme),
+                            in: Capsule()
+                        )
+                        .overlay(
+                            Capsule()
+                                .stroke(
+                                    filterMode == mode
+                                        ? Color.clear
+                                        : AppTheme.glassBorder(scheme),
+                                    lineWidth: 0.5
+                                )
+                        )
+                    #else
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) {
                             filterMode = mode
@@ -189,13 +248,13 @@ struct LiveTVView: View {
                     } label: {
                         Text(mode.title)
                             .font(AppTypography.label)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
                             .foregroundColor(
                                 filterMode == mode
                                     ? AppTheme.onPrimaryContainer
                                     : AppTheme.onSurfaceVariant(scheme)
                             )
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
                             .background(
                                 filterMode == mode
                                     ? AppTheme.primary
@@ -213,6 +272,7 @@ struct LiveTVView: View {
                             )
                     }
                     .buttonStyle(.plain)
+                    #endif
                 }
             }
             #if os(tvOS)
@@ -221,6 +281,7 @@ struct LiveTVView: View {
             .padding(.horizontal)
             #endif
         }
+        .platformFocusSection()
     }
     
     // MARK: - Filter Menu (toolbar fallback)
@@ -498,6 +559,7 @@ struct FeaturedChannelCard: View {
     
     @Environment(\.colorScheme) private var scheme
     @State private var isHovered = false
+    @FocusState private var isFocused: Bool
     @ObservedObject private var epgService = EPGService.shared
     
     private var cardWidth: CGFloat {
@@ -519,31 +581,33 @@ struct FeaturedChannelCard: View {
     var body: some View {
         Button { onTap() } label: {
             ZStack(alignment: .bottomLeading) {
-                CachedAsyncImage(url: channel.logoURL) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } placeholder: {
+                ZStack {
                     Rectangle()
                         .fill(
                             LinearGradient(
                                 colors: [
-                                    AppTheme.primary.opacity(0.2),
-                                    AppTheme.secondary.opacity(0.1)
+                                    Color(white: 0.12),
+                                    Color(white: 0.08)
                                 ],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
                         )
-                        .overlay {
-                            Text(channel.name.prefix(3).uppercased())
-                                #if os(tvOS)
-                                .font(.system(size: 40, weight: .black))
-                                #else
-                                .font(.system(size: 24, weight: .black))
-                                #endif
-                                .foregroundColor(.white.opacity(0.12))
-                        }
+                    
+                    CachedAsyncImage(url: channel.logoURL) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .padding(12)
+                    } placeholder: {
+                        Text(channel.name.prefix(3).uppercased())
+                            #if os(tvOS)
+                            .font(.system(size: 40, weight: .black))
+                            #else
+                            .font(.system(size: 24, weight: .black))
+                            #endif
+                            .foregroundColor(.white.opacity(0.12))
+                    }
                 }
                 .frame(width: cardWidth, height: cardWidth * 9 / 16)
                 .clipped()
@@ -613,11 +677,19 @@ struct FeaturedChannelCard: View {
             .frame(width: cardWidth, height: cardWidth * 9 / 16)
             .background(Color(hex: 0x1A1A1E))
             .cornerRadius(PlatformMetrics.cardCornerRadius)
+            #if os(tvOS)
+            .scaleEffect(isFocused ? 1.08 : 1.0)
+            .shadow(
+                color: isFocused ? .black.opacity(0.5) : .clear,
+                radius: isFocused ? 20 : 0,
+                y: isFocused ? 10 : 0
+            )
+            .animation(.easeInOut(duration: 0.2), value: isFocused)
+            #else
             .overlay(
                 RoundedRectangle(cornerRadius: PlatformMetrics.cardCornerRadius)
                     .stroke(AppTheme.glassBorder(scheme), lineWidth: 0.5)
             )
-            #if !os(tvOS)
             .shadow(
                 color: isHovered ? AppTheme.primary.opacity(0.30) : Color.black.opacity(0.2),
                 radius: isHovered ? 20 : 8,
@@ -625,8 +697,13 @@ struct FeaturedChannelCard: View {
             )
             #endif
         }
+        #if os(tvOS)
+        .buttonStyle(.plain)
+        #else
         .buttonStyle(CardButtonStyle())
+        #endif
         .tvOSFocusEffectDisabled()
+        .focused($isFocused)
         #if !os(tvOS)
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.2)) { isHovered = hovering }
@@ -736,7 +813,7 @@ struct CategoryLoadingPlaceholder: View {
         } label: {
             placeholderContent
         }
-        .buttonStyle(CardButtonStyle())
+        .buttonStyle(.plain)
         .tvOSFocusEffectDisabled()
         #else
         placeholderContent
@@ -783,10 +860,34 @@ struct SeeAllButton: View {
                     .stroke(AppTheme.glassBorder(scheme), lineWidth: 0.5)
             )
         }
+        #if os(tvOS)
+        .buttonStyle(.plain)
+        #else
         .buttonStyle(CardButtonStyle())
+        #endif
         .tvOSFocusEffectDisabled()
     }
 }
+
+#if os(tvOS)
+struct FilterPillButtonStyle: ButtonStyle {
+    @Environment(\.isFocused) var isFocused
+    
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(isFocused ? 1.1 : 1.0)
+            .overlay(
+                Capsule()
+                    .stroke(isFocused ? AppTheme.primary : Color.clear, lineWidth: 3)
+            )
+            .shadow(
+                color: isFocused ? AppTheme.primary.opacity(0.5) : .clear,
+                radius: isFocused ? 12 : 0
+            )
+            .animation(.easeInOut(duration: 0.2), value: isFocused)
+    }
+}
+#endif
 
 // MARK: - Preview
 

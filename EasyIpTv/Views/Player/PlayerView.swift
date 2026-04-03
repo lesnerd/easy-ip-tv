@@ -104,6 +104,9 @@ struct PlayerView: View {
     @State private var avplayerFallbackAttempted = false
     @State private var currentLiveChannel: Channel?
     @State private var showPlayerEPG = false
+    #if os(tvOS)
+    @State private var selectedOverlayControl: TVOSControlAction = .tvGuide
+    #endif
     
     private var isLiveTV: Bool { channel != nil }
     private var activeChannel: Channel? { currentLiveChannel ?? channel }
@@ -147,6 +150,120 @@ struct PlayerView: View {
                     }
             }
             #else
+            #if os(tvOS)
+            // tvOS: Player wrapper -- focusable only when EPG is NOT shown.
+            // When EPG opens, this wrapper loses focus, its input handlers stop,
+            // and the EPG overlay's buttons receive focus naturally.
+            ZStack {
+                Group {
+                    if useVLCPlayer {
+                        #if canImport(VLCKitSPM)
+                        VLCPlayerUIView(
+                            url: streamURL!,
+                            controller: vlcController,
+                            isPlaying: $vlcIsPlaying,
+                            currentTime: $vlcCurrentTime,
+                            duration: $vlcDuration,
+                            isBuffering: $vlcIsBuffering,
+                            hasError: $vlcPlaybackFailed
+                        )
+                        #endif
+                    } else if let player = playerViewModel.player {
+                        TVPlayerLayerView(player: player)
+                    }
+                }
+                .frame(
+                    width: showPlayerEPG ? 880 : nil,
+                    height: showPlayerEPG ? 440 : nil
+                )
+                .cornerRadius(showPlayerEPG ? 20 : 0)
+                .clipped()
+                .overlay {
+                    if showPlayerEPG, let ch = activeChannel {
+                        tvosVideoInfoOverlay(channel: ch)
+                    }
+                }
+                .shadow(
+                    color: showPlayerEPG ? .black.opacity(0.5) : .clear,
+                    radius: showPlayerEPG ? 20 : 0
+                )
+                .frame(
+                    maxWidth: .infinity,
+                    maxHeight: .infinity,
+                    alignment: showPlayerEPG ? .topLeading : .center
+                )
+                .padding(.leading, showPlayerEPG ? 60 : 0)
+                .padding(.top, showPlayerEPG ? 60 : 0)
+                .zIndex(10)
+                .animation(.easeInOut(duration: 0.4), value: showPlayerEPG)
+                
+                if playerViewModel.showControls || (useVLCPlayer && showVLCControls) {
+                    if isLiveTV {
+                        TVOSLiveOverlay(
+                            channel: activeChannel,
+                            programTitle: currentEPGProgram,
+                            selectedControl: selectedOverlayControl
+                        )
+                        .allowsHitTesting(false)
+                        .zIndex(100)
+                    } else {
+                        PlayerControlsOverlay(
+                            title: useVLCPlayer ? vlcContentTitle : playerViewModel.currentTitle,
+                            isPlaying: useVLCPlayer ? vlcIsPlaying : playerViewModel.isPlaying,
+                            isLive: false,
+                            currentTime: useVLCPlayer ? vlcFormattedTime(vlcCurrentTime) : playerViewModel.formattedCurrentTime,
+                            duration: useVLCPlayer ? vlcFormattedTime(vlcDuration) : playerViewModel.formattedDuration,
+                            progress: useVLCPlayer ? (vlcDuration > 0 ? vlcCurrentTime / vlcDuration : 0) : playerViewModel.progress,
+                            hasSubtitles: useVLCPlayer ? vlcController.subtitleTracks.count > 1 : playerViewModel.availableSubtitles.count > 1,
+                            onPlayPause: {
+                                #if canImport(VLCKitSPM)
+                                if useVLCPlayer { vlcController.togglePlayback(); return }
+                                #endif
+                                playerViewModel.togglePlayback()
+                            },
+                            onSeek: { position in
+                                #if canImport(VLCKitSPM)
+                                if useVLCPlayer { vlcController.seek(to: Float(position)); return }
+                                #endif
+                                playerViewModel.seek(to: position)
+                            },
+                            onSeekForward: {
+                                #if canImport(VLCKitSPM)
+                                if useVLCPlayer { vlcController.seekForward(seconds: 15); return }
+                                #endif
+                                playerViewModel.seekForward()
+                            },
+                            onSeekBackward: {
+                                #if canImport(VLCKitSPM)
+                                if useVLCPlayer { vlcController.seekBackward(seconds: 15); return }
+                                #endif
+                                playerViewModel.seekBackward()
+                            },
+                            onShowSubtitles: {
+                                #if canImport(VLCKitSPM)
+                                if useVLCPlayer {
+                                    vlcController.loadSubtitleTracks()
+                                    showVLCSubtitlePicker = true
+                                    return
+                                }
+                                #endif
+                                playerViewModel.showSubtitles()
+                            },
+                            onDismiss: { dismiss() }
+                        )
+                        .zIndex(100)
+                    }
+                }
+            }
+            .focusable(!showPlayerEPG)
+            .zIndex(showPlayerEPG ? 50 : 0)
+            .onMoveCommand { direction in
+                handleRemotePress(direction)
+            }
+            .onLongPressGesture(minimumDuration: 0.01, pressing: { _ in }) {
+                handleRemoteSelect()
+            }
+            #else
             if useVLCPlayer {
                 #if canImport(VLCKitSPM)
                 VLCPlayerUIView(
@@ -170,6 +287,7 @@ struct PlayerView: View {
                 VideoPlayer(player: player)
                     .ignoresSafeArea()
             }
+            #endif
             #endif
             
             // Error overlay when both players have failed
@@ -305,70 +423,7 @@ struct PlayerView: View {
                 .animation(.easeInOut(duration: 0.25), value: showVLCControls)
             }
             #elseif os(tvOS)
-            // tvOS: different overlay for live TV vs VOD
-            if playerViewModel.showControls || (useVLCPlayer && showVLCControls) {
-                if isLiveTV {
-                    TVOSLiveOverlay(
-                        channel: activeChannel,
-                        programTitle: currentEPGProgram,
-                        nearbyChannels: activeChannel.map { contentViewModel.nearbyChannels(around: $0, count: 8) } ?? [],
-                        onChannelUp: { nextChannel() },
-                        onChannelDown: { previousChannel() },
-                        onSelectChannel: { playChannel($0) },
-                        onShowEPG: {
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                showPlayerEPG = true
-                            }
-                        },
-                        onDismiss: { dismiss() }
-                    )
-                } else {
-                    PlayerControlsOverlay(
-                        title: useVLCPlayer ? vlcContentTitle : playerViewModel.currentTitle,
-                        isPlaying: useVLCPlayer ? vlcIsPlaying : playerViewModel.isPlaying,
-                        isLive: false,
-                        currentTime: useVLCPlayer ? vlcFormattedTime(vlcCurrentTime) : playerViewModel.formattedCurrentTime,
-                        duration: useVLCPlayer ? vlcFormattedTime(vlcDuration) : playerViewModel.formattedDuration,
-                        progress: useVLCPlayer ? (vlcDuration > 0 ? vlcCurrentTime / vlcDuration : 0) : playerViewModel.progress,
-                        hasSubtitles: useVLCPlayer ? vlcController.subtitleTracks.count > 1 : playerViewModel.availableSubtitles.count > 1,
-                        onPlayPause: {
-                            #if canImport(VLCKitSPM)
-                            if useVLCPlayer { vlcController.togglePlayback(); return }
-                            #endif
-                            playerViewModel.togglePlayback()
-                        },
-                        onSeek: { position in
-                            #if canImport(VLCKitSPM)
-                            if useVLCPlayer { vlcController.seek(to: Float(position)); return }
-                            #endif
-                            playerViewModel.seek(to: position)
-                        },
-                        onSeekForward: {
-                            #if canImport(VLCKitSPM)
-                            if useVLCPlayer { vlcController.seekForward(seconds: 15); return }
-                            #endif
-                            playerViewModel.seekForward()
-                        },
-                        onSeekBackward: {
-                            #if canImport(VLCKitSPM)
-                            if useVLCPlayer { vlcController.seekBackward(seconds: 15); return }
-                            #endif
-                            playerViewModel.seekBackward()
-                        },
-                        onShowSubtitles: {
-                            #if canImport(VLCKitSPM)
-                            if useVLCPlayer {
-                                vlcController.loadSubtitleTracks()
-                                showVLCSubtitlePicker = true
-                                return
-                            }
-                            #endif
-                            playerViewModel.showSubtitles()
-                        },
-                        onDismiss: { dismiss() }
-                    )
-                }
-            }
+            // tvOS controls are inside the player wrapper ZStack above
             #else
             // macOS: full custom controls overlay
             if playerViewModel.showControls || (useVLCPlayer && showVLCControls) {
@@ -438,9 +493,11 @@ struct PlayerView: View {
             
             // Channel navigator overlay
             if playerViewModel.showChannelNavigator, let currentCh = activeChannel {
+                let effectiveChannel = playerViewModel.currentChannel ?? currentCh
+                let categoryChannels = contentViewModel.channels(in: effectiveChannel.category)
                 ChannelNavigatorOverlay(
-                    channels: contentViewModel.channels,
-                    currentChannel: playerViewModel.currentChannel ?? currentCh,
+                    channels: categoryChannels.isEmpty ? contentViewModel.channels : categoryChannels,
+                    currentChannel: effectiveChannel,
                     onSelectChannel: { newChannel in
                         playerViewModel.hideNavigator()
                         playChannel(newChannel)
@@ -453,9 +510,11 @@ struct PlayerView: View {
             
             // EPG guide overlay
             if showPlayerEPG, let currentCh = activeChannel {
+                let effectiveChannel = playerViewModel.currentChannel ?? currentCh
+                let categoryChannels = contentViewModel.channels(in: effectiveChannel.category)
                 PlayerEPGOverlay(
-                    channels: contentViewModel.channels,
-                    currentChannel: playerViewModel.currentChannel ?? currentCh,
+                    channels: categoryChannels.isEmpty ? contentViewModel.channels : categoryChannels,
+                    currentChannel: effectiveChannel,
                     onSelectChannel: { newChannel in
                         withAnimation(.easeInOut(duration: 0.3)) {
                             showPlayerEPG = false
@@ -528,6 +587,8 @@ struct PlayerView: View {
                     }
                 )
             }
+            
+            
         }
         .onAppear {
             NSLog("[PlayerView] onAppear channel=%@ movie=%@ episode=%@ url=%@ needsVLC=%d", channel?.name ?? "nil", movie?.title ?? "nil", episode?.title ?? "nil", streamURL?.absoluteString ?? "nil", needsVLCPlayer ? 1 : 0)
@@ -544,32 +605,13 @@ struct PlayerView: View {
         #if os(tvOS)
         .onPlayPauseCommand {
             #if canImport(VLCKitSPM)
-            if useVLCPlayer {
-                vlcController.togglePlayback()
-            } else {
-                playerViewModel.togglePlayback()
-            }
+            if useVLCPlayer { vlcController.togglePlayback() } else { playerViewModel.togglePlayback() }
             #else
             playerViewModel.togglePlayback()
             #endif
         }
-        .onMoveCommand { direction in
-            handleMoveCommand(direction)
-        }
         .onExitCommand {
-            if showPlayerEPG {
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    showPlayerEPG = false
-                }
-            } else if playerViewModel.showChannelNavigator {
-                playerViewModel.hideNavigator()
-            } else if playerViewModel.showControls || showVLCControls {
-                dismiss()
-            } else if useVLCPlayer {
-                showVLCControlsTemporarily()
-            } else {
-                playerViewModel.showControlsTemporarily()
-            }
+            handleRemoteMenu()
         }
         #endif
         #if os(macOS)
@@ -861,6 +903,7 @@ struct PlayerView: View {
     // MARK: - VLC Controls
     
     private func showVLCControlsTemporarily() {
+        NSLog("[PlayerView] showVLCControlsTemporarily called")
         showVLCControls = true
         vlcControlsTimer?.invalidate()
         vlcControlsTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { _ in
@@ -1041,16 +1084,171 @@ struct PlayerView: View {
     #endif
     
     #if os(tvOS)
+    @ViewBuilder
+    private func tvosVideoInfoOverlay(channel: Channel) -> some View {
+        let key = channel.streamId.map { "\($0)" } ?? channel.epgChannelId ?? channel.tvgId
+        let program = key.flatMap { EPGService.shared.nowPlaying(for: $0) }
+        
+        VStack {
+            Spacer()
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 10) {
+                    Text("LIVE NOW")
+                        .font(.system(size: 13, weight: .black))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 5)
+                        .background(Color.green, in: Capsule())
+                    
+                    Text(channel.category.uppercased())
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.6))
+                        .tracking(0.5)
+                }
+                
+                Text(program?.title ?? channel.name)
+                    .font(.system(size: 30, weight: .bold))
+                    .foregroundColor(.white)
+                    .lineLimit(2)
+                
+                Button {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showPlayerEPG = false
+                    }
+                } label: {
+                    Label("Live", systemImage: "play.fill")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 28)
+                        .padding(.vertical, 14)
+                        .background(AppTheme.primary, in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .focusEffectDisabled()
+            }
+            .padding(28)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                LinearGradient(
+                    colors: [Color.black.opacity(0.75), Color.black.opacity(0.2), .clear],
+                    startPoint: .bottom,
+                    endPoint: .top
+                )
+            )
+            .background(.ultraThinMaterial.opacity(0.3))
+            .environment(\.colorScheme, .dark)
+        }
+    }
+    #endif
+    
+    #if os(tvOS)
+    @State private var tvosControlsTimer: Timer?
+    
+    private func showTVOSControls() {
+        guard !showPlayerEPG else { return }
+        playerViewModel.showControls = true
+        tvosControlsTimer?.invalidate()
+        tvosControlsTimer = Timer.scheduledTimer(withTimeInterval: 8.0, repeats: false) { _ in
+            Task { @MainActor in
+                playerViewModel.showControls = false
+            }
+        }
+    }
+    
+    private func handleOverlayAction(_ action: TVOSControlAction) {
+        tvosControlsTimer?.invalidate()
+        playerViewModel.showControls = false
+        switch action {
+        case .channelDown:
+            previousChannel()
+        case .tvGuide:
+            withAnimation(.easeInOut(duration: 0.3)) { showPlayerEPG = true }
+        case .channelUp:
+            nextChannel()
+        }
+    }
+    
+    private func handleRemotePress(_ direction: MoveCommandDirection) {
+        guard !showPlayerEPG else { return }
+        switch direction {
+        case .up, .down:
+            if isLiveTV {
+                showTVOSControls()
+            } else {
+                if useVLCPlayer { showVLCControlsTemporarily() } else { playerViewModel.showControlsTemporarily() }
+            }
+            
+        case .left:
+            if isLiveTV && playerViewModel.showControls {
+                let all = TVOSControlAction.allCases
+                if let idx = all.firstIndex(of: selectedOverlayControl), idx > 0 {
+                    selectedOverlayControl = all[idx - 1]
+                }
+                showTVOSControls()
+            } else if !isLiveTV {
+                #if canImport(VLCKitSPM)
+                if useVLCPlayer { vlcController.seekBackward(seconds: 15) } else { playerViewModel.seekBackward() }
+                #else
+                playerViewModel.seekBackward()
+                #endif
+                showTVOSControls()
+            }
+            
+        case .right:
+            if isLiveTV && playerViewModel.showControls {
+                let all = TVOSControlAction.allCases
+                if let idx = all.firstIndex(of: selectedOverlayControl), idx < all.count - 1 {
+                    selectedOverlayControl = all[idx + 1]
+                }
+                showTVOSControls()
+            } else if !isLiveTV {
+                #if canImport(VLCKitSPM)
+                if useVLCPlayer { vlcController.seekForward(seconds: 15) } else { playerViewModel.seekForward() }
+                #else
+                playerViewModel.seekForward()
+                #endif
+                showTVOSControls()
+            }
+            
+        @unknown default:
+            break
+        }
+    }
+    
+    private func handleRemoteMenu() {
+        if showPlayerEPG {
+            withAnimation(.easeInOut(duration: 0.3)) { showPlayerEPG = false }
+        } else if playerViewModel.showChannelNavigator {
+            playerViewModel.hideNavigator()
+        } else if playerViewModel.showControls || showVLCControls {
+            playerViewModel.showControls = false
+            showVLCControls = false
+            tvosControlsTimer?.invalidate()
+        } else {
+            dismiss()
+        }
+    }
+    
+    private func handleRemoteSelect() {
+        guard !showPlayerEPG else { return }
+        let controlsVisible = playerViewModel.showControls || (useVLCPlayer && showVLCControls)
+        if controlsVisible && isLiveTV {
+            handleOverlayAction(selectedOverlayControl)
+        } else if !controlsVisible {
+            if isLiveTV {
+                selectedOverlayControl = .tvGuide
+                showTVOSControls()
+            } else {
+                if useVLCPlayer { showVLCControlsTemporarily() } else { playerViewModel.showControlsTemporarily() }
+            }
+        }
+    }
+    
+    // Legacy — kept for compatibility but primary input is handleRemotePress
     private func handleMoveCommand(_ direction: MoveCommandDirection) {
         switch direction {
-        case .up:
-            if isLiveTV {
-                nextChannel()
-            }
-        case .down:
-            if isLiveTV {
-                previousChannel()
-            }
+        case .up, .down:
+            break
         case .left:
             if !isLiveTV {
                 #if canImport(VLCKitSPM)
@@ -1079,7 +1277,11 @@ struct PlayerView: View {
             break
         }
         
-        playerViewModel.showControlsTemporarily()
+        if useVLCPlayer {
+            showVLCControlsTemporarily()
+        } else {
+            playerViewModel.showControlsTemporarily()
+        }
     }
     #endif
 }
@@ -1350,29 +1552,17 @@ struct PlayerControlsOverlay: View {
 // MARK: - tvOS Live TV Overlay
 
 #if os(tvOS)
+enum TVOSControlAction: Int, CaseIterable {
+    case channelDown = 0, tvGuide, channelUp
+}
+
 struct TVOSLiveOverlay: View {
     let channel: Channel?
     let programTitle: String?
-    let nearbyChannels: [Channel]
-    var onChannelUp: () -> Void = {}
-    var onChannelDown: () -> Void = {}
-    var onSelectChannel: (Channel) -> Void = { _ in }
-    var onShowEPG: () -> Void = {}
-    var onDismiss: () -> Void = {}
-    
-    @ObservedObject private var epgService = EPGService.shared
-    @FocusState private var focusedChannelId: String?
-    @FocusState private var focusOnEPG: Bool
-    
-    private func currentProgram(for ch: Channel) -> EPGProgram? {
-        let key = ch.streamId.map { "\($0)" } ?? ch.epgChannelId ?? ch.tvgId
-        guard let key else { return nil }
-        return epgService.nowPlaying(for: key)
-    }
+    let selectedControl: TVOSControlAction
     
     var body: some View {
         VStack {
-            // Top: channel info bar
             HStack(spacing: 16) {
                 if let ch = channel {
                     CachedAsyncImage(url: ch.logoURL) { image in
@@ -1382,24 +1572,25 @@ struct TVOSLiveOverlay: View {
                             .font(.system(size: 14, weight: .black))
                             .foregroundColor(.white.opacity(0.4))
                     }
-                    .frame(width: 48, height: 48)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .frame(width: 56, height: 56)
+                    .background(Color.white.opacity(0.06))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
                     
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 8) {
                             Circle()
                                 .fill(Color.red)
-                                .frame(width: 8, height: 8)
+                                .frame(width: 10, height: 10)
                             Text("LIVE")
-                                .font(.system(size: 12, weight: .black))
+                                .font(.system(size: 14, weight: .black))
                                 .foregroundColor(.red)
                             Text(ch.name)
-                                .font(.system(size: 22, weight: .bold))
+                                .font(.system(size: 26, weight: .bold))
                                 .foregroundColor(.white)
                         }
                         if let programTitle {
                             Text(programTitle)
-                                .font(.system(size: 16))
+                                .font(.system(size: 18))
                                 .foregroundColor(.white.opacity(0.7))
                                 .lineLimit(1)
                         }
@@ -1407,102 +1598,27 @@ struct TVOSLiveOverlay: View {
                 }
                 
                 Spacer()
-                
-                Button {
-                    onDismiss()
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 32))
-                        .foregroundColor(.white.opacity(0.5))
-                }
-                .buttonStyle(.plain)
             }
-            .padding(.horizontal, 60)
-            .padding(.top, 40)
+            .padding(.horizontal, 80)
+            .padding(.top, 50)
             
             Spacer()
             
-            // Bottom: nearby channels strip + actions
-            VStack(spacing: 24) {
-                // Action buttons row
-                HStack(spacing: 40) {
-                    Button { onChannelDown() } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "chevron.down")
-                                .font(.system(size: 18, weight: .semibold))
-                            Text("Ch -")
-                                .font(.system(size: 16, weight: .semibold))
-                        }
-                        .foregroundColor(.white.opacity(0.8))
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 10)
-                        .background(.ultraThinMaterial, in: Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    
-                    Button { onShowEPG() } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "list.bullet.rectangle.fill")
-                                .font(.system(size: 18, weight: .semibold))
-                            Text("TV Guide")
-                                .font(.system(size: 16, weight: .semibold))
-                        }
-                        .foregroundColor(.white.opacity(0.8))
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 10)
-                        .background(.ultraThinMaterial, in: Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .focused($focusOnEPG)
-                    
-                    Button { onChannelUp() } label: {
-                        HStack(spacing: 8) {
-                            Text("Ch +")
-                                .font(.system(size: 16, weight: .semibold))
-                            Image(systemName: "chevron.up")
-                                .font(.system(size: 18, weight: .semibold))
-                        }
-                        .foregroundColor(.white.opacity(0.8))
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 10)
-                        .background(.ultraThinMaterial, in: Capsule())
-                    }
-                    .buttonStyle(.plain)
-                }
-                
-                // Nearby channels
-                if !nearbyChannels.isEmpty {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("NEARBY CHANNELS")
-                            .font(.system(size: 12, weight: .heavy))
-                            .tracking(2)
-                            .foregroundColor(.white.opacity(0.4))
-                            .padding(.leading, 60)
-                        
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 16) {
-                                ForEach(nearbyChannels) { ch in
-                                    Button { onSelectChannel(ch) } label: {
-                                        tvosChannelPill(ch)
-                                    }
-                                    .buttonStyle(NearbyChannelButtonStyle())
-                                    .focused($focusedChannelId, equals: ch.id)
-                                }
-                            }
-                            .padding(.horizontal, 60)
-                        }
-                    }
-                }
+            HStack(spacing: 40) {
+                controlTile(icon: "chevron.down.circle.fill", label: "Ch -", isSelected: selectedControl == .channelDown)
+                controlTile(icon: "list.bullet.rectangle.fill", label: "TV Guide", isSelected: selectedControl == .tvGuide)
+                controlTile(icon: "chevron.up.circle.fill", label: "Ch +", isSelected: selectedControl == .channelUp)
             }
-            .padding(.bottom, 50)
+            .padding(.bottom, 100)
         }
+        .background(Color.black.opacity(0.6))
         .background(
             LinearGradient(
                 stops: [
-                    .init(color: Color.black.opacity(0.7), location: 0),
-                    .init(color: .clear, location: 0.25),
-                    .init(color: .clear, location: 0.6),
-                    .init(color: Color.black.opacity(0.85), location: 1.0)
+                    .init(color: Color.black.opacity(0.85), location: 0),
+                    .init(color: Color.black.opacity(0.4), location: 0.35),
+                    .init(color: Color.black.opacity(0.4), location: 0.55),
+                    .init(color: Color.black.opacity(0.9), location: 1.0)
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -1512,64 +1628,27 @@ struct TVOSLiveOverlay: View {
     }
     
     @ViewBuilder
-    private func tvosChannelPill(_ ch: Channel) -> some View {
-        HStack(spacing: 12) {
-            CachedAsyncImage(url: ch.logoURL) { image in
-                image.resizable().aspectRatio(contentMode: .fit)
-            } placeholder: {
-                Text(ch.name.prefix(2).uppercased())
-                    .font(.system(size: 11, weight: .black))
-                    .foregroundColor(.white.opacity(0.3))
-            }
-            .frame(width: 40, height: 40)
-            .clipShape(RoundedRectangle(cornerRadius: 6))
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text(ch.name)
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(.white)
-                    .lineLimit(1)
-                
-                if let prog = currentProgram(for: ch) {
-                    Text(prog.title)
-                        .font(.system(size: 12))
-                        .foregroundColor(.white.opacity(0.6))
-                        .lineLimit(1)
-                }
-            }
-            .frame(maxWidth: 140, alignment: .leading)
+    private func controlTile(icon: String, label: String, isSelected: Bool) -> some View {
+        VStack(spacing: 14) {
+            Image(systemName: icon)
+                .font(.system(size: 38, weight: .medium))
+            Text(label)
+                .font(.system(size: 18, weight: .semibold))
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .foregroundColor(.white)
+        .frame(width: 170, height: 130)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.white.opacity(0.08), lineWidth: 0.5)
-                )
+            RoundedRectangle(cornerRadius: 28)
+                .fill(isSelected ? AppTheme.primary.opacity(0.15) : Color.clear)
         )
-    }
-}
-
-struct NearbyChannelButtonStyle: ButtonStyle {
-    @Environment(\.isFocused) var isFocused
-    
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(isFocused ? 1.08 : 1.0)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(
-                        isFocused ? AppTheme.primary.opacity(0.6) : Color.clear,
-                        lineWidth: 2
-                    )
-            )
-            .shadow(
-                color: isFocused ? AppTheme.primary.opacity(0.3) : .clear,
-                radius: 15
-            )
-            .animation(.easeInOut(duration: 0.2), value: isFocused)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 28))
+        .overlay(
+            RoundedRectangle(cornerRadius: 28)
+                .stroke(isSelected ? AppTheme.primary.opacity(0.7) : Color.white.opacity(0.12), lineWidth: isSelected ? 2 : 0.5)
+        )
+        .scaleEffect(isSelected ? 1.05 : 1.0)
+        .shadow(color: isSelected ? AppTheme.primary.opacity(0.3) : .clear, radius: isSelected ? 12 : 0)
+        .animation(.easeInOut(duration: 0.2), value: isSelected)
     }
 }
 #endif
@@ -1706,14 +1785,54 @@ struct NativePlayerView: NSViewRepresentable {
     func makeNSView(context: Context) -> AVPlayerView {
         let playerView = AVPlayerView()
         playerView.player = player
-        playerView.controlsStyle = .none // Use our custom SwiftUI overlays for controls
-        // Don't accept first responder so keyboard events go to SwiftUI
+        playerView.controlsStyle = .none
         return playerView
     }
     
     func updateNSView(_ nsView: AVPlayerView, context: Context) {
-        // Always update to handle channel switches (player object changes)
         nsView.player = player
+    }
+}
+#endif
+
+// MARK: - Native tvOS Player View (AVPlayerLayer — no built-in transport controls)
+
+#if os(tvOS)
+enum TVRemotePress {
+    case up, down, left, right, select, menu, playPause
+}
+
+struct TVPlayerLayerView: UIViewRepresentable {
+    let player: AVPlayer?
+    
+    func makeUIView(context: Context) -> PlayerLayerUIView {
+        let view = PlayerLayerUIView()
+        view.playerLayer.player = player
+        view.playerLayer.videoGravity = .resizeAspect
+        view.backgroundColor = .black
+        return view
+    }
+    
+    func updateUIView(_ uiView: PlayerLayerUIView, context: Context) {
+        uiView.playerLayer.player = player
+    }
+    
+    class PlayerLayerUIView: UIView {
+        let playerLayer = AVPlayerLayer()
+        
+        override init(frame: CGRect) {
+            super.init(frame: frame)
+            layer.addSublayer(playerLayer)
+        }
+        
+        required init?(coder: NSCoder) {
+            fatalError("init(coder:) has not been implemented")
+        }
+        
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            playerLayer.frame = bounds
+        }
     }
 }
 #endif

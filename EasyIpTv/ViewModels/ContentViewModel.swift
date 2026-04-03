@@ -517,10 +517,15 @@ class ContentViewModel: ObservableObject {
             
             hasContent = !liveCategories.isEmpty || !vodCategories.isEmpty
             
+            NSLog("[EPG] epgURL from M3U: %@", content.epgURL ?? "nil")
             if let epgURLString = content.epgURL, !epgURLString.isEmpty {
                 Task {
+                    NSLog("[EPG] Loading XMLTV from: %@", epgURLString)
                     await EPGService.shared.loadXMLTV(from: epgURLString)
+                    NSLog("[EPG] XMLTV loaded, channels with data: %d", EPGService.shared.programsByChannel.count)
                 }
+            } else {
+                NSLog("[EPG] No EPG URL in M3U header")
             }
             
         } catch {
@@ -1248,6 +1253,30 @@ class ContentViewModel: ObservableObject {
     func loadContentIfNeeded() async {
         guard !hasLoadedOnce else { return }
         await loadCategories()
+    }
+    
+    /// Fetches EPG data for specific channels (used by EPG overlay)
+    func fetchEPGForChannels(_ channels: [Channel]) async {
+        guard let credentials = cachedCredentials else { return }
+        await EPGService.shared.fetchBatchEPG(
+            for: channels,
+            baseURL: credentials.baseURL,
+            username: credentials.username,
+            password: credentials.password,
+            limit: channels.count
+        )
+    }
+    
+    func forceRefreshEPGForChannels(_ channels: [Channel]) async {
+        guard let credentials = cachedCredentials else { return }
+        EPGService.shared.invalidateCache(for: channels)
+        await EPGService.shared.fetchBatchEPG(
+            for: channels,
+            baseURL: credentials.baseURL,
+            username: credentials.username,
+            password: credentials.password,
+            limit: channels.count
+        )
     }
     
     // MARK: - Compatibility Methods

@@ -876,7 +876,7 @@ struct PosterLoadingPlaceholder: View {
         } label: {
             placeholderContent
         }
-        .buttonStyle(CardButtonStyle())
+        .buttonStyle(.plain)
         .tvOSFocusEffectDisabled()
         #else
         placeholderContent

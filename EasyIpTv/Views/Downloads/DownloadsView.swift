@@ -39,6 +39,10 @@ struct DownloadsView: View {
             #if !os(tvOS)
             .navigationTitle(L10n.Navigation.downloads)
             #endif
+            .background {
+                LiquidGradientBackground(intensity: 0.20)
+                    .ignoresSafeArea()
+            }
         }
         .sheet(isPresented: $showUpgrade) {
             UpgradePromptView()
@@ -109,6 +113,9 @@ struct DownloadsView: View {
         }
         #if os(macOS)
         .listStyle(.inset)
+        #endif
+        #if !os(tvOS)
+        .scrollContentBackground(.hidden)
         #endif
     }
     
