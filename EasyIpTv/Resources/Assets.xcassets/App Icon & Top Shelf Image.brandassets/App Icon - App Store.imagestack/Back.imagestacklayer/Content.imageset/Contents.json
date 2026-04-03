@@ -1,6 +1,7 @@
 {
   "images" : [
     {
+      "filename" : "AppIcon-tv-back.png",
       "idiom" : "tv",
       "scale" : "1x"
     }
