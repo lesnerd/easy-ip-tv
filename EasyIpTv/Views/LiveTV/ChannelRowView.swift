@@ -7,6 +7,7 @@ struct ChannelRowView: View {
     var onSelect: () -> Void = {}
     
     @Environment(\.colorScheme) private var scheme
+    @ObservedObject private var epgService = EPGService.shared
     @FocusState private var isFocused: Bool
     
     var body: some View {
@@ -34,11 +35,16 @@ struct ChannelRowView: View {
                 .background(AppTheme.surfaceContainerHigh(scheme))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
                 
-                Text(channel.name)
-                    .font(AppTypography.bodyMedium)
-                    .foregroundColor(AppTheme.onSurface(scheme))
-                    .lineLimit(1)
-                
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(channel.name)
+                        .font(AppTypography.bodyMedium)
+                        .foregroundColor(AppTheme.onSurface(scheme))
+                        .lineLimit(2)
+                    TimelineView(.periodic(from: .now, by: 30)) { context in
+                        programDetails(at: context.date)
+                    }
+                }
+
                 Spacer()
                 
                 if channel.isFavorite {
@@ -82,6 +88,34 @@ struct ChannelRowView: View {
         .animation(.easeInOut(duration: 0.15), value: isFocused)
         #endif
     }
+    @ViewBuilder
+    private func programDetails(at date: Date) -> some View {
+        let keys = [channel.streamId.map { String($0) }, channel.epgChannelId, channel.tvgId].compactMap { $0 }
+        let programs = keys.compactMap { epgService.programsByChannel[$0] }.first { !$0.isEmpty } ?? []
+        let current = programs.first { $0.start <= date && $0.end > date }
+        let next = programs.filter { $0.start > date }.min { $0.start < $1.start }
+        if let current {
+            Text(current.title)
+                .font(AppTypography.caption)
+                .lineLimit(2)
+            Text(current.timeRange)
+                .font(AppTypography.caption)
+                .foregroundColor(AppTheme.onSurfaceVariant(scheme))
+            ProgressView(value: max(0, min(1, date.timeIntervalSince(current.start) / max(1, current.end.timeIntervalSince(current.start)))))
+                .tint(AppTheme.primary)
+        } else {
+            Text("Program information unavailable")
+                .font(AppTypography.caption)
+                .foregroundColor(AppTheme.onSurfaceVariant(scheme))
+        }
+        if let next {
+            Text("Next: \(next.title) · \(next.timeRange)")
+                .font(AppTypography.caption)
+                .foregroundColor(AppTheme.onSurfaceVariant(scheme))
+                .lineLimit(2)
+        }
+    }
+
 }
 
 // MARK: - Channel List View
