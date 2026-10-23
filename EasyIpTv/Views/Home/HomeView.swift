@@ -8,6 +8,7 @@ struct HomeView: View {
     @EnvironmentObject var premiumManager: PremiumManager
     @Environment(\.colorScheme) private var scheme
     
+    @State private var showAddPlaylist = false
     @State private var selectedMovie: Movie?
     @State private var selectedShow: Show?
     @State private var playingChannel: Channel?
@@ -34,28 +35,46 @@ struct HomeView: View {
                 
             Group {
                 if !contentViewModel.hasContent && !contentViewModel.isLoading && contentViewModel.trendingMovies.isEmpty && continueWatchingItems.isEmpty && !favoritesViewModel.hasFavorites {
-                    EmptyStateView(
-                        icon: "tv",
-                        title: L10n.Errors.noPlaylist,
-                        message: "Add a playlist in Settings to get started."
-                    )
+                    VStack(spacing: 24) {
+                        EmptyStateView(
+                            icon: "tv",
+                            title: L10n.Errors.noPlaylist,
+                            message: NSLocalizedString("Connect your playlist to start watching.", bundle: LocalizationManager.currentBundle, comment: "Home onboarding")
+                        )
+                        Button {
+                            if premiumManager.canAddPlaylist(currentCount: StorageService.shared.playlistURLs.count) {
+                                showAddPlaylist = true
+                            } else {
+                                #if os(macOS)
+                                showPremiumUpgrade = true
+                                #else
+                                showUpgradeSheet = true
+                                #endif
+                            }
+                        } label: {
+                            Label(L10n.Settings.addPlaylist, systemImage: "plus.circle.fill")
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                    .padding()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: PlatformMetrics.sectionSpacing) {
                             Color.clear.frame(height: 0)
                             
-                            // Hero banner
+                            // Put the user's saved content before discovery.
+                            if !continueWatchingItems.isEmpty {
+                                continueWatchingSection
+                            }
+                            if favoritesViewModel.hasFavorites {
+                                favoritesSection
+                            }
                             if let hero = contentViewModel.trendingMovies.first {
                                 heroBanner(movie: hero)
                                     .transition(.opacity)
                             }
-                            
-                            // Continue Watching (local data — instant)
-                            if !continueWatchingItems.isEmpty {
-                                continueWatchingSection
-                            }
-                            
+
                             // Trending Movies
                             if !contentViewModel.trendingMovies.isEmpty {
                                 trendingMoviesSection
@@ -72,11 +91,6 @@ struct HomeView: View {
                             if !contentViewModel.trendingChannels.isEmpty {
                                 trendingLiveTVSection
                                     .transition(.opacity)
-                            }
-                            
-                            // My Favorites (local data — instant)
-                            if favoritesViewModel.hasFavorites {
-                                favoritesSection
                             }
                             
                             // Inline loading indicator while trending sections are still loading
@@ -110,6 +124,15 @@ struct HomeView: View {
                 BannerAdView { showUpgradeSheet = true }
                     .environmentObject(premiumManager)
                 #endif
+            }
+        }
+        .sheet(isPresented: $showAddPlaylist) {
+            AddSourceView { url in
+                StorageService.shared.addPlaylist(url: url)
+                showAddPlaylist = false
+                Task { await contentViewModel.refresh() }
+            } onCancel: {
+                showAddPlaylist = false
             }
         }
         .task {

@@ -350,13 +350,25 @@ struct LiveTVView: View {
                         message: "No channels found matching \"\(searchText)\""
                     )
                 } else {
-                    CategoryGrid(items: filteredChannels, columns: PlatformMetrics.gridColumns, minItemWidth: PlatformMetrics.channelCardWidth) { channel in
-                        ChannelCard(channel: channel, nowPlaying: nowPlayingText(for: channel), onTap: {
-                            playChannel(channel)
-                        }, onLongPress: {
-                            toggleFavorite(channel)
-                        }, onCatchup: channel.hasCatchup ? { catchupChannel = channel } : nil)
+                    LazyVStack(spacing: 8) {
+                        ForEach(filteredChannels) { channel in
+                            ChannelRowView(channel: channel, isSelected: playingChannel?.id == channel.id) {
+                                playChannel(channel)
+                            }
+                            .contextMenu {
+                                Button {
+                                    toggleFavorite(channel)
+                                } label: {
+                                    Label(channel.isFavorite ? L10n.Favorites.removeFromFavorites : L10n.Favorites.addToFavorites,
+                                          systemImage: channel.isFavorite ? "heart.slash" : "heart")
+                                }
+                                if channel.hasCatchup {
+                                    Button("Catchup", systemImage: "clock.arrow.circlepath") { catchupChannel = channel }
+                                }
+                            }
+                        }
                     }
+                    .padding(.horizontal)
                 }
             }
             .padding(.vertical, PlatformMetrics.contentPadding)
@@ -489,13 +501,25 @@ struct LiveTVView: View {
                         message: "No channels found matching \"\(searchText)\" in \(category.name)"
                     )
                 } else {
-                    CategoryGrid(items: channels, columns: PlatformMetrics.gridColumns, minItemWidth: PlatformMetrics.channelCardWidth) { channel in
-                        ChannelCard(channel: channel, nowPlaying: nowPlayingText(for: channel), onTap: {
-                            playChannel(channel)
-                        }, onLongPress: {
-                            toggleFavorite(channel)
-                        }, onCatchup: channel.hasCatchup ? { catchupChannel = channel } : nil)
+                    LazyVStack(spacing: 8) {
+                        ForEach(channels) { channel in
+                            ChannelRowView(channel: channel, isSelected: playingChannel?.id == channel.id) {
+                                playChannel(channel)
+                            }
+                            .contextMenu {
+                                Button {
+                                    toggleFavorite(channel)
+                                } label: {
+                                    Label(channel.isFavorite ? L10n.Favorites.removeFromFavorites : L10n.Favorites.addToFavorites,
+                                          systemImage: channel.isFavorite ? "heart.slash" : "heart")
+                                }
+                                if channel.hasCatchup {
+                                    Button("Catchup", systemImage: "clock.arrow.circlepath") { catchupChannel = channel }
+                                }
+                            }
+                        }
                     }
+                    .padding(.horizontal)
                 }
             }
             .padding(.vertical, PlatformMetrics.contentPadding)
